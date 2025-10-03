@@ -1,8 +1,11 @@
+"use client";
 import Image from "next/image";
+import { useState } from "react";
 import { ClockIcon } from '@heroicons/react/24/outline';
 
 // Dummy user data
 export default function HomePage() {
+  const [expandedIdx, setExpandedIdx] = useState<number | null>(null);
   const categories = [
     "Art", "Comics", "Crafts", "Dance", "Design", "Fashion", "Film", "Food", "Games", "Journalism", "Music", "Photography", "Publishing", "Technology", "Theater", "Discover"
   ];
@@ -28,79 +31,118 @@ export default function HomePage() {
         <div className="w-full sm:w-[50%] flex flex-col" style={{ minHeight: '500px' }}>
           <h3 className="text-xs font-Inter mb-0 !text-gray-800 antialiased">FEATURED PROJECT</h3>
           <div className="bg-white rounded-xl shadow-lg p-6 flex flex-col h-full">
-            <div className="mb-3 flex justify-center">
-              <Image src="/file.svg" alt="Eco-Friendly Water Bottle" width={120} height={120} className="rounded-lg object-cover" />
+            <div className="mb-0 flex justify-center">
+              <img src="/waterbottle.jpeg" alt="Eco-Friendly Water Bottle" className="w-80 h-40 rounded-lg object-cover" />
             </div>
-            <h4 className="text-lg font-bold text-gray-800 mb-1">Eco-Friendly Water Bottle</h4>
-            <span className="text-xs text-indigo-500 mb-2 font-medium">Design</span>
+            <div className="w-full bg-gray-100 h-1 mb-1">
+                <div className="bg-indigo-400 h-1 rounded-full" style={{ width: `82%` }}></div>
+            </div>
+            <h4 className="text-lg font-bold text-gray-600 mb-0">Eco-Friendly Water Bottle</h4>
+            <span className="text-xs text-gray-600 mb-1 text-left">Ifti</span>
             <p className="text-gray-600 mb-3 flex-1">A reusable bottle made from sustainable materials.</p>
             <div className="mt-auto">
-              <div className="w-full bg-gray-100 rounded-full h-2 mb-2">
-                <div className="bg-indigo-400 h-2 rounded-full" style={{ width: `82%` }}></div>
-              </div>
               <span className="text-xs text-gray-500">82% funded</span>
+              <p></p>
+              <span className="text-xs border p-1 border rounded-lg border-gray-300 text-black mb-2 font-medium">Design</span>
             </div>
           </div>
         </div>
         {/* Middle vertical line */}
         <div className="hidden sm:block w-px bg-gray-200 mx-2"></div>
         {/* Right: Recommended Projects */}
-        <div className="w-full sm:w-[50%] flex flex-col" style={{ height: '337px' }}>
+        <div className="w-full sm:w-[50%] flex flex-col" style={{ height: '390px' }}>
           <h3 className="text-xs font-normal mb-0 !text-gray-800">RECOMMENDED FOR YOU</h3>
            <div className="grid grid-cols-2 grid-rows-2 gap-6 h-full">
              {[
-               {
-                 title: "Modular Desk",
-                 creator: "Alice",
-                 image: "/window.svg",
-                 funded: 60,
-                 daysLeft: 12,
-               },
-               {
-                 title: "Indie Comic Series",
-                 creator: "Bob",
-                 image: "/globe.svg",
-                 funded: 95,
-                 daysLeft: 5,
-               },
-               {
-                 title: "Smart Music Player",
-                 creator: "Carol",
-                 image: "/next.svg",
-                 funded: 40,
-                 daysLeft: 20,
-               },
-               {
-                 title: "Artisan Food Box",
-                 creator: "Dave",
-                 image: "/vercel.svg",
-                 funded: 70,
-                 daysLeft: 8,
-               },
-             ].map((project, idx) => (
-               <div key={idx} className="flex flex-col h-full min-h-0 overflow-hidden" style={{ background: '#fff', boxShadow: 'none', border: 'none' }}>
-                 {/* Top: Project photo, half the box height */}
-                 <div className="flex justify-center items-center" style={{ height: '50%' }}>
-                   <Image src={project.image} alt={project.title} width={80} height={10} className="rounded-lg object-cover border-2 border-gray-200" />
+                 { 
+                   title: "Modular Desk:A sleek, customizable desk system",
+                   creator: "Alice",
+                   image: "/modular_desk.jpeg",
+                   funded: 60,
+                   daysLeft: 12,
+                   description: "A sleek, customizable desk system for modern workspaces.",
+                 },
+                 {
+                   title: "Indie Comic Series",
+                   creator: "Bob",
+                   image: "/globe.svg",
+                   funded: 95,
+                   daysLeft: 5,
+                   description: "A new comic universe with diverse heroes and stories.",
+                 },
+                 {
+                   title: "Smart Music Player",
+                   creator: "Carol",
+                   image: "/next.svg",
+                   funded: 40,
+                   daysLeft: 20,
+                   description: "A portable player with AI-powered playlists and smart features.",
+                 },
+                 {
+                   title: "Artisan Food Box",
+                   creator: "Dave",
+                   image: "/vercel.svg",
+                   funded: 70,
+                   daysLeft: 8,
+                   description: "Curated food experiences from local chefs delivered to your door."
+                 },
+               ].map((project, idx) => (
+                  <div
+                    key={idx}
+                    className={`relative flex flex-col transition-all duration-300 rounded-lg bg-white ${expandedIdx === idx ? "z-30 shadow-2xl' scale-[1.02]": "z-10 hover:shadow-md"}`}
+                    onMouseEnter={() => setExpandedIdx(idx)}
+                    onMouseLeave={() => setExpandedIdx(null)}
+                  >
+                  {/*Image*/}
+                  <div className="relative pb-[50%]">
+                  <div className="absolute inset-0 flex justify-center items-center">
+                    <img 
+                      src={project.image}
+                      alt={project.title}
+                      className="w-full h-full rounded-lg object-cover border border-gray-200"
+                    />
+                    </div>
+                    {/* Progress bar*/}
+                    <div 
+                      className="absolute bottom-0 left-0 right-0 bg-gray-100 rounded-full h-1">
+                      <div 
+                        className="bg-indigo-400 h-1 rounded-full"
+                        style={{ width: `${project.funded}%` }}>
+                      </div>
+                    </div>
+                  </div>
+                  {/*Title*/}
+                  <h4
+                    className="text-sm font-medium text-gray-600 mt-2 mb-0 line-clamp-2 transition">{project.title}
+                  </h4>
+                  {/*Creator*/}
+                  <span 
+                    className="text-xs text-gray-600 mb-2">{project.creator}
+                  </span>
+                  {/* Info row*/}
+                  <div 
+                    className="flex items-center justify-between text-xs text-gray-500 px-2 py-1">
+                    <span 
+                      className="flex items-center gap-1">
+                      <ClockIcon className="h-4 w-4 text-gray-400"/>
+                      {project.daysLeft} days left
+                    </span>
+                    <span 
+                      className="text-gray-400">•
+                    </span>
+                    <span 
+                      className="font-semibold text-gray-400">{project.funded}% funded
+                    </span>
+                  </div>
+                  {/*Description*/}
+                  {expandedIdx === idx && (
+                    <div className="animate-fadeIn absolute top-full left-0 mt-1 inline-block p-3 bg-white shadow-xl rounded-lg text-xs text-gray-600 z-40 break-words">
+                    {/* <div className="mt-2 p-3 bg-white text-xs text-gray-600 border-t border-gray-200 animate-fadeIn">   */}
+                    {project.description}
+                    </div>
+                  )}
                  </div>
-                 {/* Progress bar directly below photo */}
-                 <div className="w-full bg-gray-100 rounded-full h-1">
-                   <div className="bg-indigo-400 h-1 rounded-full" style={{ width: `${project.funded}%` }}></div>
-                 </div>
-                 {/* Project name and creator */}
-                 <h4 className="text-base font-bold text-gray-800 mt-1 mb-0 text-left">{project.title}</h4>
-                 <span className="text-xs text-gray-400 mb-1 text-left">{project.creator}</span>
-                 {/* Info row: left time, right percent */}
-                 <div className="flex items-center justify-between text-xs text-gray-500 mt-auto">
-                   <span className="flex items-center gap-1">
-                     <ClockIcon className="h-4 w-4 text-gray-400" />
-                     {project.daysLeft} days left
-                   </span>
-                   <span className="text-gray-400">•</span>
-                   <span className="font-semibold text-indigo-600">{project.funded}% funded</span>
-                 </div>
-               </div>
-             ))}
+               ))}
           </div>
         </div>
       </section>
