@@ -1,0 +1,127 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+/* Definition of the design system. All colors, gradients, fonts, etc should be defined here. 
+All colors MUST be HSL.
+*/
+
+@layer base {
+  :root {
+    --background: 0 0% 98%;
+    --foreground: 215 20% 15%;
+
+    --card: 0 0% 100%;
+    --card-foreground: 215 20% 15%;
+
+    --popover: 0 0% 100%;
+    --popover-foreground: 215 20% 15%;
+
+    --primary: 262 83% 58%;
+    --primary-foreground: 0 0% 100%;
+    --primary-hover: 262 83% 48%;
+    --primary-light: 262 83% 95%;
+
+    --secondary: 215 15% 95%;
+    --secondary-foreground: 215 20% 15%;
+
+    --accent: 340 82% 52%;
+    --accent-foreground: 0 0% 100%;
+    --accent-hover: 340 82% 62%;
+
+    --success: 142 71% 45%;
+    --success-foreground: 0 0% 100%;
+    --success-light: 142 71% 95%;
+
+    --muted: 215 15% 92%;
+    --muted-foreground: 215 15% 45%;
+
+    --destructive: 0 84.2% 60.2%;
+    --destructive-foreground: 0 0% 100%;
+
+    --border: 215 15% 88%;
+    --input: 215 15% 88%;
+    --ring: 262 83% 58%;
+
+    --radius: 0.75rem;
+
+    --gradient-hero: linear-gradient(135deg, hsl(262 83% 58%) 0%, hsl(340 82% 52%) 100%);
+    --gradient-card: linear-gradient(180deg, hsl(0 0% 100%) 0%, hsl(0 0% 98%) 100%);
+    
+    --shadow-sm: 0 1px 2px 0 hsl(215 15% 15% / 0.05);
+    --shadow-md: 0 4px 6px -1px hsl(215 15% 15% / 0.1);
+    --shadow-lg: 0 10px 15px -3px hsl(215 15% 15% / 0.1);
+    --shadow-xl: 0 20px 25px -5px hsl(215 15% 15% / 0.1);
+
+    --transition-smooth: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+  }
+
+  .dark {
+    --background: 215 25% 12%;
+    --foreground: 215 15% 92%;
+
+    --card: 215 20% 15%;
+    --card-foreground: 215 15% 92%;
+
+    --popover: 215 20% 15%;
+    --popover-foreground: 215 15% 92%;
+
+    --primary: 262 83% 65%;
+    --primary-foreground: 0 0% 100%;
+    --primary-hover: 262 83% 72%;
+    --primary-light: 262 83% 20%;
+
+    --secondary: 215 20% 18%;
+    --secondary-foreground: 215 15% 92%;
+
+    --accent: 340 82% 62%;
+    --accent-foreground: 0 0% 100%;
+    --accent-hover: 340 82% 72%;
+
+    --success: 142 71% 50%;
+    --success-foreground: 0 0% 100%;
+    --success-light: 142 71% 20%;
+
+    --muted: 215 20% 18%;
+    --muted-foreground: 215 15% 60%;
+
+    --destructive: 0 62.8% 50%;
+    --destructive-foreground: 0 0% 100%;
+
+    --border: 215 20% 22%;
+    --input: 215 20% 22%;
+    --ring: 262 83% 65%;
+  }
+}
+
+@layer base {
+  * {
+    @apply border-border;
+  }
+
+  body {
+    @apply bg-background text-foreground font-sans antialiased;
+  }
+
+  h1, h2, h3, h4, h5, h6 {
+    @apply font-bold;
+  }
+}
+
+@layer utilities {
+  .gradient-hero {
+    background: var(--gradient-hero);
+  }
+
+  .gradient-card {
+    background: var(--gradient-card);
+  }
+
+  .shadow-smooth {
+    box-shadow: var(--shadow-md);
+  }
+
+  .transition-smooth {
+    transition: var(--transition-smooth);
+  }
+}
