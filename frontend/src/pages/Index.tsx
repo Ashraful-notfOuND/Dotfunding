@@ -3,7 +3,7 @@ import { Input } from "@/components/ui/input";
 import Navbar from "@/components/Navbar";
 import Footer from "@/components/Footer";
 import ProjectCard from "@/components/ProjectCard";
-import ProjectCardSkeleton from "@/components/ProjectCardSkeleton"; // Import the skeleton
+import ProjectCardSkeleton from "@/components/ProjectCardSkeleton";
 import ParticleBackground from "@/components/ParticleBackground";
 import TypewriterText from "@/components/TypewriterText";
 import Testimonials from "@/components/Testimonials";
@@ -22,6 +22,7 @@ import projectDesign from "@/assets/project-design.jpg";
 import projectFilm from "@/assets/project-film.jpg";
 import projectMusic from "@/assets/project-music.jpg";
 import { useState, useEffect } from "react";
+import { motion } from "framer-motion";
 
 const allProjects = [
   {
@@ -110,14 +111,14 @@ const categories = [
   { name: "Music", icon: Users, count: 423 },
 ];
 
+
 const Index = () => {
   const [isLoading, setIsLoading] = useState(true);
 
   useEffect(() => {
-    // Simulate data fetching
     const timer = setTimeout(() => {
       setIsLoading(false);
-    }, 1500); // 1.5 second loading delay
+    }, 1500);
 
     return () => clearTimeout(timer);
   }, []);
@@ -150,16 +151,29 @@ const Index = () => {
     </CarouselContent>
   );
 
+  const sectionVariants = {
+    hidden: { opacity: 0, y: 50 },
+    visible: { opacity: 1, y: 0, transition: { duration: 0.6, ease: "easeOut" } },
+  };
+
   return (
     <div className="min-h-screen flex flex-col">
       <Navbar />
 
       {/* Hero Section */}
-      <section className="relative overflow-hidden bg-gradient-to-br from-primary-light to-background">
+      <motion.section 
+        className="relative overflow-hidden bg-gradient-to-br from-primary-light to-background"
+        initial="hidden"
+        animate="visible"
+        variants={{
+          hidden: { opacity: 0, y: 20 },
+          visible: { opacity: 1, y: 0, transition: { duration: 0.8, ease: "easeOut" } },
+        }}
+      >
         <ParticleBackground />
         <div className="container mx-auto px-4 py-20 md:py-32 relative z-10">
           <div className="grid md:grid-cols-2 gap-12 items-center">
-            <div className="space-y-6 animate-slide-in">
+            <motion.div className="space-y-6" variants={sectionVariants}>
               <h1 className="text-4xl md:text-6xl font-bold leading-tight">
                 Bring Creative{" "}
                 <TypewriterText 
@@ -201,20 +215,26 @@ const Index = () => {
                   <div className="text-sm text-muted-foreground">Backers</div>
                 </div>
               </div>
-            </div>
-            <div className="relative animate-fade-in">
+            </motion.div>
+            <motion.div className="relative" variants={sectionVariants}>
               <img
                 src={heroBanner}
                 alt="Creative collaboration"
                 className="rounded-2xl shadow-xl"
               />
-            </div>
+            </motion.div>
           </div>
         </div>
-      </section>
+      </motion.section>
 
       {/* Trending Projects */}
-      <section className="container mx-auto px-4 py-16">
+      <motion.section 
+        className="container mx-auto px-4 py-16"
+        initial="hidden"
+        whileInView="visible"
+        viewport={{ once: true, amount: 0.3 }}
+        variants={sectionVariants}
+      >
         <div className="flex items-center justify-between mb-8">
           <div>
             <h2 className="text-3xl font-bold mb-2">Trending Projects</h2>
@@ -225,10 +245,16 @@ const Index = () => {
           </Button>
         </div>
         {renderProjectCards(trendingProjects)}
-      </section>
+      </motion.section>
 
       {/* Categories */}
-      <section className="bg-secondary/50 py-16">
+      <motion.section 
+        className="bg-secondary/50 py-16"
+        initial="hidden"
+        whileInView="visible"
+        viewport={{ once: true, amount: 0.3 }}
+        variants={sectionVariants}
+      >
         <div className="container mx-auto px-4">
           <div className="text-center mb-12">
             <h2 className="text-3xl font-bold mb-2">Browse by Category</h2>
@@ -241,28 +267,46 @@ const Index = () => {
                 to={`/category/${category.name.toLowerCase()}`}
                 className="group"
               >
-                <div className="bg-card rounded-lg p-6 text-center hover:shadow-lg transition-smooth border border-border">
+                <motion.div 
+                  className="bg-card rounded-lg p-6 text-center hover:shadow-lg transition-smooth border border-border"
+                  initial={{ opacity: 0, y: 20 }}
+                  whileInView={{ opacity: 1, y: 0 }}
+                  viewport={{ once: true, amount: 0.5 }}
+                  transition={{ duration: 0.5, ease: "easeOut" }}
+                >
                   <category.icon className="h-8 w-8 mx-auto mb-3 text-primary group-hover:scale-110 transition-smooth" />
                   <h3 className="font-semibold mb-1">{category.name}</h3>
                   <p className="text-sm text-muted-foreground">{category.count} projects</p>
-                </div>
+                </motion.div>
               </Link>
             ))}
           </div>
         </div>
-      </section>
+      </motion.section>
 
       {/* Recommended Projects */}
-      <section className="container mx-auto px-4 py-16">
+      <motion.section 
+        className="container mx-auto px-4 py-16"
+        initial="hidden"
+        whileInView="visible"
+        viewport={{ once: true, amount: 0.3 }}
+        variants={sectionVariants}
+      >
         <div className="mb-8">
           <h2 className="text-3xl font-bold mb-2">Recommended for You</h2>
           <p className="text-muted-foreground">Projects we think you'll love</p>
         </div>
         {renderProjectCards(recommendedProjects)}
-      </section>
+      </motion.section>
 
       {/* Almost There */}
-      <section className="bg-secondary/50 py-16">
+      <motion.section 
+        className="bg-secondary/50 py-16"
+        initial="hidden"
+        whileInView="visible"
+        viewport={{ once: true, amount: 0.3 }}
+        variants={sectionVariants}
+      >
         <div className="container mx-auto px-4">
           <div className="mb-8">
             <h2 className="text-3xl font-bold mb-2">Almost There</h2>
@@ -274,10 +318,16 @@ const Index = () => {
             <CarouselNext />
           </Carousel>
         </div>
-      </section>
+      </motion.section>
 
       {/* Just Launched */}
-      <section className="container mx-auto px-4 py-16">
+      <motion.section 
+        className="container mx-auto px-4 py-16"
+        initial="hidden"
+        whileInView="visible"
+        viewport={{ once: true, amount: 0.3 }}
+        variants={sectionVariants}
+      >
         <div className="mb-8">
           <h2 className="text-3xl font-bold mb-2">Just Launched</h2>
           <p className="text-muted-foreground">Be one of the first to support these new projects.</p>
@@ -290,25 +340,66 @@ const Index = () => {
           <CarouselPrevious />
           <CarouselNext />
         </Carousel>
-      </section>
+      </motion.section>
 
       {/* Stats Counter */}
-      <StatsCounter />
+      <motion.div 
+        initial="hidden"
+        whileInView="visible"
+        viewport={{ once: true, amount: 0.3 }}
+        variants={sectionVariants}
+      >
+        <StatsCounter />
+      </motion.div>
 
       {/* Success Stories */}
-      <SuccessStories />
+      <motion.div 
+        initial="hidden"
+        whileInView="visible"
+        viewport={{ once: true, amount: 0.3 }}
+        variants={sectionVariants}
+      >
+        <SuccessStories />
+      </motion.div>
 
       {/* Testimonials */}
-      <Testimonials />
+      <motion.div 
+        initial="hidden"
+        whileInView="visible"
+        viewport={{ once: true, amount: 0.3 }}
+        variants={sectionVariants}
+      >
+        <Testimonials />
+      </motion.div>
 
       {/* FAQ */}
-      <FAQ />
+      <motion.div 
+        initial="hidden"
+        whileInView="visible"
+        viewport={{ once: true, amount: 0.3 }}
+        variants={sectionVariants}
+      >
+        <FAQ />
+      </motion.div>
 
       {/* Newsletter */}
-      <Newsletter />
+      <motion.div 
+        initial="hidden"
+        whileInView="visible"
+        viewport={{ once: true, amount: 0.3 }}
+        variants={sectionVariants}
+      >
+        <Newsletter />
+      </motion.div>
 
       {/* CTA Section */}
-      <section className="gradient-hero text-primary-foreground py-20">
+      <motion.section 
+        className="gradient-hero text-primary-foreground py-20"
+        initial="hidden"
+        whileInView="visible"
+        viewport={{ once: true, amount: 0.3 }}
+        variants={sectionVariants}
+      >
         <div className="container mx-auto px-4 text-center">
           <h2 className="text-4xl font-bold mb-4">Ready to Bring Your Idea to Life?</h2>
           <p className="text-xl mb-8 opacity-90 max-w-2xl mx-auto">
@@ -324,7 +415,7 @@ const Index = () => {
             <Link to="/create-project">Start Your Project Today</Link>
           </Button>
         </div>
-      </section>
+      </motion.section>
 
       <Footer />
     </div>

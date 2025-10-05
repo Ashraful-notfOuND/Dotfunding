@@ -13,6 +13,9 @@ export default {
       },
     },
     extend: {
+      boxShadow: {
+        glow: '0 0 15px hsl(var(--primary) / 0.6)', // Custom glow shadow
+      },
       fontFamily: {
         sans: ['Inter', 'system-ui', 'sans-serif'],
       },
@@ -93,6 +96,15 @@ export default {
         "slide-in": "slide-in 0.4s ease-out",
         "scale-in": "scale-in 0.3s ease-out",
       },
+      transitionDuration: {
+        '400': '400ms',
+        '500': '500ms',
+        '600': '600ms',
+        '700': '700ms',
+        '800': '800ms',
+        '900': '900ms',
+        '1000': '1000ms',
+      }
     },
   },
   plugins: [require("tailwindcss-animate")],
