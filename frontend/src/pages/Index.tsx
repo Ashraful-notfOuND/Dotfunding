@@ -3,6 +3,7 @@ import { Input } from "@/components/ui/input";
 import Navbar from "@/components/Navbar";
 import Footer from "@/components/Footer";
 import ProjectCard from "@/components/ProjectCard";
+import ProjectCardSkeleton from "@/components/ProjectCardSkeleton"; // Import the skeleton
 import ParticleBackground from "@/components/ParticleBackground";
 import TypewriterText from "@/components/TypewriterText";
 import Testimonials from "@/components/Testimonials";
@@ -11,6 +12,7 @@ import Newsletter from "@/components/Newsletter";
 import StatsCounter from "@/components/StatsCounter";
 import SuccessStories from "@/components/SuccessStories";
 import { Search, Sparkles, Users, Target, TrendingUp } from "lucide-react";
+import { Carousel, CarouselContent, CarouselItem, CarouselNext, CarouselPrevious } from "@/components/ui/carousel";
 import { Link } from "react-router-dom";
 import heroBanner from "@/assets/hero-banner.jpg";
 import projectTech from "@/assets/project-tech.jpg";
@@ -19,18 +21,20 @@ import projectGame from "@/assets/project-game.jpg";
 import projectDesign from "@/assets/project-design.jpg";
 import projectFilm from "@/assets/project-film.jpg";
 import projectMusic from "@/assets/project-music.jpg";
+import { useState, useEffect } from "react";
 
-const trendingProjects = [
+const allProjects = [
   {
     id: "1",
     title: "Revolutionary Smart Watch with Health Monitoring",
     creator: "TechInnovate",
     image: projectTech,
     fundingGoal: 50000,
-    fundingCurrent: 42350,
-    daysLeft: 12,
+    fundingCurrent: 48500, // Almost there
+    daysLeft: 3,
     category: "Technology",
     isTrending: true,
+    createdDate: new Date(new Date().setDate(new Date().getDate() - 20)),
   },
   {
     id: "2",
@@ -38,10 +42,11 @@ const trendingProjects = [
     creator: "Sarah Mitchell",
     image: projectArt,
     fundingGoal: 15000,
-    fundingCurrent: 18200,
+    fundingCurrent: 18200, // Funded
     daysLeft: 8,
     category: "Art",
     isTrending: true,
+    createdDate: new Date(new Date().setDate(new Date().getDate() - 40)),
   },
   {
     id: "3",
@@ -49,14 +54,12 @@ const trendingProjects = [
     creator: "GameCraft Studios",
     image: projectGame,
     fundingGoal: 35000,
-    fundingCurrent: 28500,
+    fundingCurrent: 28500, // Almost there
     daysLeft: 15,
     category: "Games",
     isTrending: true,
+    createdDate: new Date(new Date().setDate(new Date().getDate() - 10)),
   },
-];
-
-const recommendedProjects = [
   {
     id: "4",
     title: "Sustainable Bamboo Home Furniture Collection",
@@ -66,6 +69,8 @@ const recommendedProjects = [
     fundingCurrent: 12400,
     daysLeft: 20,
     category: "Design",
+    isTrending: false,
+    createdDate: new Date(new Date().setDate(new Date().getDate() - 5)),
   },
   {
     id: "5",
@@ -73,9 +78,11 @@ const recommendedProjects = [
     creator: "Urban Films",
     image: projectFilm,
     fundingGoal: 45000,
-    fundingCurrent: 31200,
-    daysLeft: 18,
+    fundingCurrent: 1200, // Just launched
+    daysLeft: 58,
     category: "Film",
+    isTrending: false,
+    createdDate: new Date(new Date().setDate(new Date().getDate() - 1)), // Just launched
   },
   {
     id: "6",
@@ -83,11 +90,16 @@ const recommendedProjects = [
     creator: "The Groove Collective",
     image: projectMusic,
     fundingGoal: 20000,
-    fundingCurrent: 8900,
-    daysLeft: 25,
+    fundingCurrent: 19800, // Almost there
+    daysLeft: 2,
     category: "Music",
+    isTrending: false,
+    createdDate: new Date(new Date().setDate(new Date().getDate() - 30)),
   },
 ];
+
+const trendingProjects = allProjects.filter(p => p.isTrending);
+const recommendedProjects = allProjects.filter(p => !p.isTrending).slice(0, 3);
 
 const categories = [
   { name: "Technology", icon: Sparkles, count: 234 },
@@ -99,6 +111,45 @@ const categories = [
 ];
 
 const Index = () => {
+  const [isLoading, setIsLoading] = useState(true);
+
+  useEffect(() => {
+    // Simulate data fetching
+    const timer = setTimeout(() => {
+      setIsLoading(false);
+    }, 1500); // 1.5 second loading delay
+
+    return () => clearTimeout(timer);
+  }, []);
+
+  const renderProjectCards = (projects: typeof allProjects) => (
+    <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+      {isLoading
+        ? Array.from({ length: 3 }).map((_, i) => <ProjectCardSkeleton key={i} />)
+        : projects.map((project) => <ProjectCard key={project.id} {...project} />)}
+    </div>
+  );
+
+  const renderCarouselItems = (projects: typeof allProjects) => (
+    <CarouselContent>
+      {isLoading
+        ? Array.from({ length: 3 }).map((_, i) => (
+            <CarouselItem key={i} className="md:basis-1/2 lg:basis-1/3">
+              <div className="p-1">
+                <ProjectCardSkeleton />
+              </div>
+            </CarouselItem>
+          ))
+        : projects.map((project) => (
+            <CarouselItem key={project.id} className="md:basis-1/2 lg:basis-1/3">
+              <div className="p-1">
+                <ProjectCard {...project} />
+              </div>
+            </CarouselItem>
+          ))}
+    </CarouselContent>
+  );
+
   return (
     <div className="min-h-screen flex flex-col">
       <Navbar />
@@ -173,11 +224,7 @@ const Index = () => {
             <Link to="/explore">View All</Link>
           </Button>
         </div>
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-          {trendingProjects.map((project) => (
-            <ProjectCard key={project.id} {...project} />
-          ))}
-        </div>
+        {renderProjectCards(trendingProjects)}
       </section>
 
       {/* Categories */}
@@ -211,11 +258,38 @@ const Index = () => {
           <h2 className="text-3xl font-bold mb-2">Recommended for You</h2>
           <p className="text-muted-foreground">Projects we think you'll love</p>
         </div>
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-          {recommendedProjects.map((project) => (
-            <ProjectCard key={project.id} {...project} />
-          ))}
+        {renderProjectCards(recommendedProjects)}
+      </section>
+
+      {/* Almost There */}
+      <section className="bg-secondary/50 py-16">
+        <div className="container mx-auto px-4">
+          <div className="mb-8">
+            <h2 className="text-3xl font-bold mb-2">Almost There</h2>
+            <p className="text-muted-foreground">Projects close to their funding goal. Help them cross the finish line!</p>
+          </div>
+          <Carousel opts={{ align: "start", loop: true }}>
+            {renderCarouselItems(allProjects.filter(p => (p.fundingCurrent / p.fundingGoal) >= 0.8 && (p.fundingCurrent / p.fundingGoal) < 1))}
+            <CarouselPrevious />
+            <CarouselNext />
+          </Carousel>
         </div>
+      </section>
+
+      {/* Just Launched */}
+      <section className="container mx-auto px-4 py-16">
+        <div className="mb-8">
+          <h2 className="text-3xl font-bold mb-2">Just Launched</h2>
+          <p className="text-muted-foreground">Be one of the first to support these new projects.</p>
+        </div>
+        <Carousel opts={{ align: "start", loop: true }}>
+          {renderCarouselItems(allProjects.filter(p => {
+            const twoDaysAgo = new Date(new Date().setDate(new Date().getDate() - 2));
+            return p.createdDate > twoDaysAgo;
+          }))}
+          <CarouselPrevious />
+          <CarouselNext />
+        </Carousel>
       </section>
 
       {/* Stats Counter */}

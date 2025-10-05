@@ -148,7 +148,12 @@ const Profile = () => {
 
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
               {myProjects.map((project) => (
-                <ProjectCard key={project.id} {...project} />
+                <div key={project.id} className="flex flex-col gap-2">
+                  <ProjectCard {...project} />
+                  <Link to={`/project/${project.id}/edit`}>
+                    <Button variant="outline" className="w-full">Edit Project</Button>
+                  </Link>
+                </div>
               ))}
             </div>
 

@@ -1,10 +1,9 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useMemo } from "react";
 import { useSearchParams } from "react-router-dom";
 import Navbar from "@/components/Navbar";
 import Footer from "@/components/Footer";
 import ProjectCard from "@/components/ProjectCard";
 import CategoryNav from "@/components/CategoryNav";
-import SubCategoryNav from "@/components/SubCategoryNav";
 import FilterPanel from "@/components/FilterPanel";
 import FeaturedProjectCard from "@/components/FeaturedProjectCard";
 import { Menu, X } from "lucide-react";
@@ -15,8 +14,9 @@ import projectGame from "@/assets/project-game.jpg";
 import projectDesign from "@/assets/project-design.jpg";
 import projectFilm from "@/assets/project-film.jpg";
 import projectMusic from "@/assets/project-music.jpg";
+import { AnimatePresence, motion } from "framer-motion";
 
-// Mock data
+// Mock data - expanded for better filtering/sorting
 const allProjects = [
   {
     id: "1",
@@ -31,6 +31,7 @@ const allProjects = [
     status: "trending",
     location: "USA",
     staffPick: true,
+    backers: 847,
   },
   {
     id: "2",
@@ -45,6 +46,7 @@ const allProjects = [
     status: "nearly-funded",
     location: "UK",
     staffPick: true,
+    backers: 350,
   },
   {
     id: "3",
@@ -59,6 +61,7 @@ const allProjects = [
     status: "trending",
     location: "Canada",
     staffPick: false,
+    backers: 1205,
   },
   {
     id: "4",
@@ -73,6 +76,7 @@ const allProjects = [
     status: "active",
     location: "USA",
     staffPick: false,
+    backers: 423,
   },
   {
     id: "5",
@@ -87,6 +91,7 @@ const allProjects = [
     status: "active",
     location: "USA",
     staffPick: true,
+    backers: 967,
   },
   {
     id: "6",
@@ -101,6 +106,7 @@ const allProjects = [
     status: "just-launched",
     location: "USA",
     staffPick: false,
+    backers: 150,
   },
   {
     id: "7",
@@ -115,6 +121,7 @@ const allProjects = [
     status: "just-launched",
     location: "USA",
     staffPick: false,
+    backers: 50,
   },
   {
     id: "8",
@@ -129,6 +136,7 @@ const allProjects = [
     status: "nearly-funded",
     location: "France",
     staffPick: true,
+    backers: 700,
   },
   {
     id: "9",
@@ -143,6 +151,7 @@ const allProjects = [
     status: "trending",
     location: "Japan",
     staffPick: false,
+    backers: 2500,
   },
   {
     id: "10",
@@ -157,6 +166,7 @@ const allProjects = [
     status: "active",
     location: "Denmark",
     staffPick: false,
+    backers: 300,
   },
   {
     id: "11",
@@ -171,6 +181,7 @@ const allProjects = [
     status: "trending",
     location: "USA",
     staffPick: true,
+    backers: 600,
   },
   {
     id: "12",
@@ -185,59 +196,37 @@ const allProjects = [
     status: "active",
     location: "Germany",
     staffPick: false,
+    backers: 200,
   },
 ];
 
-const featuredProject = {
-  id: "featured-1",
-  title: "Revolutionary Smart Watch with Health Monitoring",
-  creator: "TechInnovate",
-  image: projectTech,
-  fundingGoal: 50000,
-  fundingCurrent: 42350,
-  daysLeft: 12,
-  category: "Technology",
-  description: "A next-generation smartwatch featuring advanced health monitoring capabilities including blood pressure, ECG, and sleep analysis.",
-};
+const featuredProject = allProjects[0];
 
 const Explore = () => {
   const [searchParams, setSearchParams] = useSearchParams();
-  const [selectedCategory, setSelectedCategory] = useState<string>(
-    searchParams.get("category") || "All"
-  );
-  const [selectedSubCategory, setSelectedSubCategory] = useState<string>(
-    searchParams.get("subCategory") || "All"
-  );
-  const [selectedFilters, setSelectedFilters] = useState<string[]>(
-    searchParams.get("filters")?.split(",") || []
-  );
-  const [filteredProjects, setFilteredProjects] = useState(allProjects);
   const [isMobileFiltersOpen, setIsMobileFiltersOpen] = useState(false);
 
-  // Update URL params when filters change
-  useEffect(() => {
-    const params: Record<string, string> = {};
-    if (selectedCategory !== "All") params.category = selectedCategory;
-    if (selectedSubCategory !== "All") params.subCategory = selectedSubCategory;
-    if (selectedFilters.length > 0) params.filters = selectedFilters.join(",");
-    setSearchParams(params);
-  }, [selectedCategory, selectedSubCategory, selectedFilters, setSearchParams]);
+  const [selectedCategory, setSelectedCategory] = useState(
+    searchParams.get("category") || "All"
+  );
+  const [selectedSubCategories, setSelectedSubCategories] = useState<string[]>([]);
+  const [selectedFilters, setSelectedFilters] = useState<string[]>([]);
+  const [sortOption, setSortOption] = useState("popularity");
+  const [fundingGoalRange, setFundingGoalRange] = useState([100000]);
 
-  // Filter projects based on selections
-  useEffect(() => {
-    let filtered = allProjects;
+  const filteredProjects = useMemo(() => {
+    let filtered = [...allProjects];
 
-    // Filter by category
     if (selectedCategory !== "All") {
       filtered = filtered.filter((p) => p.category === selectedCategory);
     }
 
-    // Filter by subcategory
-    if (selectedSubCategory !== "All") {
-      filtered = filtered.filter((p) => p.subCategory === selectedSubCategory);
+    if (selectedSubCategories.length > 0) {
+      filtered = filtered.filter((p) => selectedSubCategories.includes(p.subCategory));
     }
 
-    // Filter by status/special filters
+    filtered = filtered.filter(p => p.fundingGoal <= fundingGoalRange[0]);
+
     if (selectedFilters.length > 0) {
       filtered = filtered.filter((project) => {
         return selectedFilters.every((filter) => {
@@ -251,17 +240,30 @@ const Explore = () => {
       });
     }
 
-    setFilteredProjects(filtered);
-  }, [selectedCategory, selectedSubCategory, selectedFilters]);
+    switch (sortOption) {
+      case "funding":
+        filtered.sort((a, b) => (b.fundingCurrent / b.fundingGoal) - (a.fundingCurrent / a.fundingGoal));
+        break;
+      case "end-date":
+        filtered.sort((a, b) => a.daysLeft - b.daysLeft);
+        break;
+      case "newest":
+        filtered.sort((a, b) => parseInt(b.id) - parseInt(a.id));
+        break;
+      case "popularity":
+      default:
+        filtered.sort((a, b) => (b.backers || 0) - (a.backers || 0));
+        break;
+    }
 
-  const handleCategoryChange = (category: string) => {
-    setSelectedCategory(category);
-    setSelectedSubCategory("All");
-  };
-
-  const handleSubCategoryChange = (subCategory: string) => {
-    setSelectedSubCategory(subCategory);
-  };
+    return filtered;
+  }, [
+    selectedCategory,
+    selectedSubCategories,
+    selectedFilters,
+    sortOption,
+    fundingGoalRange,
+  ]);
 
   const handleFilterToggle = (filter: string) => {
     setSelectedFilters((prev) =>
@@ -269,118 +271,102 @@ const Explore = () => {
     );
   };
 
+  const handleSubCategoryToggle = (subCategory: string) => {
+    setSelectedSubCategories((prev) =>
+      prev.includes(subCategory)
+        ? prev.filter((s) => s !== subCategory)
+        : [...prev, subCategory]
+    );
+  };
+
+  const clearAllFilters = () => {
+    setSelectedCategory("All");
+    setSelectedSubCategories([]);
+    setSelectedFilters([]);
+    setFundingGoalRange([100000]);
+    setSortOption("popularity");
+  };
+
   return (
     <div className="min-h-screen flex flex-col bg-background">
       <Navbar />
-
-      {/* Category Navigation */}
       <CategoryNav
         selectedCategory={selectedCategory}
-        onCategoryChange={handleCategoryChange}
+        onCategoryChange={(cat) => setSelectedCategory(cat)}
       />
-
-      {/* Main Content Area */}
       <div className="container mx-auto px-4 py-8">
-        <div className="flex gap-6">
-          {/* Left Sidebar - SubCategories (Desktop) */}
-          <aside className="hidden lg:block w-64 flex-shrink-0">
-            <SubCategoryNav
-              selectedCategory={selectedCategory}
-              selectedSubCategory={selectedSubCategory}
-              onSubCategoryChange={handleSubCategoryChange}
-            />
+        <div className="flex gap-8">
+          <aside className="hidden lg:block w-72 flex-shrink-0">
+            <div className="sticky top-24">
+              <FilterPanel
+                selectedFilters={selectedFilters}
+                onFilterToggle={handleFilterToggle}
+                sortOption={sortOption}
+                onSortChange={setSortOption}
+                fundingGoalRange={fundingGoalRange}
+                onFundingGoalChange={setFundingGoalRange}
+                selectedSubCategories={selectedSubCategories}
+                onSubCategoryToggle={handleSubCategoryToggle}
+              />
+            </div>
           </aside>
-
-          {/* Main Content */}
           <main className="flex-1 min-w-0">
-            {/* Mobile Filter Toggle */}
             <div className="lg:hidden mb-4 flex items-center justify-between">
               <h1 className="text-2xl font-bold">
                 {selectedCategory === "All" ? "All Projects" : selectedCategory}
               </h1>
-              <Button
-                variant="outline"
-                size="sm"
-                onClick={() => setIsMobileFiltersOpen(!isMobileFiltersOpen)}
-              >
-                {isMobileFiltersOpen ? (
-                  <X className="h-4 w-4" />
-                ) : (
-                  <Menu className="h-4 w-4" />
-                )}
-                <span className="ml-2">Filters</span>
+              <Button variant="outline" size="sm" onClick={() => setIsMobileFiltersOpen(o => !o)}>
+                <Menu className="h-4 w-4 mr-2" /> Filters
               </Button>
             </div>
 
-            {/* Mobile Filters Panel */}
             {isMobileFiltersOpen && (
               <div className="lg:hidden mb-6 animate-fade-in">
-                <SubCategoryNav
-                  selectedCategory={selectedCategory}
-                  selectedSubCategory={selectedSubCategory}
-                  onSubCategoryChange={handleSubCategoryChange}
+                <FilterPanel
+                  selectedFilters={selectedFilters}
+                  onFilterToggle={handleFilterToggle}
+                  sortOption={sortOption}
+                  onSortChange={setSortOption}
+                  fundingGoalRange={fundingGoalRange}
+                  onFundingGoalChange={setFundingGoalRange}
+                  selectedSubCategories={selectedSubCategories}
+                  onSubCategoryToggle={handleSubCategoryToggle}
                 />
-                <div className="mt-4">
-                  <FilterPanel
-                    selectedFilters={selectedFilters}
-                    onFilterToggle={handleFilterToggle}
-                  />
-                </div>
               </div>
             )}
 
-            {/* Filter Panel (Desktop) */}
-            <div className="hidden lg:block mb-6">
-              <FilterPanel
-                selectedFilters={selectedFilters}
-                onFilterToggle={handleFilterToggle}
-              />
-            </div>
-
-            {/* Projects Count */}
-            <div className="mb-6">
+            <div className="mb-6 flex justify-between items-center">
               <p className="text-muted-foreground">
-                {filteredProjects.length} {filteredProjects.length === 1 ? "project" : "projects"}{" "}
-                found
+                Showing {filteredProjects.length} {filteredProjects.length === 1 ? "project" : "projects"}
               </p>
             </div>
 
-            {/* Projects Grid */}
             <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-6">
-              {filteredProjects.map((project) => (
-                <ProjectCard key={project.id} {...project} />
-              ))}
+              <AnimatePresence>
+                {filteredProjects.map((project) => (
+                  <motion.div
+                    key={project.id}
+                    layout
+                    initial={{ opacity: 0, scale: 0.95 }}
+                    animate={{ opacity: 1, scale: 1 }}
+                    exit={{ opacity: 0, scale: 0.95 }}
+                    transition={{ duration: 0.2 }}
+                  >
+                    <ProjectCard {...project} />
+                  </motion.div>
+                ))}
+              </AnimatePresence>
             </div>
 
-            {/* Empty State */}
             {filteredProjects.length === 0 && (
               <div className="text-center py-16">
-                <p className="text-lg text-muted-foreground mb-4">
-                  No projects found matching your criteria.
-                </p>
-                <Button
-                  variant="outline"
-                  onClick={() => {
-                    setSelectedCategory("All");
-                    setSelectedSubCategory("All");
-                    setSelectedFilters([]);
-                  }}
-                >
-                  Clear All Filters
-                </Button>
+                <p className="text-lg text-muted-foreground mb-4">No projects found.</p>
+                <Button variant="outline" onClick={clearAllFilters}>Clear All Filters</Button>
               </div>
             )}
           </main>
-
-          {/* Right Sidebar - Featured Project (Desktop) */}
-          <aside className="hidden xl:block w-80 flex-shrink-0">
-            <div className="sticky top-24">
-              <FeaturedProjectCard project={featuredProject} />
-            </div>
-          </aside>
         </div>
       </div>
-
       <Footer />
     </div>
   );

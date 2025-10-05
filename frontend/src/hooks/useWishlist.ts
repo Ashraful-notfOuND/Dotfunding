@@ -1,5 +1,5 @@
 import { useState, useEffect } from "react";
-import { toast } from "@/hooks/use-toast";
+import { toast } from "sonner";
 
 export const useWishlist = () => {
   const [wishlist, setWishlist] = useState<string[]>([]);
@@ -19,10 +19,15 @@ export const useWishlist = () => {
       
       localStorage.setItem("wishlist", JSON.stringify(newWishlist));
       
-      toast({
-        title: prev.includes(projectId) ? "Removed from wishlist" : "Added to wishlist",
-        description: projectTitle ? `${projectTitle}` : undefined,
-      });
+      if (!prev.includes(projectId)) {
+        toast("Project saved!", {
+          description: "You can view all your saved projects on your profile.",
+          action: {
+            label: "View Profile",
+            onClick: () => window.location.href = "/profile",
+          },
+        });
+      }
       
       return newWishlist;
     });

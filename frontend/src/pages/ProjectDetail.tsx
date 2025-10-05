@@ -18,12 +18,16 @@ import FAQ from "@/components/FAQ";
 import Updates from "@/components/Updates";
 import Comments from "@/components/Comments";
 import CreatorTab from "@/components/CreatorTab";
+import StatisticsTab from "@/components/StatisticsTab";
 import projectTech from "@/assets/project-tech.jpg";
 import projectArt from "@/assets/project-art.jpg";
 import projectGame from "@/assets/project-game.jpg";
 import { Heart } from "lucide-react";
+import { useAuth } from "@/hooks/useAuth";
+import { Link } from "react-router-dom";
 
 const ProjectDetail = () => {
+  const { user } = useAuth();
   const { id } = useParams();
   const [pledgeAmount, setPledgeAmount] = useState("");
   const [customPledgeAmount, setCustomPledgeAmount] = useState("");
@@ -60,6 +64,7 @@ const ProjectDetail = () => {
     title: "Revolutionary Smart Watch with Health Monitoring",
     tagline: "Track your health in real-time with AI-powered analytics",
     creator: "TechInnovate",
+    creatorEmail: "tamimdewan2003@gmail.com",
     creatorAvatar: "T",
     creatorBio: "Hardware innovators creating the future of health technology. Based in San Francisco with a team of 15 engineers and designers.",
     creatorLocation: "San Francisco, CA",
@@ -199,6 +204,7 @@ Mitigation Strategy:
                 <TabsTrigger value="creator">Creator</TabsTrigger>
                 <TabsTrigger value="updates">Updates</TabsTrigger>
                 <TabsTrigger value="comments">Comments</TabsTrigger>
+                <TabsTrigger value="statistics">Statistics</TabsTrigger>
               </TabsList>
               <TabsContent value="campaign" className="mt-6">
                 <Campaign />
@@ -215,11 +221,14 @@ Mitigation Strategy:
               <TabsContent value="comments" className="mt-6">
                 <Comments />
               </TabsContent>
+              <TabsContent value="statistics" className="mt-6">
+                <StatisticsTab />
+              </TabsContent>
             </Tabs>
           </div>
 
           {/* Sidebar */}
-          <div className="space-y-6">
+          <div className="lg:sticky top-24 space-y-6">
             {/* Funding Stats */}
             <FundingStats
               fundingCurrent={project.fundingCurrent}
@@ -228,6 +237,13 @@ Mitigation Strategy:
               daysLeft={project.daysLeft}
             />
 
+            {user && user.email === project.creatorEmail && (
+              <div className="animate-fade-in mb-2">
+                <Link to={`/project/${project.id}/edit`}>
+                  <Button variant="outline" className="w-full">Edit Project</Button>
+                </Link>
+              </div>
+            )}
             <div className="animate-fade-in">
               <Button 
                 className="w-full bg-accent hover:bg-accent-hover" 
