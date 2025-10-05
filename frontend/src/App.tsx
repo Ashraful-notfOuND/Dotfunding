@@ -14,6 +14,7 @@ import SignUp from "./pages/SignUp";
 import Profile from "./pages/Profile";
 import EditProfile from "./pages/EditProfile";
 import EditProject from "./pages/EditProject";
+import PaymentSuccess from "./pages/PaymentSuccess";
 import NotFound from "./pages/NotFound";
 
 const queryClient = new QueryClient();
@@ -51,9 +52,9 @@ const App = () => {
             <Route path="/signup" element={<PageWrapper><SignUp /></PageWrapper>} />
             <Route path="/profile" element={<PageWrapper><Profile /></PageWrapper>} />
             <Route path="/profile/edit" element={<PageWrapper><EditProfile /></PageWrapper>} />
-            <Route path="/project/:id/edit" element={<PageWrapper><EditProject /></PageWrapper>} />
-            {/* ADD ALL CUSTOM ROUTES ABOVE THE CATCH-ALL "*" ROUTE */}
-            <Route path="*" element={<PageWrapper><NotFound /></PageWrapper>} />
+                      <Route path="/project/:id/edit" element={<PageWrapper><EditProject /></PageWrapper>} />
+                      <Route path="/payment-success" element={<PageWrapper><PaymentSuccess /></PageWrapper>} />
+                      {/* ADD ALL CUSTOM ROUTES ABOVE THE CATCH-ALL "*" ROUTE */}            <Route path="*" element={<PageWrapper><NotFound /></PageWrapper>} />
           </Routes>
         </AnimatePresence>
       </TooltipProvider>

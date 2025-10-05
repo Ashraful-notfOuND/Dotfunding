@@ -4,7 +4,7 @@ import Navbar from "@/components/Navbar";
 import Footer from "@/components/Footer";
 import ProjectCard from "@/components/ProjectCard";
 import ProjectCardSkeleton from "@/components/ProjectCardSkeleton";
-import ParticleBackground from "@/components/ParticleBackground";
+// import ParticleBackground from "@/components/ParticleBackground";
 import TypewriterText from "@/components/TypewriterText";
 import Testimonials from "@/components/Testimonials";
 import FAQ from "@/components/FAQ";
@@ -14,90 +14,10 @@ import SuccessStories from "@/components/SuccessStories";
 import { Search, Sparkles, Users, Target, TrendingUp } from "lucide-react";
 import { Carousel, CarouselContent, CarouselItem, CarouselNext, CarouselPrevious } from "@/components/ui/carousel";
 import { Link } from "react-router-dom";
-import heroBanner from "@/assets/hero-banner.jpg";
-import projectTech from "@/assets/project-tech.jpg";
-import projectArt from "@/assets/project-art.jpg";
-import projectGame from "@/assets/project-game.jpg";
-import projectDesign from "@/assets/project-design.jpg";
-import projectFilm from "@/assets/project-film.jpg";
-import projectMusic from "@/assets/project-music.jpg";
-import { useState, useEffect } from "react";
-import { motion } from "framer-motion";
-
-const allProjects = [
-  {
-    id: "1",
-    title: "Revolutionary Smart Watch with Health Monitoring",
-    creator: "TechInnovate",
-    image: projectTech,
-    fundingGoal: 50000,
-    fundingCurrent: 48500, // Almost there
-    daysLeft: 3,
-    category: "Technology",
-    isTrending: true,
-    createdDate: new Date(new Date().setDate(new Date().getDate() - 20)),
-  },
-  {
-    id: "2",
-    title: "Art Book: Journey Through Modern Abstract Painting",
-    creator: "Sarah Mitchell",
-    image: projectArt,
-    fundingGoal: 15000,
-    fundingCurrent: 18200, // Funded
-    daysLeft: 8,
-    category: "Art",
-    isTrending: true,
-    createdDate: new Date(new Date().setDate(new Date().getDate() - 40)),
-  },
-  {
-    id: "3",
-    title: "Epic Fantasy Board Game: Dragon's Quest",
-    creator: "GameCraft Studios",
-    image: projectGame,
-    fundingGoal: 35000,
-    fundingCurrent: 28500, // Almost there
-    daysLeft: 15,
-    category: "Games",
-    isTrending: true,
-    createdDate: new Date(new Date().setDate(new Date().getDate() - 10)),
-  },
-  {
-    id: "4",
-    title: "Sustainable Bamboo Home Furniture Collection",
-    creator: "EcoDesign Co.",
-    image: projectDesign,
-    fundingGoal: 25000,
-    fundingCurrent: 12400,
-    daysLeft: 20,
-    category: "Design",
-    isTrending: false,
-    createdDate: new Date(new Date().setDate(new Date().getDate() - 5)),
-  },
-  {
-    id: "5",
-    title: "Independent Film: Stories from the City",
-    creator: "Urban Films",
-    image: projectFilm,
-    fundingGoal: 45000,
-    fundingCurrent: 1200, // Just launched
-    daysLeft: 58,
-    category: "Film",
-    isTrending: false,
-    createdDate: new Date(new Date().setDate(new Date().getDate() - 1)), // Just launched
-  },
-  {
-    id: "6",
-    title: "Album Recording: Jazz Fusion Experience",
-    creator: "The Groove Collective",
-    image: projectMusic,
-    fundingGoal: 20000,
-    fundingCurrent: 19800, // Almost there
-    daysLeft: 2,
-    category: "Music",
-    isTrending: false,
-    createdDate: new Date(new Date().setDate(new Date().getDate() - 30)),
-  },
-];
+import heroBanner from "@/assets/hero-banner.jpg"; // Re-import heroBanner
+import { useState, useEffect, useRef } from "react";
+import { motion, useScroll, useTransform } from "framer-motion";
+import { allProjects } from "@/data/mockProjects";
 
 const trendingProjects = allProjects.filter(p => p.isTrending);
 const recommendedProjects = allProjects.filter(p => !p.isTrending).slice(0, 3);
@@ -111,6 +31,24 @@ const categories = [
   { name: "Music", icon: Users, count: 423 },
 ];
 
+const AnimatedSection = ({ children }: { children: React.ReactNode }) => {
+  const ref = useRef(null);
+  const { scrollYProgress } = useScroll({
+    target: ref,
+    offset: ["start end", "end start"],
+  });
+
+  // Opacity: 0 when entering, 1 when fully in view, stays 1
+  const opacity = useTransform(scrollYProgress, [0, 0.5], [0, 1]); // Animation completes at 50%
+  // Scale: 0.5 when entering, 1 when fully in view, stays 1
+  const scale = useTransform(scrollYProgress, [0, 0.5], [0.5, 1]); // Animation completes at 50%
+
+  return (
+    <motion.div ref={ref} style={{ opacity, scale }}>
+      {children}
+    </motion.div>
+  );
+};
 
 const Index = () => {
   const [isLoading, setIsLoading] = useState(true);
@@ -151,11 +89,6 @@ const Index = () => {
     </CarouselContent>
   );
 
-  const sectionVariants = {
-    hidden: { opacity: 0, y: 50 },
-    visible: { opacity: 1, y: 0, transition: { duration: 0.6, ease: "easeOut" } },
-  };
-
   return (
     <div className="min-h-screen flex flex-col">
       <Navbar />
@@ -163,27 +96,21 @@ const Index = () => {
       {/* Hero Section */}
       <motion.section 
         className="relative overflow-hidden bg-gradient-to-br from-primary-light to-background"
-        initial="hidden"
-        animate="visible"
-        variants={{
-          hidden: { opacity: 0, y: 20 },
-          visible: { opacity: 1, y: 0, transition: { duration: 0.8, ease: "easeOut" } },
-        }}
+        initial={{ opacity: 0, y: 20 }}
+        animate={{ opacity: 1, y: 0, transition: { duration: 0.8, ease: "easeOut" } }}
       >
-        <ParticleBackground />
+        {/* <ParticleBackground /> */}
         <div className="container mx-auto px-4 py-20 md:py-32 relative z-10">
           <div className="grid md:grid-cols-2 gap-12 items-center">
-            <motion.div className="space-y-6" variants={sectionVariants}>
+            <motion.div className="space-y-6" initial={{ opacity: 0, y: 50 }} animate={{ opacity: 1, y: 0, transition: { duration: 0.6, ease: "easeOut" } }}>
               <h1 className="text-4xl md:text-6xl font-bold leading-tight">
-                Bring Creative{" "}
-                <TypewriterText 
-                  text="Projects to"
-                  highlightText="Life"
+                Bring <TypewriterText 
+                  texts={["Innovative", "Visionary", "Creative"]}
                   speed={100}
                   infinite={true}
                   pauseDuration={2000}
                   className="inline"
-                />
+                /> Projects to Life
               </h1>
               <p className="text-lg text-muted-foreground">
                 Discover and support groundbreaking ideas. Start your own campaign and turn your
@@ -216,7 +143,7 @@ const Index = () => {
                 </div>
               </div>
             </motion.div>
-            <motion.div className="relative" variants={sectionVariants}>
+            <motion.div className="relative" initial={{ opacity: 0, y: 50 }} animate={{ opacity: 1, y: 0, transition: { duration: 0.6, ease: "easeOut" } }}>
               <img
                 src={heroBanner}
                 alt="Creative collaboration"
@@ -228,194 +155,145 @@ const Index = () => {
       </motion.section>
 
       {/* Trending Projects */}
-      <motion.section 
-        className="container mx-auto px-4 py-16"
-        initial="hidden"
-        whileInView="visible"
-        viewport={{ once: true, amount: 0.3 }}
-        variants={sectionVariants}
-      >
-        <div className="flex items-center justify-between mb-8">
-          <div>
-            <h2 className="text-3xl font-bold mb-2">Trending Projects</h2>
-            <p className="text-muted-foreground">Hottest campaigns right now</p>
+      <AnimatedSection>
+        <section className="container mx-auto px-4 py-16">
+          <div className="flex items-center justify-between mb-8">
+            <div>
+              <h2 className="text-3xl font-bold mb-2">Trending Projects</h2>
+              <p className="text-muted-foreground">Hottest campaigns right now</p>
+            </div>
+            <Button variant="ghost" asChild>
+              <Link to="/explore">View All</Link>
+            </Button>
           </div>
-          <Button variant="ghost" asChild>
-            <Link to="/explore">View All</Link>
-          </Button>
-        </div>
-        {renderProjectCards(trendingProjects)}
-      </motion.section>
+          {renderProjectCards(trendingProjects)}
+        </section>
+      </AnimatedSection>
 
       {/* Categories */}
-      <motion.section 
-        className="bg-secondary/50 py-16"
-        initial="hidden"
-        whileInView="visible"
-        viewport={{ once: true, amount: 0.3 }}
-        variants={sectionVariants}
-      >
-        <div className="container mx-auto px-4">
-          <div className="text-center mb-12">
-            <h2 className="text-3xl font-bold mb-2">Browse by Category</h2>
-            <p className="text-muted-foreground">Explore projects across different domains</p>
-          </div>
-          <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-4">
-            {categories.map((category) => (
-              <Link
-                key={category.name}
-                to={`/category/${category.name.toLowerCase()}`}
-                className="group"
-              >
-                <motion.div 
-                  className="bg-card rounded-lg p-6 text-center hover:shadow-lg transition-smooth border border-border"
-                  initial={{ opacity: 0, y: 20 }}
-                  whileInView={{ opacity: 1, y: 0 }}
-                  viewport={{ once: true, amount: 0.5 }}
-                  transition={{ duration: 0.5, ease: "easeOut" }}
+      <AnimatedSection>
+        <section className="bg-secondary/50 py-16">
+          <div className="container mx-auto px-4">
+            <div className="text-center mb-12">
+              <h2 className="text-3xl font-bold mb-2">Browse by Category</h2>
+              <p className="text-muted-foreground">Explore projects across different domains</p>
+            </div>
+            <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-4">
+              {categories.map((category) => (
+                <Link
+                  key={category.name}
+                  to={`/category/${category.name.toLowerCase()}`}
+                  className="group"
                 >
-                  <category.icon className="h-8 w-8 mx-auto mb-3 text-primary group-hover:scale-110 transition-smooth" />
-                  <h3 className="font-semibold mb-1">{category.name}</h3>
-                  <p className="text-sm text-muted-foreground">{category.count} projects</p>
-                </motion.div>
-              </Link>
-            ))}
+                  <motion.div 
+                    className="bg-card rounded-lg p-6 text-center hover:shadow-lg transition-smooth border border-border"
+                    initial={{ opacity: 0, y: 20 }}
+                    whileInView={{ opacity: 1, y: 0 }}
+                    viewport={{ once: true, amount: 0.5 }}
+                    transition={{ duration: 0.5, ease: "easeOut" }}
+                  >
+                    <category.icon className="h-8 w-8 mx-auto mb-3 text-primary group-hover:scale-110 transition-smooth" />
+                    <h3 className="font-semibold mb-1">{category.name}</h3>
+                    <p className="text-sm text-muted-foreground">{category.count} projects</p>
+                  </motion.div>
+                </Link>
+              ))}
+            </div>
           </div>
-        </div>
-      </motion.section>
+        </section>
+      </AnimatedSection>
 
       {/* Recommended Projects */}
-      <motion.section 
-        className="container mx-auto px-4 py-16"
-        initial="hidden"
-        whileInView="visible"
-        viewport={{ once: true, amount: 0.3 }}
-        variants={sectionVariants}
-      >
-        <div className="mb-8">
-          <h2 className="text-3xl font-bold mb-2">Recommended for You</h2>
-          <p className="text-muted-foreground">Projects we think you'll love</p>
-        </div>
-        {renderProjectCards(recommendedProjects)}
-      </motion.section>
+      <AnimatedSection>
+        <section className="container mx-auto px-4 py-16">
+          <div className="mb-8">
+            <h2 className="text-3xl font-bold mb-2">Recommended for You</h2>
+            <p className="text-muted-foreground">Projects we think you'll love</p>
+          </div>
+          {renderProjectCards(recommendedProjects)}
+        </section>
+      </AnimatedSection>
 
       {/* Almost There */}
-      <motion.section 
-        className="bg-secondary/50 py-16"
-        initial="hidden"
-        whileInView="visible"
-        viewport={{ once: true, amount: 0.3 }}
-        variants={sectionVariants}
-      >
-        <div className="container mx-auto px-4">
+      <AnimatedSection>
+        <section className="bg-secondary/50 py-16">
+          <div className="container mx-auto px-4">
+            <div className="mb-8">
+              <h2 className="text-3xl font-bold mb-2">Almost There</h2>
+              <p className="text-muted-foreground">Projects close to their funding goal. Help them cross the finish line!</p>
+            </div>
+            <Carousel opts={{ align: "start", loop: true }}>
+              {renderCarouselItems(allProjects.filter(p => (p.fundingCurrent / p.fundingGoal) >= 0.8 && (p.fundingCurrent / p.fundingGoal) < 1))}
+              <CarouselPrevious />
+              <CarouselNext />
+            </Carousel>
+          </div>
+        </section>
+      </AnimatedSection>
+
+      {/* Just Launched */}
+      <AnimatedSection>
+        <section className="container mx-auto px-4 py-16">
           <div className="mb-8">
-            <h2 className="text-3xl font-bold mb-2">Almost There</h2>
-            <p className="text-muted-foreground">Projects close to their funding goal. Help them cross the finish line!</p>
+            <h2 className="text-3xl font-bold mb-2">Just Launched</h2>
+            <p className="text-muted-foreground">Be one of the first to support these new projects.</p>
           </div>
           <Carousel opts={{ align: "start", loop: true }}>
-            {renderCarouselItems(allProjects.filter(p => (p.fundingCurrent / p.fundingGoal) >= 0.8 && (p.fundingCurrent / p.fundingGoal) < 1))}
+            {renderCarouselItems(allProjects.filter(p => {
+              const twoDaysAgo = new Date(new Date().setDate(new Date().getDate() - 2));
+              return p.createdDate > twoDaysAgo;
+            }))}
             <CarouselPrevious />
             <CarouselNext />
           </Carousel>
-        </div>
-      </motion.section>
-
-      {/* Just Launched */}
-      <motion.section 
-        className="container mx-auto px-4 py-16"
-        initial="hidden"
-        whileInView="visible"
-        viewport={{ once: true, amount: 0.3 }}
-        variants={sectionVariants}
-      >
-        <div className="mb-8">
-          <h2 className="text-3xl font-bold mb-2">Just Launched</h2>
-          <p className="text-muted-foreground">Be one of the first to support these new projects.</p>
-        </div>
-        <Carousel opts={{ align: "start", loop: true }}>
-          {renderCarouselItems(allProjects.filter(p => {
-            const twoDaysAgo = new Date(new Date().setDate(new Date().getDate() - 2));
-            return p.createdDate > twoDaysAgo;
-          }))}
-          <CarouselPrevious />
-          <CarouselNext />
-        </Carousel>
-      </motion.section>
+        </section>
+      </AnimatedSection>
 
       {/* Stats Counter */}
-      <motion.div 
-        initial="hidden"
-        whileInView="visible"
-        viewport={{ once: true, amount: 0.3 }}
-        variants={sectionVariants}
-      >
+      <AnimatedSection>
         <StatsCounter />
-      </motion.div>
+      </AnimatedSection>
 
       {/* Success Stories */}
-      <motion.div 
-        initial="hidden"
-        whileInView="visible"
-        viewport={{ once: true, amount: 0.3 }}
-        variants={sectionVariants}
-      >
+      <AnimatedSection>
         <SuccessStories />
-      </motion.div>
+      </AnimatedSection>
 
       {/* Testimonials */}
-      <motion.div 
-        initial="hidden"
-        whileInView="visible"
-        viewport={{ once: true, amount: 0.3 }}
-        variants={sectionVariants}
-      >
+      <AnimatedSection>
         <Testimonials />
-      </motion.div>
+      </AnimatedSection>
 
       {/* FAQ */}
-      <motion.div 
-        initial="hidden"
-        whileInView="visible"
-        viewport={{ once: true, amount: 0.3 }}
-        variants={sectionVariants}
-      >
+      <AnimatedSection>
         <FAQ />
-      </motion.div>
+      </AnimatedSection>
 
       {/* Newsletter */}
-      <motion.div 
-        initial="hidden"
-        whileInView="visible"
-        viewport={{ once: true, amount: 0.3 }}
-        variants={sectionVariants}
-      >
+      <AnimatedSection>
         <Newsletter />
-      </motion.div>
+      </AnimatedSection>
 
       {/* CTA Section */}
-      <motion.section 
-        className="gradient-hero text-primary-foreground py-20"
-        initial="hidden"
-        whileInView="visible"
-        viewport={{ once: true, amount: 0.3 }}
-        variants={sectionVariants}
-      >
-        <div className="container mx-auto px-4 text-center">
-          <h2 className="text-4xl font-bold mb-4">Ready to Bring Your Idea to Life?</h2>
-          <p className="text-xl mb-8 opacity-90 max-w-2xl mx-auto">
-            Join thousands of creators who have successfully funded their projects with community
-            support.
-          </p>
-          <Button
-            size="lg"
-            variant="secondary"
-            className="bg-white text-primary hover:bg-white/90"
-            asChild
-          >
-            <Link to="/create-project">Start Your Project Today</Link>
-          </Button>
-        </div>
-      </motion.section>
+      <AnimatedSection>
+        <section className="gradient-hero text-primary-foreground py-20">
+          <div className="container mx-auto px-4 text-center">
+            <h2 className="text-4xl font-bold mb-4">Ready to Bring Your Idea to Life?</h2>
+            <p className="text-xl mb-8 opacity-90 max-w-2xl mx-auto">
+              Join thousands of creators who have successfully funded their projects with community
+              support.
+            </p>
+            <Button
+              size="lg"
+              variant="secondary"
+              className="bg-white text-primary hover:bg-white/90"
+              asChild
+            >
+              <Link to="/create-project">Start Your Project Today</Link>
+            </Button>
+          </div>
+        </section>
+      </AnimatedSection>
 
       <Footer />
     </div>

@@ -1,8 +1,7 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 
 interface TypewriterTextProps {
-  text: string;
-  highlightText: string;
+  texts: string[];
   speed?: number;
   className?: string;
   infinite?: boolean;
@@ -10,51 +9,76 @@ interface TypewriterTextProps {
 }
 
 const TypewriterText = ({ 
-  text, 
-  highlightText, 
+  texts,
   speed = 50, 
   className = '',
   infinite = false,
   pauseDuration = 2000
 }: TypewriterTextProps) => {
-  const [displayedHighlight, setDisplayedHighlight] = useState('');
+  const [displayedText, setDisplayedText] = useState('');
+  const [textIndex, setTextIndex] = useState(0);
   const [currentIndex, setCurrentIndex] = useState(0);
   const [showCursor, setShowCursor] = useState(true);
   const [isDeleting, setIsDeleting] = useState(false);
+  const [maxTextWidth, setMaxTextWidth] = useState(0);
+  const spanRef = useRef<HTMLSpanElement>(null);
 
   useEffect(() => {
+    if (spanRef.current) {
+      const widths = texts.map(text => {
+        const tempSpan = document.createElement('span');
+        tempSpan.style.visibility = 'hidden';
+        tempSpan.style.position = 'absolute';
+        tempSpan.style.whiteSpace = 'nowrap';
+        tempSpan.style.fontSize = window.getComputedStyle(spanRef.current).fontSize;
+        tempSpan.style.fontWeight = window.getComputedStyle(spanRef.current).fontWeight;
+        tempSpan.style.fontFamily = window.getComputedStyle(spanRef.current).fontFamily;
+        tempSpan.innerText = text;
+        document.body.appendChild(tempSpan);
+        const width = tempSpan.offsetWidth;
+        document.body.removeChild(tempSpan);
+        return width;
+      });
+      setMaxTextWidth(Math.max(...widths));
+    }
+  }, [texts]);
+
+  useEffect(() => {
+    const animatedText = texts[textIndex];
+
     if (!infinite) {
-      if (currentIndex < highlightText.length) {
+      if (currentIndex < animatedText.length) {
         const timeout = setTimeout(() => {
-          setDisplayedHighlight(highlightText.slice(0, currentIndex + 1));
+          setDisplayedText(animatedText.slice(0, currentIndex + 1));
           setCurrentIndex(currentIndex + 1);
         }, speed);
         return () => clearTimeout(timeout);
       }
     } else {
       // Infinite loop logic
-      if (!isDeleting && currentIndex < highlightText.length) {
+      if (!isDeleting && currentIndex < animatedText.length) {
         const timeout = setTimeout(() => {
-          setDisplayedHighlight(highlightText.slice(0, currentIndex + 1));
+          setDisplayedText(animatedText.slice(0, currentIndex + 1));
           setCurrentIndex(currentIndex + 1);
         }, speed);
         return () => clearTimeout(timeout);
-      } else if (!isDeleting && currentIndex === highlightText.length) {
+      } else if (!isDeleting && currentIndex === animatedText.length) {
         const timeout = setTimeout(() => {
           setIsDeleting(true);
         }, pauseDuration);
         return () => clearTimeout(timeout);
       } else if (isDeleting && currentIndex > 0) {
         const timeout = setTimeout(() => {
-          setDisplayedHighlight(highlightText.slice(0, currentIndex - 1));
+          setDisplayedText(animatedText.slice(0, currentIndex - 1));
           setCurrentIndex(currentIndex - 1);
         }, speed / 2);
         return () => clearTimeout(timeout);
       } else if (isDeleting && currentIndex === 0) {
         setIsDeleting(false);
+        setTextIndex((prev) => (prev + 1) % texts.length);
       }
     }
-  }, [currentIndex, highlightText, speed, infinite, isDeleting, pauseDuration]);
+  }, [currentIndex, textIndex, texts, speed, infinite, isDeleting, pauseDuration]);
 
   useEffect(() => {
     const cursorInterval = setInterval(() => {
@@ -65,12 +89,11 @@ const TypewriterText = ({
   }, []);
 
   return (
-    <span className={className}>
-      {text}{' '}
+    <span className={className} ref={spanRef} style={{minWidth: maxTextWidth, display: 'inline-block'}}>
       <span className="bg-gradient-to-r from-primary to-accent bg-clip-text text-transparent">
-        {displayedHighlight}
+        {displayedText}
       </span>
-      {(infinite || currentIndex < highlightText.length) && showCursor && (
+      {showCursor && (
         <span className="inline-block w-1 h-12 bg-primary ml-1 animate-pulse" />
       )}
     </span>

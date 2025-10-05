@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import * as z from "zod";
@@ -12,7 +12,6 @@ import {
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
 import {
   Form,
   FormControl,
@@ -23,14 +22,20 @@ import {
 } from "@/components/ui/form";
 import { useToast } from "@/hooks/use-toast";
 import { Check } from "lucide-react";
+import { useNavigate } from "react-router-dom";
+
+// Stripe Imports - not needed for this full frontend mock
+// import { loadStripe } from "@stripe/stripe-js";
+
+// Make sure to call `loadStripe` outside of a component’s render to avoid
+// recreating the Stripe object on every render.
+// This is your test publishable API key.
+// const stripePromise = loadStripe("pk_test_TYooMQauvdEDq55EcsfUMGaQ"); // Replace with your actual publishable key
 
 const pledgeSchema = z.object({
   amount: z.string().min(1, "Please enter a pledge amount"),
   email: z.string().email("Please enter a valid email address"),
   fullName: z.string().min(2, "Please enter your full name").max(100),
-  paymentMethod: z.enum(["card", "paypal"], {
-    required_error: "Please select a payment method",
-  }),
 });
 
 type PledgeFormValues = z.infer<typeof pledgeSchema>;
@@ -55,6 +60,7 @@ const PledgeModal = ({
   selectedReward,
 }: PledgeModalProps) => {
   const { toast } = useToast();
+  const navigate = useNavigate();
   const [isProcessing, setIsProcessing] = useState(false);
 
   const form = useForm<PledgeFormValues>({
@@ -63,31 +69,39 @@ const PledgeModal = ({
       amount: defaultAmount,
       email: "",
       fullName: "",
-      paymentMethod: "card",
     },
   });
 
-  // Update amount when defaultAmount or selectedReward changes
-  useState(() => {
+  useEffect(() => {
     if (defaultAmount) {
       form.setValue("amount", defaultAmount);
     }
-  });
+  }, [defaultAmount, form]);
 
   const onSubmit = async (data: PledgeFormValues) => {
     setIsProcessing(true);
 
-    // Simulate payment processing
-    await new Promise((resolve) => setTimeout(resolve, 2000));
+    // --- FULLY SIMULATED STRIPE CHECKOUT FLOW (FRONTEND ONLY) ---
+    console.log("Simulating backend call to create Checkout Session...");
+    await new Promise(resolve => setTimeout(resolve, 2000)); // Simulate network delay
 
+    // Simulate successful redirect to Stripe and then back to success page
     toast({
-      title: "Pledge Successful! 🎉",
-      description: `Thank you for pledging $${data.amount} to ${projectTitle}. Check your email for confirmation.`,
+      title: "Redirecting to Stripe...",
+      description: "Please complete your payment on the secure Stripe page.",
     });
 
+    // Simulate a short delay before redirecting to our mock success page
+    await new Promise(resolve => setTimeout(resolve, 1500));
+
+    // In a real app, Stripe would redirect back to your success_url
+    // Here, we navigate directly to a mock success page on our frontend.
+    navigate("/payment-success"); // Navigate to a mock success page
+
     setIsProcessing(false);
-    onOpenChange(false);
+    onOpenChange(false); // Close modal after simulated redirect
     form.reset();
+    // --- END SIMULATION ---
   };
 
   return (
@@ -177,44 +191,6 @@ const PledgeModal = ({
                       placeholder="john@example.com"
                       {...field}
                     />
-                  </FormControl>
-                  <FormMessage />
-                </FormItem>
-              )}
-            />
-
-            {/* Payment Method */}
-            <FormField
-              control={form.control}
-              name="paymentMethod"
-              render={({ field }) => (
-                <FormItem>
-                  <FormLabel>Payment Method</FormLabel>
-                  <FormControl>
-                    <RadioGroup
-                      onValueChange={field.onChange}
-                      defaultValue={field.value}
-                      className="flex flex-col space-y-2"
-                    >
-                      <div className="flex items-center space-x-3 border rounded-lg p-4 hover:bg-muted transition-smooth cursor-pointer">
-                        <RadioGroupItem value="card" id="card" />
-                        <Label htmlFor="card" className="flex-1 cursor-pointer">
-                          <div className="font-semibold">Credit/Debit Card</div>
-                          <div className="text-sm text-muted-foreground">
-                            Visa, Mastercard, American Express
-                          </div>
-                        </Label>
-                      </div>
-                      <div className="flex items-center space-x-3 border rounded-lg p-4 hover:bg-muted transition-smooth cursor-pointer">
-                        <RadioGroupItem value="paypal" id="paypal" />
-                        <Label htmlFor="paypal" className="flex-1 cursor-pointer">
-                          <div className="font-semibold">PayPal</div>
-                          <div className="text-sm text-muted-foreground">
-                            Pay securely with your PayPal account
-                          </div>
-                        </Label>
-                      </div>
-                    </RadioGroup>
                   </FormControl>
                   <FormMessage />
                 </FormItem>

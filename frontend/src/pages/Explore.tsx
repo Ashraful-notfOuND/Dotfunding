@@ -15,6 +15,7 @@ import projectDesign from "@/assets/project-design.jpg";
 import projectFilm from "@/assets/project-film.jpg";
 import projectMusic from "@/assets/project-music.jpg";
 import { AnimatePresence, motion } from "framer-motion";
+import { allProjects, featuredProject } from "@/data/mockProjects"; // Import from centralized mock data
 
 // Mock data - expanded for better filtering/sorting
 const allProjects = [

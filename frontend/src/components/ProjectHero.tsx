@@ -11,14 +11,17 @@ interface ProjectHeroProps {
   creator: string;
   tagline: string;
   images: string[];
-  status: "just-launched" | "trending" | "funded";
+  videoUrl?: string; // Added videoUrl prop
+  status: "just-launched" | "trending" | "funded" | "nearly-funded" | "active"; // Updated type
 }
 
-const ProjectHero = ({ title, creator, tagline, images, status }: ProjectHeroProps) => {
+const ProjectHero = ({ title, creator, tagline, images, videoUrl, status }: ProjectHeroProps) => {
   const statusConfig = {
     "just-launched": { label: "Just Launched", variant: "default" as const },
     "trending": { label: "Trending", variant: "secondary" as const },
     "funded": { label: "Funded", variant: "default" as const },
+    "nearly-funded": { label: "Nearly Funded", variant: "warning" as const }, // Added
+    "active": { label: "Active", variant: "outline" as const }, // Added
   };
 
   return (
@@ -36,31 +39,43 @@ const ProjectHero = ({ title, creator, tagline, images, status }: ProjectHeroPro
         </div>
       </div>
 
-      <Carousel 
-        className="w-full"
-        opts={{
-          loop: true,
-        }}
-        plugins={[
-          Autoplay({
-            delay: 4000,
-          }),
-        ]}
-      >
-        <CarouselContent>
-          {images.map((image, index) => (
-            <CarouselItem key={index}>
-              <div className="rounded-xl overflow-hidden shadow-lg">
-                <img 
-                  src={image} 
-                  alt={`${title} - Image ${index + 1}`} 
-                  className="w-full h-auto object-cover hover-scale"
-                />
-              </div>
-            </CarouselItem>
-          ))}
-        </CarouselContent>
-      </Carousel>
+      {videoUrl ? (
+        <div className="relative aspect-video w-full rounded-xl overflow-hidden shadow-lg">
+          <iframe
+            src={videoUrl}
+            title="Project Video"
+            allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
+            allowFullScreen
+            className="absolute top-0 left-0 w-full h-full"
+          ></iframe>
+        </div>
+      ) : (
+        <Carousel
+          className="w-full"
+          opts={{
+            loop: true,
+          }}
+          plugins={[
+            Autoplay({
+              delay: 4000,
+            }),
+          ]}
+        >
+          <CarouselContent>
+            {images.map((image, index) => (
+              <CarouselItem key={index}>
+                <div className="rounded-xl overflow-hidden shadow-lg">
+                  <img
+                    src={image}
+                    alt={`${title} - Image ${index + 1}`}
+                    className="w-full h-auto object-cover hover-scale"
+                  />
+                </div>
+              </CarouselItem>
+            ))}
+          </CarouselContent>
+        </Carousel>
+      )}
     </div>
   );
 };
