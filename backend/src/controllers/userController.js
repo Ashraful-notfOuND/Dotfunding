@@ -54,3 +54,49 @@ export const signUpUser = async (req, res) => {
     return res.status(500).json({ error: "Server error" });
   }
 };
+
+/**
+ * Login user
+ */
+export const loginUser = async (req, res) => {
+  const { email, password } = req.body;
+
+  if (!email || !password) {
+    return res.status(400).json({ error: "Email and password are required." });
+  }
+
+  try {
+    // Fetch user by email
+    const { data: user, error } = await supabase
+      .from("users")
+      .select("*")
+      .eq("email", email)
+      .single();
+
+    if (error) {
+      // If user not found
+      if (error.code === "PGRST116") {
+        return res.status(401).json({ error: "Invalid email or password." });
+      }
+      console.error("Supabase fetch error:", error);
+      return res.status(500).json({ error: "Server error." });
+    }
+
+    // Compare password
+    const match = await bcrypt.compare(password, user.password);
+    if (!match) {
+      return res.status(401).json({ error: "Invalid email or password." });
+    }
+
+    // Login successful
+    return res.status(200).json({
+      message: "Login successful!",
+      user: { id: user.id, full_name: user.full_name, email: user.email },
+    });
+
+  } catch (err) {
+    console.error("Unexpected server error:", err);
+    return res.status(500).json({ error: "Server error." });
+  }
+};
+
