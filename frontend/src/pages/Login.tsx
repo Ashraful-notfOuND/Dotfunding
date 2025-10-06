@@ -20,24 +20,42 @@ const Login = () => {
     return null;
   }
 
-  const handleSubmit = (e: React.FormEvent) => {
-    e.preventDefault();
-    const success = login(email, password);
-    
-    if (success) {
+const handleSubmit = async (e: React.FormEvent) => {
+  e.preventDefault();
+
+  try {
+    const res = await fetch("http://localhost:5000/api/users/login", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ email, password }),
+    });
+
+    const data = await res.json();
+
+    if (res.ok) {
       toast({
         title: "Login successful!",
-        description: "Welcome back to DotFunding",
+        description: `Welcome back, ${data.user.full_name}`,
       });
+      // Redirect to home
       navigate("/");
     } else {
       toast({
         title: "Login failed",
-        description: "Invalid email or password",
+        description: data.error,
         variant: "destructive",
       });
     }
-  };
+  } catch (err) {
+    console.error(err);
+    toast({
+      title: "Server error",
+      description: "Something went wrong. Please try again.",
+      variant: "destructive",
+    });
+  }
+};
+
 
   return (
     <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-primary-light to-background p-4">
