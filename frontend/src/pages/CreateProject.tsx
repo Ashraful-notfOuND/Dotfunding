@@ -11,15 +11,17 @@ import { useState, useEffect } from "react";
 import { toast } from "sonner";
 import { useAuth } from "@/hooks/useAuth";
 import { useNavigate } from "react-router-dom";
+import { useLocation } from "react-router-dom";
 
 const CreateProject = () => {
   const { isAuthenticated } = useAuth();
   const navigate = useNavigate();
+  const location = useLocation();
 
   useEffect(() => {
     if (!isAuthenticated) {
       toast.error("Please login to create a project");
-      navigate("/login");
+      navigate("/login", { state: { from: location } });
     }
   }, [isAuthenticated, navigate]);
 
