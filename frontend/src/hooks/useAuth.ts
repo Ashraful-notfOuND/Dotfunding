@@ -10,6 +10,8 @@ interface AuthState {
   user: User | null;
   isAuthenticated: boolean;
   login: (email: string, password: string) => boolean;
+  // setAuth allows setting auth state (used after server login)
+  setAuth: (user: User | null) => void;
   logout: () => void;
 }
 
@@ -34,6 +36,7 @@ export const useAuth = create<AuthState>()(
         }
         return false;
       },
+      setAuth: (user: User | null) => set({ user, isAuthenticated: !!user }),
       logout: () => {
         set({ user: null, isAuthenticated: false });
       },
