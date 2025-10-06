@@ -3,22 +3,27 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Mail, Lock } from "lucide-react";
-import { Link, useNavigate } from "react-router-dom";
+import { Link, useNavigate, useLocation } from "react-router-dom";
 import { toast } from "@/hooks/use-toast";
 import { useAuth } from "@/hooks/useAuth";
-import { useState } from "react";
+import { useState, useEffect } from "react";
 
 const Login = () => {
   const navigate = useNavigate();
-  const { login, isAuthenticated } = useAuth();
+  const { login, isAuthenticated, setAuth } = useAuth();
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
 
+  const location = useLocation();
+  const from = (location.state as any)?.from?.pathname || "/";
+
   // Redirect if already logged in
-  if (isAuthenticated) {
-    navigate("/");
-    return null;
-  }
+  // Use useEffect to avoid navigation during render
+  useEffect(() => {
+    if (isAuthenticated) {
+      navigate(from);
+    }
+  }, [isAuthenticated, navigate, from]);
 
 const handleSubmit = async (e: React.FormEvent) => {
   e.preventDefault();
@@ -37,8 +42,11 @@ const handleSubmit = async (e: React.FormEvent) => {
         title: "Login successful!",
         description: `Welcome back, ${data.user.full_name}`,
       });
-      // Redirect to home
-      navigate("/");
+      // set auth state in client
+      // data.user should contain at least { email, full_name }
+      setAuth({ email: data.user.email, name: data.user.full_name });
+      // Redirect to original page or home
+      navigate(from);
     } else {
       toast({
         title: "Login failed",
