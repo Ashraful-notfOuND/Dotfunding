@@ -1,9 +1,9 @@
-/**
- * Create a new project
- */
 import { supabase } from "../config/supabaseClient.js";
 import { v4 as uuidv4 } from "uuid";
 
+/**
+ * Create a new project
+ */
 export const createProject = async (req, res) => {
   try {
     const {
@@ -17,7 +17,7 @@ export const createProject = async (req, res) => {
       video_url,
     } = req.body;
 
-    // Parse reward_tiers
+    // Parse reward_tiers JSON string
     let reward_tiers = [];
     if (req.body.reward_tiers) {
       try {
@@ -40,34 +40,40 @@ export const createProject = async (req, res) => {
       return res.status(400).json({ error: "All required fields must be provided." });
     }
 
-    // Handle image upload to Supabase
-    const imageFile = req.file;
-    if (!imageFile) {
-      return res.status(400).json({ error: "Image file is required." });
+    // ✅ Handle multiple image uploads
+    const imageFiles = req.files;
+    if (!imageFiles || imageFiles.length === 0) {
+      return res.status(400).json({ error: "At least one image file is required." });
     }
 
-    const fileExt = imageFile.originalname.split(".").pop();
-    const fileName = `${uuidv4()}.${fileExt}`;
-    const filePath = `projects/${fileName}`;
+    const uploadedImageUrls = [];
 
-    const { error: uploadError } = await supabase.storage
-      .from("project-images") // Replace with your Supabase bucket name
-      .upload(filePath, imageFile.buffer, {
-        contentType: imageFile.mimetype,
-        cacheControl: "3600",
-        upsert: false,
-      });
+    for (const imageFile of imageFiles) {
+      const fileExt = imageFile.originalname.split(".").pop();
+      const fileName = `${uuidv4()}.${fileExt}`;
+      const filePath = `projects/${fileName}`;
 
-    if (uploadError) {
-      console.error("Supabase image upload error:", uploadError);
-      return res.status(500).json({ error: "Failed to upload image." });
+      const { error: uploadError } = await supabase.storage
+        .from("project-images")
+        .upload(filePath, imageFile.buffer, {
+          contentType: imageFile.mimetype,
+          cacheControl: "3600",
+          upsert: false,
+        });
+
+      if (uploadError) {
+        console.error("Supabase image upload error:", uploadError);
+        return res.status(500).json({ error: "Failed to upload one or more images." });
+      }
+
+      const {
+        data: { publicUrl },
+      } = supabase.storage.from("project-images").getPublicUrl(filePath);
+
+      uploadedImageUrls.push(publicUrl);
     }
 
-    const {
-      data: { publicUrl },
-    } = supabase.storage.from("project-images").getPublicUrl(filePath);
-
-    // Insert into projects table
+    // ✅ Insert into projects table
     const { data, error } = await supabase
       .from("projects")
       .insert([
@@ -81,7 +87,7 @@ export const createProject = async (req, res) => {
           deadline,
           video_url: video_url || null,
           reward_tiers,
-          image_url: publicUrl,
+          image_urls: uploadedImageUrls,
           status: "launched",
         },
       ])
@@ -103,7 +109,7 @@ export const createProject = async (req, res) => {
 };
 
 /**
- * Get all projects (optional for listing)
+ * ✅ Get all projects (with parsed fields)
  */
 export const getAllProjects = async (req, res) => {
   try {
@@ -114,9 +120,22 @@ export const getAllProjects = async (req, res) => {
 
     if (error) throw error;
 
-    return res.status(200).json({ projects: data });
+    // ✅ Parse stored JSON fields if needed
+    const formattedProjects = data.map((project) => ({
+      ...project,
+      reward_tiers:
+        typeof project.reward_tiers === "string"
+          ? JSON.parse(project.reward_tiers)
+          : project.reward_tiers || [],
+      image_urls:
+        typeof project.image_urls === "string"
+          ? JSON.parse(project.image_urls)
+          : project.image_urls || [],
+    }));
+
+    return res.status(200).json({ projects: formattedProjects });
   } catch (err) {
-    console.error(err);
+    console.error("Failed to fetch projects:", err);
     return res.status(500).json({ error: "Failed to fetch projects." });
   }
 };
