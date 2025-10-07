@@ -2,8 +2,20 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { Label } from "@/components/ui/label";
-import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import {
+  Card,
+  CardContent,
+  CardHeader,
+  CardTitle,
+  CardDescription,
+} from "@/components/ui/card";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
 import Navbar from "@/components/Navbar";
 import Footer from "@/components/Footer";
 import { Calendar, DollarSign, Image, Plus, X } from "lucide-react";
@@ -14,7 +26,7 @@ import { useNavigate } from "react-router-dom";
 import { useLocation } from "react-router-dom";
 
 const CreateProject = () => {
-  const { isAuthenticated } = useAuth();
+  const { isAuthenticated, user } = useAuth();
   const navigate = useNavigate();
   const location = useLocation();
 
@@ -28,6 +40,9 @@ const CreateProject = () => {
   if (!isAuthenticated) {
     return null;
   }
+
+  const [category, setCategory] = useState("");
+  const [imageFile, setImageFile] = useState<File | null>(null);
   const [rewardTiers, setRewardTiers] = useState([
     { amount: "", title: "", description: "" },
   ]);
@@ -40,9 +55,50 @@ const CreateProject = () => {
     setRewardTiers(rewardTiers.filter((_, i) => i !== index));
   };
 
-  const handleSubmit = (e: React.FormEvent) => {
+  const handleRewardChange = (index: number, field: string, value: string) => {
+    const updatedTiers = [...rewardTiers];
+    updatedTiers[index][field] = value;
+    setRewardTiers(updatedTiers);
+  };
+
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    toast.success("Project created successfully! (Demo)");
+
+    if (!imageFile) {
+      toast.error("Please upload a project image.");
+      return;
+    }
+
+    const formData = new FormData();
+    formData.append("user_id", user?.id);
+    formData.append("title", (document.getElementById("title") as HTMLInputElement).value);
+    formData.append("description", (document.getElementById("description") as HTMLTextAreaElement).value);
+    formData.append("category", category);
+    formData.append("location", (document.getElementById("location") as HTMLInputElement).value);
+    formData.append("funding_goal", (document.getElementById("goal") as HTMLInputElement).value);
+    formData.append("deadline", (document.getElementById("deadline") as HTMLInputElement).value);
+    formData.append("video_url", (document.getElementById("video") as HTMLInputElement)?.value || "");
+    formData.append("image", imageFile);
+    formData.append("reward_tiers", JSON.stringify(rewardTiers));
+
+    try {
+      const res = await fetch("http://localhost:5000/api/projects/create", {
+        method: "POST",
+        body: formData,
+      });
+
+      const data = await res.json();
+
+      if (res.ok) {
+        toast.success("Project created successfully!");
+        navigate("/");
+      } else {
+        toast.error(data.error || "Failed to create project");
+      }
+    } catch (err) {
+      console.error(err);
+      toast.error("Something went wrong. Try again later.");
+    }
   };
 
   return (
@@ -87,7 +143,7 @@ const CreateProject = () => {
               <div className="grid md:grid-cols-2 gap-4">
                 <div className="space-y-2">
                   <Label htmlFor="category">Category</Label>
-                  <Select required>
+                  <Select onValueChange={(val) => setCategory(val)} required>
                     <SelectTrigger id="category">
                       <SelectValue placeholder="Select a category" />
                     </SelectTrigger>
@@ -118,39 +174,20 @@ const CreateProject = () => {
               <CardTitle>Funding Details</CardTitle>
               <CardDescription>Set your funding goal and timeline</CardDescription>
             </CardHeader>
-            <CardContent className="space-y-4">
-              <div className="grid md:grid-cols-2 gap-4">
-                <div className="space-y-2">
-                  <Label htmlFor="goal">Funding Goal (USD)</Label>
-                  <div className="relative">
-                    <DollarSign className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
-                    <Input
-                      id="goal"
-                      type="number"
-                      placeholder="0"
-                      className="pl-10"
-                      required
-                    />
-                  </div>
-                  <p className="text-xs text-muted-foreground">
-                    How much do you need to bring this project to life?
-                  </p>
+            <CardContent className="grid md:grid-cols-2 gap-4">
+              <div className="space-y-2">
+                <Label htmlFor="goal">Funding Goal (USD)</Label>
+                <div className="relative">
+                  <DollarSign className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+                  <Input id="goal" type="number" placeholder="0" className="pl-10" required />
                 </div>
+              </div>
 
-                <div className="space-y-2">
-                  <Label htmlFor="deadline">Campaign End Date</Label>
-                  <div className="relative">
-                    <Calendar className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
-                    <Input
-                      id="deadline"
-                      type="date"
-                      className="pl-10"
-                      required
-                    />
-                  </div>
-                  <p className="text-xs text-muted-foreground">
-                    Campaigns typically run for 30-60 days
-                  </p>
+              <div className="space-y-2">
+                <Label htmlFor="deadline">Campaign End Date</Label>
+                <div className="relative">
+                  <Calendar className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+                  <Input id="deadline" type="date" className="pl-10" required />
                 </div>
               </div>
             </CardContent>
@@ -165,27 +202,18 @@ const CreateProject = () => {
             <CardContent className="space-y-4">
               <div className="space-y-2">
                 <Label>Project Image</Label>
-                <div className="border-2 border-dashed border-border rounded-lg p-12 text-center hover:border-primary transition-smooth cursor-pointer">
-                  <Image className="h-12 w-12 mx-auto mb-4 text-muted-foreground" />
-                  <p className="text-sm text-muted-foreground mb-2">
-                    Drop your main project image here, or click to browse
-                  </p>
-                  <p className="text-xs text-muted-foreground">
-                    Recommended: 1920x1080px, JPG or PNG
-                  </p>
-                </div>
+                <Input
+                  id="image"
+                  type="file"
+                  accept="image/*"
+                  onChange={(e) => setImageFile(e.target.files?.[0] || null)}
+                  required
+                />
               </div>
 
               <div className="space-y-2">
                 <Label htmlFor="video">Project Video (Optional)</Label>
-                <Input
-                  id="video"
-                  type="url"
-                  placeholder="https://youtube.com/watch?v=..."
-                />
-                <p className="text-xs text-muted-foreground">
-                  Projects with videos raise 4x more funds on average
-                </p>
+                <Input id="video" type="url" placeholder="https://youtube.com/watch?v=..." />
               </div>
             </CardContent>
           </Card>
@@ -224,13 +252,19 @@ const CreateProject = () => {
                           type="number"
                           placeholder="0"
                           className="pl-10"
+                          value={tier.amount}
+                          onChange={(e) => handleRewardChange(index, "amount", e.target.value)}
                         />
                       </div>
                     </div>
 
                     <div className="space-y-2 md:col-span-2">
                       <Label>Reward Title</Label>
-                      <Input placeholder="e.g., Early Bird Special" />
+                      <Input
+                        placeholder="e.g., Early Bird Special"
+                        value={tier.title}
+                        onChange={(e) => handleRewardChange(index, "title", e.target.value)}
+                      />
                     </div>
                   </div>
 
@@ -239,6 +273,10 @@ const CreateProject = () => {
                     <Textarea
                       placeholder="Describe what backers will receive"
                       rows={3}
+                      value={tier.description}
+                      onChange={(e) =>
+                        handleRewardChange(index, "description", e.target.value)
+                      }
                     />
                   </div>
                 </div>
