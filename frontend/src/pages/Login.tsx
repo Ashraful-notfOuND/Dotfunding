@@ -44,7 +44,12 @@ const handleSubmit = async (e: React.FormEvent) => {
       });
       // set auth state in client
       // data.user should contain at least { email, full_name }
-      setAuth({ email: data.user.email, name: data.user.full_name });
+      setAuth({
+          id: data.user.id,
+          email: data.user.email,
+          name: data.user.full_name,
+        });
+        console.log("User logged in: ", data.user.id);
       // Redirect to original page or home
       navigate(from);
     } else {
