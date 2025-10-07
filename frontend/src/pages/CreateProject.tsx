@@ -18,7 +18,7 @@ import {
 } from "@/components/ui/select";
 import Navbar from "@/components/Navbar";
 import Footer from "@/components/Footer";
-import { Calendar, DollarSign, Image, Plus, X } from "lucide-react";
+import { Calendar, DollarSign, Plus, X } from "lucide-react";
 import { useState, useEffect } from "react";
 import { toast } from "sonner";
 import { useAuth } from "@/hooks/useAuth";
@@ -42,7 +42,7 @@ const CreateProject = () => {
   }
 
   const [category, setCategory] = useState("");
-  const [imageFile, setImageFile] = useState<File | null>(null);
+  const [imageFiles, setImageFiles] = useState<File[]>([]);
   const [rewardTiers, setRewardTiers] = useState([
     { amount: "", title: "", description: "" },
   ]);
@@ -61,11 +61,19 @@ const CreateProject = () => {
     setRewardTiers(updatedTiers);
   };
 
+  // ✅ FIX: Keep all previously selected images and add new ones instead of replacing
+  const handleImageChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    if (e.target.files) {
+      const newFiles = Array.from(e.target.files);
+      setImageFiles((prevFiles) => [...prevFiles, ...newFiles]);
+    }
+  };
+
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
 
-    if (!imageFile) {
-      toast.error("Please upload a project image.");
+    if (imageFiles.length === 0) {
+      toast.error("Please upload at least one project image.");
       return;
     }
 
@@ -78,8 +86,12 @@ const CreateProject = () => {
     formData.append("funding_goal", (document.getElementById("goal") as HTMLInputElement).value);
     formData.append("deadline", (document.getElementById("deadline") as HTMLInputElement).value);
     formData.append("video_url", (document.getElementById("video") as HTMLInputElement)?.value || "");
-    formData.append("image", imageFile);
     formData.append("reward_tiers", JSON.stringify(rewardTiers));
+
+    // ✅ Append all selected images
+    imageFiles.forEach((file) => {
+      formData.append("images", file);
+    });
 
     try {
       const res = await fetch("http://localhost:5000/api/projects/create", {
@@ -201,14 +213,39 @@ const CreateProject = () => {
             </CardHeader>
             <CardContent className="space-y-4">
               <div className="space-y-2">
-                <Label>Project Image</Label>
+                <Label>Project Images</Label>
                 <Input
-                  id="image"
+                  id="images"
                   type="file"
                   accept="image/*"
-                  onChange={(e) => setImageFile(e.target.files?.[0] || null)}
+                  multiple
+                  onChange={handleImageChange}
                   required
                 />
+
+                {/* ✅ Multi Image Preview Grid */}
+                {imageFiles.length > 0 && (
+                  <div className="mt-4 grid grid-cols-2 md:grid-cols-3 gap-4">
+                    {imageFiles.map((file, index) => (
+                      <div key={index} className="relative">
+                        <img
+                          src={URL.createObjectURL(file)}
+                          alt={`Preview ${index + 1}`}
+                          className="w-full h-40 object-cover rounded-lg border"
+                        />
+                        <button
+                          type="button"
+                          onClick={() =>
+                            setImageFiles((prev) => prev.filter((_, i) => i !== index))
+                          }
+                          className="absolute top-1 right-1 bg-black/50 text-white p-1 rounded-full"
+                        >
+                          <X className="h-4 w-4" />
+                        </button>
+                      </div>
+                    ))}
+                  </div>
+                )}
               </div>
 
               <div className="space-y-2">
