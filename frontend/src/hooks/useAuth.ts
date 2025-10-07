@@ -2,6 +2,7 @@ import { create } from 'zustand';
 import { persist } from 'zustand/middleware';
 
 interface User {
+  id: string;
   email: string;
   name: string;
 }
@@ -10,7 +11,6 @@ interface AuthState {
   user: User | null;
   isAuthenticated: boolean;
   login: (email: string, password: string) => boolean;
-  // setAuth allows setting auth state (used after server login)
   setAuth: (user: User | null) => void;
   logout: () => void;
 }
@@ -27,6 +27,7 @@ export const useAuth = create<AuthState>()(
         if (email === VALID_EMAIL && password === VALID_PASSWORD) {
           set({
             user: {
+              id: '123', // 👈 example user id (in real login, comes from backend)
               email: VALID_EMAIL,
               name: 'Tamim Dewan',
             },
@@ -42,7 +43,7 @@ export const useAuth = create<AuthState>()(
       },
     }),
     {
-      name: 'auth-storage',
+      name: 'auth-storage', // persisted in localStorage
     }
   )
 );
