@@ -7,11 +7,43 @@ import { Checkbox } from "@/components/ui/checkbox";
 import { Link } from "react-router-dom";
 import { Mail, Lock, User } from "lucide-react";
 import { toast } from "sonner";
-
+import { useNavigate } from "react-router-dom";
 const SignUp = () => {
-  const handleSubmit = (e: React.FormEvent) => {
+ const navigate = useNavigate(); // <-- initialize navigate
+
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    toast.success("Account created successfully! (Demo)");
+
+    const form = e.target as HTMLFormElement;
+    const full_name = (form.elements.namedItem("name") as HTMLInputElement).value;
+    const email = (form.elements.namedItem("email") as HTMLInputElement).value;
+    const password = (form.elements.namedItem("password") as HTMLInputElement).value;
+
+    try {
+      const res = await fetch("http://localhost:5000/api/users/signup", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ full_name, email, password }),
+      });
+
+      const data = await res.json();
+
+      if (res.ok) {
+        toast.success(data.message);
+        form.reset();
+
+        // Redirect to login after 1 second
+        setTimeout(() => {
+          navigate("/login");
+        }, 1000);
+
+      } else {
+        toast.error(data.error);
+      }
+    } catch (err) {
+      toast.error("Something went wrong. Please try again.");
+      console.error(err);
+    }
   };
 
   return (
