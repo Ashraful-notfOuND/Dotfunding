@@ -6,9 +6,13 @@ import { useState } from "react";
 import { useAuth } from "@/hooks/useAuth";
 import SearchOverlay from "@/components/SearchOverlay"; // Import SearchOverlay
 
-const Navbar = () => {
+interface NavbarProps {
+  hideSearch?: boolean; // New optional prop
+}
+
+const Navbar = ({ hideSearch }: NavbarProps) => {
   const [isMenuOpen, setIsMenuOpen] = useState(false);
-  const [isSearchOpen, setIsSearchOpen] = useState(false); // New state for search overlay
+  const [isSearchOpen, setIsSearchOpen] = useState(false);
   const { isAuthenticated, logout } = useAuth();
 
   const openSearch = () => setIsSearchOpen(true);
@@ -28,21 +32,23 @@ const Navbar = () => {
             </span>
           </Link>
 
-          {/* Center: Desktop Search Bar (visible only on md and up) */}
-          <div className="hidden md:flex flex-grow justify-center mx-4"> {/* flex-grow and mx-4 for centering */}
-            <div className="relative w-full max-w-lg"> {/* Wider search bar */}
-              <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
-              <Input
-                type="text"
-                placeholder="Search projects..."
-                className="pl-10 bg-secondary border-0 cursor-pointer"
-                readOnly
-                onClick={openSearch}
-              />
+          {/* Center: Desktop Search Bar */}
+          {!hideSearch && (
+            <div className="hidden md:flex flex-grow justify-center mx-4">
+              <div className="relative w-full max-w-lg">
+                <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+                <Input
+                  type="text"
+                  placeholder="Search projects..."
+                  className="pl-10 bg-secondary border-0 cursor-pointer"
+                  readOnly
+                  onClick={openSearch}
+                />
+              </div>
             </div>
-          </div>
+          )}
 
-          {/* Right: Desktop Navigation (visible only on md and up) */}
+          {/* Right: Desktop Navigation */}
           <div className="hidden md:flex items-center gap-4 flex-shrink-0">
             <Button variant="ghost" asChild>
               <Link to="/explore">Explore</Link>
@@ -71,19 +77,19 @@ const Navbar = () => {
           </div>
 
           {/* Mobile Menu & Search Icon */}
-          <div className="md:hidden flex items-center gap-2"> 
-            {/* Search Bar - Mobile */}
-            <div className="relative flex-1">
-              <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
-              <Input
-                type="text"
-                placeholder="Search projects..."
-                className="pl-10 bg-secondary border-0 cursor-pointer"
-                readOnly
-                onClick={openSearch}
-              />
-            </div>
-            {/* Mobile Menu Button */}
+          <div className="md:hidden flex items-center gap-2">
+            {!hideSearch && (
+              <div className="relative flex-1">
+                <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+                <Input
+                  type="text"
+                  placeholder="Search projects..."
+                  className="pl-10 bg-secondary border-0 cursor-pointer"
+                  readOnly
+                  onClick={openSearch}
+                />
+              </div>
+            )}
             <Button
               variant="ghost"
               size="icon"
@@ -120,7 +126,7 @@ const Navbar = () => {
           </div>
         )}
       </div>
-      <SearchOverlay isOpen={isSearchOpen} onClose={closeSearch} /> {/* Render SearchOverlay */}
+      <SearchOverlay isOpen={isSearchOpen} onClose={closeSearch} />
     </nav>
   );
 };
