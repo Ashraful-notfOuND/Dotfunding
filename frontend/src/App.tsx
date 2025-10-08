@@ -9,6 +9,7 @@ import Index from "./pages/Index";
 import Explore from "./pages/Explore";
 import ProjectDetail from "./pages/ProjectDetail";
 import CreateProject from "./pages/CreateProject";
+import CategoryPage from "./pages/Categorypage";
 import Login from "./pages/Login";
 import SignUp from "./pages/SignUp";
 import Profile from "./pages/Profile";
@@ -46,8 +47,9 @@ const App = () => {
           <Routes location={location} key={location.pathname}>
             <Route path="/" element={<PageWrapper><Index /></PageWrapper>} />
             <Route path="/explore" element={<PageWrapper><Explore /></PageWrapper>} />
-            <Route path="/project/:id" element={<PageWrapper><ProjectDetail /></PageWrapper>} />
+            <Route path="/project/:id" element={<PageWrapper><ProjectDetail /></PageWrapper>} />   
             <Route path="/create-project" element={<PageWrapper><CreateProject /></PageWrapper>} />
+            <Route path="/projects/category/:category" element={<CategoryPage />} />
             <Route path="/login" element={<PageWrapper><Login /></PageWrapper>} />
             <Route path="/signup" element={<PageWrapper><SignUp /></PageWrapper>} />
             <Route path="/profile" element={<PageWrapper><Profile /></PageWrapper>} />
