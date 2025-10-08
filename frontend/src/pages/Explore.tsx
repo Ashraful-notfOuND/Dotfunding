@@ -5,203 +5,13 @@ import Footer from "@/components/Footer";
 import ProjectCard from "@/components/ProjectCard";
 import CategoryNav from "@/components/CategoryNav";
 import FilterPanel from "@/components/FilterPanel";
-import FeaturedProjectCard from "@/components/FeaturedProjectCard";
-import { Menu, X } from "lucide-react";
+import { Menu } from "lucide-react";
 import { Button } from "@/components/ui/button";
-import projectTech from "@/assets/project-tech.jpg";
-import projectArt from "@/assets/project-art.jpg";
-import projectGame from "@/assets/project-game.jpg";
-import projectDesign from "@/assets/project-design.jpg";
-import projectFilm from "@/assets/project-film.jpg";
-import projectMusic from "@/assets/project-music.jpg";
 import { AnimatePresence, motion } from "framer-motion";
-import { allProjects, featuredProject } from "@/data/mockProjects"; // Import from centralized mock data
+//import { allProjects} from "@/data/mockProjects"; // or your mock data path
+import { allProjects } from "@/data/allProjects";
 
-// Mock data - expanded for better filtering/sorting
-const allProjects = [
-  {
-    id: "1",
-    title: "Revolutionary Smart Watch with Health Monitoring",
-    creator: "TechInnovate",
-    image: projectTech,
-    fundingGoal: 50000,
-    fundingCurrent: 42350,
-    daysLeft: 12,
-    category: "Technology",
-    subCategory: "Wearables",
-    status: "trending",
-    location: "USA",
-    staffPick: true,
-    backers: 847,
-  },
-  {
-    id: "2",
-    title: "Art Book: Journey Through Modern Abstract Painting",
-    creator: "Sarah Mitchell",
-    image: projectArt,
-    fundingGoal: 15000,
-    fundingCurrent: 18200,
-    daysLeft: 8,
-    category: "Art",
-    subCategory: "Books",
-    status: "nearly-funded",
-    location: "UK",
-    staffPick: true,
-    backers: 350,
-  },
-  {
-    id: "3",
-    title: "Epic Fantasy Board Game: Dragon's Quest",
-    creator: "GameCraft Studios",
-    image: projectGame,
-    fundingGoal: 35000,
-    fundingCurrent: 28500,
-    daysLeft: 15,
-    category: "Games",
-    subCategory: "Board Games",
-    status: "trending",
-    location: "Canada",
-    staffPick: false,
-    backers: 1205,
-  },
-  {
-    id: "4",
-    title: "Sustainable Bamboo Home Furniture Collection",
-    creator: "EcoDesign Co.",
-    image: projectDesign,
-    fundingGoal: 25000,
-    fundingCurrent: 12400,
-    daysLeft: 20,
-    category: "Design",
-    subCategory: "Home & Living",
-    status: "active",
-    location: "USA",
-    staffPick: false,
-    backers: 423,
-  },
-  {
-    id: "5",
-    title: "Independent Film: Stories from the City",
-    creator: "Urban Films",
-    image: projectFilm,
-    fundingGoal: 45000,
-    fundingCurrent: 31200,
-    daysLeft: 18,
-    category: "Film",
-    subCategory: "Documentary",
-    status: "active",
-    location: "USA",
-    staffPick: true,
-    backers: 967,
-  },
-  {
-    id: "6",
-    title: "Album Recording: Jazz Fusion Experience",
-    creator: "The Groove Collective",
-    image: projectMusic,
-    fundingGoal: 20000,
-    fundingCurrent: 8900,
-    daysLeft: 25,
-    category: "Music",
-    subCategory: "Albums",
-    status: "just-launched",
-    location: "USA",
-    staffPick: false,
-    backers: 150,
-  },
-  {
-    id: "7",
-    title: "AI-Powered Home Security System",
-    creator: "SecureHome",
-    image: projectTech,
-    fundingGoal: 75000,
-    fundingCurrent: 3200,
-    daysLeft: 30,
-    category: "Technology",
-    subCategory: "Smart Home",
-    status: "just-launched",
-    location: "USA",
-    staffPick: false,
-    backers: 50,
-  },
-  {
-    id: "8",
-    title: "Contemporary Sculpture Exhibition",
-    creator: "Gallery Modern",
-    image: projectArt,
-    fundingGoal: 30000,
-    fundingCurrent: 28900,
-    daysLeft: 5,
-    category: "Art",
-    subCategory: "Sculpture",
-    status: "nearly-funded",
-    location: "France",
-    staffPick: true,
-    backers: 700,
-  },
-  {
-    id: "9",
-    title: "RPG Video Game: Lost Kingdoms",
-    creator: "Indie Game Studios",
-    image: projectGame,
-    fundingGoal: 100000,
-    fundingCurrent: 65000,
-    daysLeft: 14,
-    category: "Games",
-    subCategory: "Video Games",
-    status: "trending",
-    location: "Japan",
-    staffPick: false,
-    backers: 2500,
-  },
-  {
-    id: "10",
-    title: "Minimalist Ceramic Dinnerware Set",
-    creator: "Clay Artisans",
-    image: projectDesign,
-    fundingGoal: 15000,
-    fundingCurrent: 9200,
-    daysLeft: 22,
-    category: "Design",
-    subCategory: "Tableware",
-    status: "active",
-    location: "Denmark",
-    staffPick: false,
-    backers: 300,
-  },
-  {
-    id: "11",
-    title: "Animation Short Film: Dream Sequence",
-    creator: "Animated Dreams",
-    image: projectFilm,
-    fundingGoal: 25000,
-    fundingCurrent: 18700,
-    daysLeft: 10,
-    category: "Film",
-    subCategory: "Animation",
-    status: "trending",
-    location: "USA",
-    staffPick: true,
-    backers: 600,
-  },
-  {
-    id: "12",
-    title: "Electronic Music Festival Documentary",
-    creator: "Beat Chronicles",
-    image: projectMusic,
-    fundingGoal: 40000,
-    fundingCurrent: 12300,
-    daysLeft: 28,
-    category: "Music",
-    subCategory: "Events",
-    status: "active",
-    location: "Germany",
-    staffPick: false,
-    backers: 200,
-  },
-];
-
-const featuredProject = allProjects[0];
+// If not using external mock data, your allProjects can stay here
 
 const Explore = () => {
   const [searchParams, setSearchParams] = useSearchParams();
@@ -215,6 +25,10 @@ const Explore = () => {
   const [sortOption, setSortOption] = useState("popularity");
   const [fundingGoalRange, setFundingGoalRange] = useState([100000]);
 
+  // PAGINATION STATES
+  const [currentPage, setCurrentPage] = useState(1);
+  const itemsPerPage = 6; // Number of cards per page
+
   const filteredProjects = useMemo(() => {
     let filtered = [...allProjects];
 
@@ -223,10 +37,12 @@ const Explore = () => {
     }
 
     if (selectedSubCategories.length > 0) {
-      filtered = filtered.filter((p) => selectedSubCategories.includes(p.subCategory));
+      filtered = filtered.filter((p) =>
+        selectedSubCategories.includes(p.subCategory)
+      );
     }
 
-    filtered = filtered.filter(p => p.fundingGoal <= fundingGoalRange[0]);
+    filtered = filtered.filter((p) => p.fundingGoal <= fundingGoalRange[0]);
 
     if (selectedFilters.length > 0) {
       filtered = filtered.filter((project) => {
@@ -243,7 +59,10 @@ const Explore = () => {
 
     switch (sortOption) {
       case "funding":
-        filtered.sort((a, b) => (b.fundingCurrent / b.fundingGoal) - (a.fundingCurrent / a.fundingGoal));
+        filtered.sort(
+          (a, b) =>
+            b.fundingCurrent / b.fundingGoal - a.fundingCurrent / a.fundingGoal
+        );
         break;
       case "end-date":
         filtered.sort((a, b) => a.daysLeft - b.daysLeft);
@@ -257,6 +76,8 @@ const Explore = () => {
         break;
     }
 
+    // Reset to first page if filters change
+    setCurrentPage(1);
     return filtered;
   }, [
     selectedCategory,
@@ -266,9 +87,24 @@ const Explore = () => {
     fundingGoalRange,
   ]);
 
+  // PAGINATION LOGIC
+  const totalPages = Math.ceil(filteredProjects.length / itemsPerPage);
+  const startIndex = (currentPage - 1) * itemsPerPage;
+  const endIndex = startIndex + itemsPerPage;
+  const currentProjects = filteredProjects.slice(startIndex, endIndex);
+
+  const handlePageChange = (page: number) => {
+    if (page >= 1 && page <= totalPages) {
+      setCurrentPage(page);
+      window.scrollTo({ top: 0, behavior: "smooth" });
+    }
+  };
+
   const handleFilterToggle = (filter: string) => {
     setSelectedFilters((prev) =>
-      prev.includes(filter) ? prev.filter((f) => f !== filter) : [...prev, filter]
+      prev.includes(filter)
+        ? prev.filter((f) => f !== filter)
+        : [...prev, filter]
     );
   };
 
@@ -316,7 +152,11 @@ const Explore = () => {
               <h1 className="text-2xl font-bold">
                 {selectedCategory === "All" ? "All Projects" : selectedCategory}
               </h1>
-              <Button variant="outline" size="sm" onClick={() => setIsMobileFiltersOpen(o => !o)}>
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={() => setIsMobileFiltersOpen((o) => !o)}
+              >
                 <Menu className="h-4 w-4 mr-2" /> Filters
               </Button>
             </div>
@@ -338,13 +178,14 @@ const Explore = () => {
 
             <div className="mb-6 flex justify-between items-center">
               <p className="text-muted-foreground">
-                Showing {filteredProjects.length} {filteredProjects.length === 1 ? "project" : "projects"}
+                Showing {filteredProjects.length}{" "}
+                {filteredProjects.length === 1 ? "project" : "projects"}
               </p>
             </div>
 
             <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-6">
               <AnimatePresence>
-                {filteredProjects.map((project) => (
+                {currentProjects.map((project) => (
                   <motion.div
                     key={project.id}
                     layout
@@ -361,8 +202,49 @@ const Explore = () => {
 
             {filteredProjects.length === 0 && (
               <div className="text-center py-16">
-                <p className="text-lg text-muted-foreground mb-4">No projects found.</p>
-                <Button variant="outline" onClick={clearAllFilters}>Clear All Filters</Button>
+                <p className="text-lg text-muted-foreground mb-4">
+                  No projects found.
+                </p>
+                <Button variant="outline" onClick={clearAllFilters}>
+                  Clear All Filters
+                </Button>
+              </div>
+            )}
+
+            {/*PAGINATION COMPONENT */}
+            {filteredProjects.length > 0 && (
+              <div className="flex justify-center items-center gap-2 mt-10">
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={() => handlePageChange(currentPage - 1)}
+                  disabled={currentPage === 1}
+                >
+                  Previous
+                </Button>
+
+                {[...Array(totalPages)].map((_, index) => {
+                  const page = index + 1;
+                  return (
+                    <Button
+                      key={page}
+                      variant={page === currentPage ? "default" : "outline"}
+                      size="sm"
+                      onClick={() => handlePageChange(page)}
+                    >
+                      {page}
+                    </Button>
+                  );
+                })}
+
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={() => handlePageChange(currentPage + 1)}
+                  disabled={currentPage === totalPages}
+                >
+                  Next
+                </Button>
               </div>
             )}
           </main>
