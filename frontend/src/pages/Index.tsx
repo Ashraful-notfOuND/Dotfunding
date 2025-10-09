@@ -14,13 +14,18 @@ import SuccessStories from "@/components/SuccessStories";
 import { Search, Sparkles, Users, Target, TrendingUp } from "lucide-react";
 import { Carousel, CarouselContent, CarouselItem, CarouselNext, CarouselPrevious } from "@/components/ui/carousel";
 import { Link } from "react-router-dom";
-import heroBanner from "@/assets/hero-banner.jpg"; // Re-import heroBanner
+import heroBanner from "@/assets/hero-banner.png"; // Re-import heroBanner
 import { useState, useEffect, useRef } from "react";
 import { motion, useScroll, useTransform } from "framer-motion";
-import { allProjects } from "@/data/mockProjects";
+import { allProjects } from "@/data/allProjects";
+//import { allProjects } from "@/data/mockProjects";
 
-const trendingProjects = allProjects.filter(p => p.isTrending);
-const recommendedProjects = allProjects.filter(p => !p.isTrending).slice(0, 3);
+//const trendingProjects = allProjects.filter(p => p.status === "trending").slice(0, 3);
+const trendingProjects = allProjects.filter(p => p.status === "trending").slice(0, 3);
+const recommendedProjects = allProjects
+  .filter(p => p.status !== "trending")
+  .slice(0, 3);
+
 
 const categories = [
   { name: "Technology", icon: Sparkles, count: 234 },
@@ -232,22 +237,44 @@ const Index = () => {
       </AnimatedSection>
 
       {/* Just Launched */}
-      <AnimatedSection>
-        <section className="container mx-auto px-4 py-16">
-          <div className="mb-8">
-            <h2 className="text-3xl font-bold mb-2">Just Launched</h2>
-            <p className="text-muted-foreground">Be one of the first to support these new projects.</p>
-          </div>
-          <Carousel opts={{ align: "start", loop: true }}>
-            {renderCarouselItems(allProjects.filter(p => {
-              const twoDaysAgo = new Date(new Date().setDate(new Date().getDate() - 2));
-              return p.createdDate > twoDaysAgo;
-            }))}
-            <CarouselPrevious />
-            <CarouselNext />
-          </Carousel>
-        </section>
-      </AnimatedSection>
+<AnimatedSection>
+  <section className="container mx-auto px-4 py-16">
+    <div className="mb-8">
+      <h2 className="text-3xl font-bold mb-2">Just Launched</h2>
+      <p className="text-muted-foreground">
+        Be one of the first to support these new projects.
+      </p>
+    </div>
+
+    {(() => {
+      // ✅ Define the cutoff (2 days ago)
+      const twoDaysAgo = new Date();
+      twoDaysAgo.setDate(twoDaysAgo.getDate() - 2);
+
+      // ✅ Safely filter projects (handles missing createdDate)
+      const justLaunchedProjects = allProjects.filter((p, i) => {
+        // Use real createdDate if available, or generate a fallback for testing
+        const createdDate =
+          p.createdDate instanceof Date
+            ? p.createdDate
+            : new Date(Date.now() - i * 86400000); // fallback: older by index
+
+        return createdDate > twoDaysAgo;
+      });
+
+      return justLaunchedProjects.length > 0 ? (
+        <Carousel opts={{ align: "start", loop: true }}>
+          {renderCarouselItems(justLaunchedProjects)}
+          <CarouselPrevious />
+          <CarouselNext />
+        </Carousel>
+      ) : (
+        <p className="text-muted-foreground">No recently launched projects.</p>
+      );
+    })()}
+  </section>
+</AnimatedSection>
+
 
       {/* Stats Counter */}
       <AnimatedSection>
