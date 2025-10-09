@@ -34,6 +34,7 @@ export const allProjects: {
   story: string;
   risks: string;
   rewards: { amount: number; title: string; description: string; delivery: string; backers: number; available: number }[];
+  createdDate?: Date;
 }[] =
 [
   {
@@ -70,6 +71,7 @@ export const allProjects: {
       { amount: 129, title: "Standard Package", description: "One smartwatch with standard accessories.", delivery: "April 2025", backers: 400, available: 600 },
       { amount: 249, title: "Duo Pack", description: "Two smartwatches for you and a friend. Save 20%.", delivery: "April 2025", backers: 97, available: 103 },
     ],
+    createdDate: new Date("2025-10-08"),
   },
   {
     id: "2",
@@ -134,6 +136,7 @@ export const allProjects: {
     rewards: [
       { amount: 25, title: "Digital Copy", description: "Get a digital copy of the game.", delivery: "July 2025", backers: 500, available: 0 },
     ],
+     createdDate: new Date("2025-10-08"),
   },
   {
     id: "4",
@@ -166,6 +169,7 @@ export const allProjects: {
     rewards: [
       { amount: 100, title: "Bamboo Chair", description: "One beautifully crafted bamboo chair.", delivery: "August 2025", backers: 100, available: 20 },
     ],
+    createdDate: new Date("2025-10-08"),
   },
   {
     id: "5",
@@ -198,6 +202,7 @@ export const allProjects: {
     rewards: [
       { amount: 15, title: "Digital Download", description: "Get a digital copy of the film.", delivery: "September 2025", backers: 500, available: 100 },
     ],
+     createdDate: new Date("2025-10-09"),
   },
   {
     id: "6",
@@ -230,6 +235,7 @@ export const allProjects: {
     rewards: [
       { amount: 10, title: "Digital Album", description: "Receive a digital download of the album.", delivery: "October 2025", backers: 100, available: 50 },
     ],
+     createdDate: new Date("2025-10-09"),
   },
   {
     id: "7",
@@ -258,6 +264,7 @@ export const allProjects: {
     rewards: [
       { amount: 199, title: "Early Backer", description: "Smart Home Hub with premium features.", delivery: "June 2025", backers: 200, available: 50 },
     ],
+     createdDate: new Date("2025-10-10"),
   },
   {
     id: "8",
@@ -314,6 +321,7 @@ export const allProjects: {
     rewards: [
       { amount: 50, title: "Early Access", description: "Access to VR lessons and demos.", delivery: "August 2025", backers: 200, available: 100 },
     ],
+     createdDate: new Date("2025-10-11"),
   },
   {
     id: "10",
@@ -342,6 +350,7 @@ export const allProjects: {
     rewards: [
       { amount: 25, title: "Starter Kit", description: "Miniature skincare set.", delivery: "June 2025", backers: 100, available: 50 },
     ],
+    createdDate: new Date("2025-10-09"),
   },
   {
     id: "11",
