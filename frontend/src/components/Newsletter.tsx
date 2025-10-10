@@ -41,7 +41,7 @@ const Newsletter = () => {
               required
               className="flex-1"
             />
-            <Button type="submit" className="bg-primary hover:bg-primary-hover">
+            <Button type="submit">
               Subscribe
             </Button>
           </form>

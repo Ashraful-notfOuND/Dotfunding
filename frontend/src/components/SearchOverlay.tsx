@@ -5,7 +5,7 @@ import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import { Link } from "react-router-dom";
 import useDebounce from "@/hooks/useDebounce";
-import { allProjects } from "@/data/mockProjects"; // Import allProjects
+import { allProjects } from "@/data/allProjects"; // Import allProjects
 
 interface SearchOverlayProps {
   isOpen: boolean;
@@ -28,21 +28,21 @@ const SearchOverlay = ({ isOpen, onClose }: SearchOverlayProps) => {
   const debouncedSearchTerm = useDebounce(searchTerm, 500);
   const inputRef = useRef<HTMLInputElement>(null);
 
-              useEffect(() => {
-                if (isOpen) {
-                  // Focus the input when the overlay opens
-                  inputRef.current?.focus();
-                  // Disable body scroll
-                  document.body.style.overflow = "hidden";
-                } else {
-                  // Enable body scroll
-                  document.body.style.overflow = "unset";
-                  setSearchTerm(""); // Clear search term when closing
-                }
-                return () => {
-                  document.body.style.overflow = "unset"; // Ensure scroll is re-enabled on unmount
-                };
-              }, [isOpen]);  const filteredResults = useMemo(() => {
+  useEffect(() => {
+    if (isOpen) {
+      // Focus the input when the overlay opens
+      inputRef.current?.focus();
+      // Disable body scroll
+      document.body.style.overflow = "hidden";
+    } else {
+      // Enable body scroll
+      document.body.style.overflow = "unset";
+      setSearchTerm(""); // Clear search term when closing
+    }
+    return () => {
+      document.body.style.overflow = "unset"; // Ensure scroll is re-enabled on unmount
+    };
+  }, [isOpen]); const filteredResults = useMemo(() => {
     if (!debouncedSearchTerm) return [];
     const lowerCaseSearchTerm = debouncedSearchTerm.toLowerCase();
     return allProjects.filter(project =>

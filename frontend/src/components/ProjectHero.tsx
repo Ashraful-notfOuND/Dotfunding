@@ -28,7 +28,7 @@ const ProjectHero = ({ title, creator, tagline, images, videoUrl, status }: Proj
     <div className="space-y-4 animate-fade-in">
       <div className="flex items-start justify-between gap-4">
         <div className="flex-1">
-          <Badge className="mb-3" variant={statusConfig[status].variant}>
+          <Badge className="mb-3">
             {statusConfig[status].label}
           </Badge>
           <h1 className="text-4xl font-bold mb-2">{title}</h1>

@@ -17,10 +17,11 @@ All colors MUST be HSL.
     --popover: 0 0% 100%;
     --popover-foreground: 215 20% 15%;
 
-    --primary: 262 83% 58%;
+    /* Primary color: changed from purple to a vibrant pink */
+    --primary: 340 85% 58%;
     --primary-foreground: 0 0% 100%;
-    --primary-hover: 262 83% 48%;
-    --primary-light: 262 83% 95%;
+    --primary-hover: 340 85% 48%;
+    --primary-light: 340 85% 95%;
 
     --secondary: 215 15% 95%;
     --secondary-foreground: 215 20% 15%;
@@ -41,13 +42,15 @@ All colors MUST be HSL.
 
     --border: 215 15% 88%;
     --input: 215 15% 88%;
-    --ring: 262 83% 58%;
+    /* ring should follow the primary hue */
+    --ring: var(--primary);
 
     --radius: 0.75rem;
 
-    --gradient-hero: linear-gradient(135deg, hsl(262 83% 58%) 0%, hsl(340 82% 52%) 100%);
+    /* Use the primary/accent tokens so gradients follow the chosen colors */
+    --gradient-hero: linear-gradient(135deg, hsl(var(--primary)) 0%, hsl(var(--accent)) 100%);
     --gradient-card: linear-gradient(180deg, hsl(0 0% 100%) 0%, hsl(0 0% 98%) 100%);
-    
+
     --shadow-sm: 0 1px 2px 0 hsl(215 15% 15% / 0.05);
     --shadow-md: 0 4px 6px -1px hsl(215 15% 15% / 0.1);
     --shadow-lg: 0 10px 15px -3px hsl(215 15% 15% / 0.1);
@@ -66,10 +69,11 @@ All colors MUST be HSL.
     --popover: 215 20% 15%;
     --popover-foreground: 215 15% 92%;
 
-    --primary: 262 83% 65%;
+    /* Dark theme primary tuned slightly lighter for better contrast */
+    --primary: 340 85% 65%;
     --primary-foreground: 0 0% 100%;
-    --primary-hover: 262 83% 72%;
-    --primary-light: 262 83% 20%;
+    --primary-hover: 340 85% 72%;
+    --primary-light: 340 85% 20%;
 
     --secondary: 215 20% 18%;
     --secondary-foreground: 215 15% 92%;
@@ -90,7 +94,8 @@ All colors MUST be HSL.
 
     --border: 215 20% 22%;
     --input: 215 20% 22%;
-    --ring: 262 83% 65%;
+    /* dark theme ring follows primary as well */
+    --ring: var(--primary);
   }
 }
 
@@ -103,7 +108,12 @@ All colors MUST be HSL.
     @apply bg-background text-foreground font-sans antialiased;
   }
 
-  h1, h2, h3, h4, h5, h6 {
+  h1,
+  h2,
+  h3,
+  h4,
+  h5,
+  h6 {
     @apply font-bold;
   }
 }

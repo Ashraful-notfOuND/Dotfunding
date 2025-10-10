@@ -125,7 +125,7 @@ const handleSubmit = async (e: React.FormEvent) => {
               </div>
             </div>
 
-            <Button type="submit" className="w-full bg-primary hover:bg-primary-hover">
+            <Button type="submit" className="w-full">
               Sign In
             </Button>
           </form>

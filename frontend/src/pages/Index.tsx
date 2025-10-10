@@ -14,10 +14,13 @@ import SuccessStories from "@/components/SuccessStories";
 import { Search, Sparkles, Users, Target, TrendingUp } from "lucide-react";
 import { Carousel, CarouselContent, CarouselItem, CarouselNext, CarouselPrevious } from "@/components/ui/carousel";
 import { Link } from "react-router-dom";
-import heroBanner from "@/assets/hero-banner.png"; // Re-import heroBanner
+import heroBanner from "@/assets/hero-banner.jpg"; // Re-import heroBanner
 import { useState, useEffect, useRef } from "react";
 import { motion, useScroll, useTransform } from "framer-motion";
 import { allProjects } from "@/data/allProjects";
+import HeroLanding from "@/components/landing/HeroLanding";
+import FeaturesLanding from "@/components/landing/FeaturesLanding";
+import CTALanding from "@/components/landing/CTALanding";
 //import { allProjects } from "@/data/mockProjects";
 
 //const trendingProjects = allProjects.filter(p => p.status === "trending").slice(0, 3);
@@ -78,86 +81,31 @@ const Index = () => {
     <CarouselContent>
       {isLoading
         ? Array.from({ length: 3 }).map((_, i) => (
-            <CarouselItem key={i} className="md:basis-1/2 lg:basis-1/3">
-              <div className="p-1">
-                <ProjectCardSkeleton />
-              </div>
-            </CarouselItem>
-          ))
+          <CarouselItem key={i} className="md:basis-1/2 lg:basis-1/3">
+            <div className="p-1">
+              <ProjectCardSkeleton />
+            </div>
+          </CarouselItem>
+        ))
         : projects.map((project) => (
-            <CarouselItem key={project.id} className="md:basis-1/2 lg:basis-1/3">
-              <div className="p-1">
-                <ProjectCard {...project} />
-              </div>
-            </CarouselItem>
-          ))}
+          <CarouselItem key={project.id} className="md:basis-1/2 lg:basis-1/3">
+            <div className="p-1">
+              <ProjectCard {...project} />
+            </div>
+          </CarouselItem>
+        ))}
     </CarouselContent>
   );
 
   return (
     <div className="min-h-screen flex flex-col">
       <Navbar />
+      {/* Particle background is mounted inside the Hero component now */}
 
-      {/* Hero Section */}
-      <motion.section 
-        className="relative overflow-hidden bg-gradient-to-br from-primary-light to-background"
-        initial={{ opacity: 0, y: 20 }}
-        animate={{ opacity: 1, y: 0, transition: { duration: 0.8, ease: "easeOut" } }}
-      >
-        {/* <ParticleBackground /> */}
-        <div className="container mx-auto px-4 py-20 md:py-32 relative z-10">
-          <div className="grid md:grid-cols-2 gap-12 items-center">
-            <motion.div className="space-y-6" initial={{ opacity: 0, y: 50 }} animate={{ opacity: 1, y: 0, transition: { duration: 0.6, ease: "easeOut" } }}>
-              <h1 className="text-4xl md:text-6xl font-bold leading-tight">
-                Bring <TypewriterText 
-                  texts={["Innovative", "Visionary", "Creative"]}
-                  speed={100}
-                  infinite={true}
-                  pauseDuration={2000}
-                  className="inline"
-                /> Projects to Life
-              </h1>
-              <p className="text-lg text-muted-foreground">
-                Discover and support groundbreaking ideas. Start your own campaign and turn your
-                vision into reality with community backing.
-              </p>
-              <div className="flex flex-col sm:flex-row gap-4">
-                <Button
-                  size="lg"
-                  className="bg-accent hover:bg-accent-hover text-accent-foreground"
-                  asChild
-                >
-                  <Link to="/create-project">Start a Project</Link>
-                </Button>
-                <Button size="lg" variant="outline" asChild>
-                  <Link to="/explore">Explore Projects</Link>
-                </Button>
-              </div>
-              <div className="flex gap-8 pt-4">
-                <div>
-                  <div className="text-3xl font-bold text-primary">$2.5B+</div>
-                  <div className="text-sm text-muted-foreground">Funded</div>
-                </div>
-                <div>
-                  <div className="text-3xl font-bold text-primary">450K+</div>
-                  <div className="text-sm text-muted-foreground">Projects</div>
-                </div>
-                <div>
-                  <div className="text-3xl font-bold text-primary">15M+</div>
-                  <div className="text-sm text-muted-foreground">Backers</div>
-                </div>
-              </div>
-            </motion.div>
-            <motion.div className="relative" initial={{ opacity: 0, y: 50 }} animate={{ opacity: 1, y: 0, transition: { duration: 0.6, ease: "easeOut" } }}>
-              <img
-                src={heroBanner}
-                alt="Creative collaboration"
-                className="rounded-2xl shadow-xl"
-              />
-            </motion.div>
-          </div>
-        </div>
-      </motion.section>
+      {/* New landing components */}
+      <HeroLanding />
+      <FeaturesLanding />
+      <CTALanding />
 
       {/* Trending Projects */}
       <AnimatedSection>
@@ -190,7 +138,7 @@ const Index = () => {
                   to={`/category/${category.name.toLowerCase()}`}
                   className="group"
                 >
-                  <motion.div 
+                  <motion.div
                     className="bg-card rounded-lg p-6 text-center hover:shadow-lg transition-smooth border border-border"
                     initial={{ opacity: 0, y: 20 }}
                     whileInView={{ opacity: 1, y: 0 }}
@@ -237,43 +185,43 @@ const Index = () => {
       </AnimatedSection>
 
       {/* Just Launched */}
-<AnimatedSection>
-  <section className="container mx-auto px-4 py-16">
-    <div className="mb-8">
-      <h2 className="text-3xl font-bold mb-2">Just Launched</h2>
-      <p className="text-muted-foreground">
-        Be one of the first to support these new projects.
-      </p>
-    </div>
+      <AnimatedSection>
+        <section className="container mx-auto px-4 py-16">
+          <div className="mb-8">
+            <h2 className="text-3xl font-bold mb-2">Just Launched</h2>
+            <p className="text-muted-foreground">
+              Be one of the first to support these new projects.
+            </p>
+          </div>
 
-    {(() => {
-      // ✅ Define the cutoff (2 days ago)
-      const twoDaysAgo = new Date();
-      twoDaysAgo.setDate(twoDaysAgo.getDate() - 2);
+          {(() => {
+            // ✅ Define the cutoff (2 days ago)
+            const twoDaysAgo = new Date();
+            twoDaysAgo.setDate(twoDaysAgo.getDate() - 2);
 
-      // ✅ Safely filter projects (handles missing createdDate)
-      const justLaunchedProjects = allProjects.filter((p, i) => {
-        // Use real createdDate if available, or generate a fallback for testing
-        const createdDate =
-          p.createdDate instanceof Date
-            ? p.createdDate
-            : new Date(Date.now() - i * 86400000); // fallback: older by index
+            // ✅ Safely filter projects (handles missing createdDate)
+            const justLaunchedProjects = allProjects.filter((p, i) => {
+              // Use real createdDate if available, or generate a fallback for testing
+              const createdDate =
+                p.createdDate instanceof Date
+                  ? p.createdDate
+                  : new Date(Date.now() - i * 86400000); // fallback: older by index
 
-        return createdDate > twoDaysAgo;
-      });
+              return createdDate > twoDaysAgo;
+            });
 
-      return justLaunchedProjects.length > 0 ? (
-        <Carousel opts={{ align: "start", loop: true }}>
-          {renderCarouselItems(justLaunchedProjects)}
-          <CarouselPrevious />
-          <CarouselNext />
-        </Carousel>
-      ) : (
-        <p className="text-muted-foreground">No recently launched projects.</p>
-      );
-    })()}
-  </section>
-</AnimatedSection>
+            return justLaunchedProjects.length > 0 ? (
+              <Carousel opts={{ align: "start", loop: true }}>
+                {renderCarouselItems(justLaunchedProjects)}
+                <CarouselPrevious />
+                <CarouselNext />
+              </Carousel>
+            ) : (
+              <p className="text-muted-foreground">No recently launched projects.</p>
+            );
+          })()}
+        </section>
+      </AnimatedSection>
 
 
       {/* Stats Counter */}

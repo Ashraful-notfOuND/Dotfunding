@@ -1,5 +1,4 @@
 import { Link } from "react-router-dom";
-import { Progress } from "@/components/ui/progress";
 import { Button } from "@/components/ui/button";
 import { Clock, TrendingUp, Heart, Share2 } from "lucide-react";
 import { useWishlist } from "@/hooks/useWishlist";
@@ -28,7 +27,7 @@ const ProjectCard = ({
   category,
   isTrending = false,
 }: ProjectCardProps) => {
-  const fundingPercentage = Math.min((fundingCurrent / fundingGoal) * 100, 100);
+  const fundingPercentage = fundingGoal > 0 ? Math.min((fundingCurrent / fundingGoal) * 100, 100) : 0;
   const backers = Math.floor(fundingCurrent / 50); // Simulated backers count
   const { isInWishlist, toggleWishlist } = useWishlist();
 
@@ -47,39 +46,40 @@ const ProjectCard = ({
   };
 
   return (
-    <div className="group bg-card rounded-lg overflow-hidden shadow-smooth hover:shadow-lg transition-smooth border border-border animate-fade-in relative">
-      <Link to={`/project/${id}`}>
+    <div className="group bg-card/80 backdrop-blur-sm border border-border rounded-xl overflow-hidden shadow-sm transition-transform duration-300 hover:shadow-lg hover:-translate-y-1 animate-fade-in relative">
+      <Link to={`/project/${id}`} className="block focus:outline-none focus-visible:ring-2 focus-visible:ring-[hsl(var(--primary))]">
         {/* Image */}
-        <div className="relative aspect-video overflow-hidden">
+        <div className="relative aspect-video overflow-hidden bg-muted">
           <img
             src={image}
             alt={title}
-            className="w-full h-full object-cover group-hover:scale-105 transition-smooth"
+            loading="lazy"
+            className="w-full h-full object-cover transition-transform duration-500 ease-out group-hover:scale-105"
           />
           {isTrending && (
-            <div className="absolute top-3 left-3 bg-accent text-accent-foreground px-3 py-1 rounded-full text-xs font-semibold flex items-center gap-1">
+            <div className="absolute top-3 left-3 bg-accent text-accent-foreground px-3 py-0.5 rounded-full text-xs font-semibold shadow">
               <TrendingUp className="h-3 w-3" />
-              Trending
+              <span className="ml-1">Trending</span>
             </div>
           )}
-          <div className="absolute top-3 right-3 bg-background/90 backdrop-blur-sm px-3 py-1 rounded-full text-xs font-medium">
+          <div className="absolute top-3 right-3 bg-background/90 backdrop-blur-sm px-3 py-0.5 rounded-full text-xs font-medium">
             {category}
           </div>
 
-          {/* Quick Actions */}
-          <div className="absolute bottom-3 right-3 flex gap-2 opacity-0 group-hover:opacity-100 transition-smooth">
+          {/* Quick Actions (fade+translate) */}
+          <div className="absolute bottom-3 right-3 flex gap-2 opacity-0 translate-y-2 group-hover:opacity-100 group-hover:translate-y-0 transition-all duration-200">
             <Button
               size="icon"
-              variant="secondary"
-              className="h-8 w-8 rounded-full shadow-lg"
+              variant="ghost"
+              className="h-8 w-8 rounded-full shadow-lg bg-background/90"
               onClick={handleWishlist}
             >
               <Heart className={`h-4 w-4 ${isInWishlist(id) ? 'fill-destructive text-destructive' : ''}`} />
             </Button>
             <Button
               size="icon"
-              variant="secondary"
-              className="h-8 w-8 rounded-full shadow-lg"
+              variant="ghost"
+              className="h-8 w-8 rounded-full shadow-lg bg-background/90"
               onClick={handleShare}
             >
               <Share2 className="h-4 w-4" />
@@ -88,35 +88,33 @@ const ProjectCard = ({
         </div>
 
         {/* Content */}
-        <div className="p-5 space-y-3">
-          <h3 className="font-semibold text-lg line-clamp-2 group-hover:text-primary transition-smooth">
+        <div className="p-5">
+          <h3 className="text-lg md:text-xl font-semibold text-card-foreground line-clamp-2">
             {title}
           </h3>
-          <p className="text-sm text-muted-foreground">by {creator}</p>
+          <p className="text-sm text-muted-foreground mt-1">by {creator}</p>
 
-          {/* Funding Progress */}
-          <div className="space-y-2">
-            <Progress value={fundingPercentage} className="h-2" />
-            <div className="flex items-center justify-between text-sm">
+          {/* Compact stats block: amount on one line, backers + time on second line */}
+          <div className="mt-4 border-t border-border pt-3 text-sm">
+            <div className="flex items-baseline justify-between">
+              <div className="flex items-baseline gap-2">
+                <span className="font-semibold text-foreground">${fundingCurrent.toLocaleString()}</span>
+              </div>
               <div>
-                <span className="font-bold text-foreground">
-                  ${fundingCurrent.toLocaleString()}
-                </span>
-                <span className="text-muted-foreground">
-                  {" "}
-                  of ${fundingGoal.toLocaleString()}
+                <span
+                  className="text-sm font-medium text-emerald-600"
+                  aria-label={`${Math.round(fundingPercentage)} percent funded`}
+                >
+                  {Math.round(fundingPercentage)}% funded
                 </span>
               </div>
-              <div className="text-muted-foreground">{Math.round(fundingPercentage)}%</div>
             </div>
-          </div>
-
-          {/* Stats */}
-          <div className="flex items-center justify-between pt-2 border-t border-border">
-            <span className="text-sm text-muted-foreground">{backers} backers</span>
-            <div className="flex items-center gap-1 text-sm text-muted-foreground">
-              <Clock className="h-4 w-4" />
-              <span>{daysLeft} days left</span>
+            <div className="mt-1 text-muted-foreground text-sm">
+              <div>{backers} backers</div>
+              <div className="flex items-center gap-1 mt-1">
+                <Clock className="h-4 w-4" />
+                <span>{daysLeft}d</span>
+              </div>
             </div>
           </div>
         </div>

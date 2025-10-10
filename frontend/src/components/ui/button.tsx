@@ -9,13 +9,14 @@ const buttonVariants = cva(
   {
     variants: {
       variant: {
-        default: "bg-primary text-primary-foreground hover:bg-primary/90",
+  // Make the default button a CTA using the accent (pink) token
+  default: "bg-accent text-accent-foreground hover:bg-accent-hover",
         destructive: "bg-background text-destructive border border-transparent hover:border-destructive transition-colors duration-500",
         outline:
           "border border-input bg-background text-foreground hover:border-accent transition-colors duration-500",
         secondary: "bg-secondary text-secondary-foreground hover:bg-secondary/80 transition-colors duration-500",
         ghost: "hover:bg-accent hover:text-accent-foreground transition-colors duration-500",
-        link: "text-primary underline-offset-4 hover:underline",
+  link: "text-accent underline-offset-4 hover:underline",
       },
       size: {
         default: "h-10 px-4 py-2",

@@ -187,7 +187,7 @@ const ProjectDetail = () => {
                   <Button
                     onClick={handleCustomPledge}
                     disabled={!customPledgeAmount || parseFloat(customPledgeAmount) < 1}
-                    className="bg-primary hover:bg-primary-hover"
+                    className="bg-accent hover:bg-accent-hover"
                   >
                     Continue
                   </Button>

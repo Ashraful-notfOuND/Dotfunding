@@ -27,8 +27,9 @@ const Navbar = ({ hideSearch }: NavbarProps) => {
             <div className="w-8 h-8 rounded-lg bg-primary flex items-center justify-center">
               <span className="text-primary-foreground text-xl">D</span>
             </div>
-            <span className="hidden sm:inline bg-gradient-to-r from-primary to-accent bg-clip-text text-transparent">
-              DotFunding
+            <span className="hidden sm:inline">
+              <span className="text-black">Dot</span>
+              <span className="ml-1 bg-gradient-to-r from-primary to-accent bg-clip-text text-transparent">Funding</span>
             </span>
           </Link>
 
