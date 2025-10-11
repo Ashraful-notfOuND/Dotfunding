@@ -9,7 +9,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Calendar } from "@/components/ui/calendar";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { CalendarIcon } from "lucide-react";
-
+import { useAuth } from "@/hooks/useAuth";
 // Reward now uses string for amount
 interface Reward {
   amount: string;
@@ -43,7 +43,8 @@ function formatDate_dd_mm_yyyy(date: Date): string {
 
 const CreateProject = () => {
   const navigate = useNavigate();
-
+  const { user, isAuthenticated } = useAuth();
+  console.log("current user:", user.id, user.email);
   const [form, setForm] = useState({
     title: "",
     tagline: "",
@@ -203,31 +204,55 @@ const CreateProject = () => {
     }));
   };
 
-  const handleSubmit = (e: React.FormEvent) => {
-    e.preventDefault();
-    if (!validateForm()) return;
+const handleSubmit = async (e: React.FormEvent) => {
+  e.preventDefault();
+  if (!validateForm()) return;
 
-    const goalNum = Number(form.fundingGoal);
-    const deadlineStr = form.fundingDeadline
-      ? formatDate_dd_mm_yyyy(form.fundingDeadline)
-      : "";
+  if (!user) {
+    console.error("No logged-in user found");
+    return;
+  }
 
-    // Build payload with numeric values for goal and rewards
-    const rewardsNumeric = form.rewards.map((r) => ({
-      ...r,
-      amount: Number(r.amount),
-    }));
+  const goalNum = Number(form.fundingGoal);
+  const deadlineStr = form.fundingDeadline
+    ? form.fundingDeadline.toISOString().split("T")[0]
+    : "";
 
-    const payload = {
-      ...form,
-      fundingGoal: goalNum,
-      fundingDeadline: deadlineStr,
-      rewards: rewardsNumeric,
-    };
+  const formData = new FormData();
+  formData.append("user_id", user.id); // 👈 send user id
+  formData.append("title", form.title);
+  formData.append("tagline", form.tagline);
+  formData.append("funding_goal", goalNum.toString());
+  formData.append("funding_deadline", deadlineStr);
+  formData.append("video_url", form.videoUrl || "");
+  formData.append("location", form.location);
+  formData.append("category", form.category);
 
-    console.log("Project Created:", payload);
-    // send payload to backend
-  };
+  // Append image
+  const fileInput = document.querySelector<HTMLInputElement>('input[type="file"]');
+  if (fileInput?.files && fileInput.files[0]) {
+    formData.append("image", fileInput.files[0]);
+  }
+
+  try {
+    const response = await fetch("http://localhost:5000/api/projects/create", {
+      method: "POST",
+      body: formData,
+    });
+
+    if (!response.ok) {
+      const error = await response.json();
+      console.error("Error creating project:", error);
+      return;
+    }
+
+    const data = await response.json();
+    console.log("Project created successfully:", data);
+    navigate("/");
+  } catch (err) {
+    console.error("Network error:", err);
+  }
+};
 
   return (
     <Card className="max-w-4xl mx-auto my-10">
@@ -434,6 +459,11 @@ const CreateProject = () => {
             {errors.fundingDeadline && (
               <p className="text-red-600 text-sm">{errors.fundingDeadline}</p>
             )}
+          </div>
+   {/* Description */}
+          <div>
+            <Label>Description / Story</Label>
+            <Textarea placeholder="Write about your campaign story" rows={4} value={form.description} onChange={(e) => setForm({ ...form, description: e.target.value })} />
           </div>
 
           {/* Rewards */}
