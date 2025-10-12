@@ -10,6 +10,7 @@ import { Calendar } from "@/components/ui/calendar";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { CalendarIcon } from "lucide-react";
 import { useAuth } from "@/hooks/useAuth";
+import { toast } from "@/hooks/use-toast";
 // Reward now uses string for amount
 interface Reward {
   amount: string;
@@ -62,6 +63,9 @@ const CreateProject = () => {
     updates: [] as Update[],
     createdDate: new Date(),
   });
+
+  // ✅ ADD THIS: Store actual File objects for gallery images
+  const [galleryFiles, setGalleryFiles] = useState<File[]>([]);
 
   const [errors, setErrors] = useState<{ [key: string]: string }>({});
 
@@ -184,10 +188,17 @@ const CreateProject = () => {
     setForm({ ...form, updates: updated });
   };
 
+  // ✅ UPDATED: Store both File objects and preview URLs
   const handleImageChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const files = e.target.files;
     if (files) {
-      const newImages = Array.from(files).map((file) =>
+      const filesArray = Array.from(files);
+      
+      // Store actual File objects
+      setGalleryFiles(prev => [...prev, ...filesArray]);
+      
+      // Create preview URLs for display
+      const newImages = filesArray.map((file) =>
         URL.createObjectURL(file)
       );
       setForm((prev) => ({
@@ -197,7 +208,9 @@ const CreateProject = () => {
     }
   };
 
+  // ✅ UPDATED: Remove from both arrays
   const handleImageRemove = (index: number) => {
+    setGalleryFiles(prev => prev.filter((_, i) => i !== index));
     setForm((prev) => ({
       ...prev,
       images: prev.images.filter((_, i) => i !== index),
@@ -219,6 +232,7 @@ const handleSubmit = async (e: React.FormEvent) => {
     : "";
 
   const formData = new FormData();
+  const formDataCampaign = new FormData();
   formData.append("user_id", user.id); // 👈 send user id
   formData.append("title", form.title);
   formData.append("tagline", form.tagline);
@@ -227,14 +241,19 @@ const handleSubmit = async (e: React.FormEvent) => {
   formData.append("video_url", form.videoUrl || "");
   formData.append("location", form.location);
   formData.append("category", form.category);
+  
 
   // Append image
-  const fileInput = document.querySelector<HTMLInputElement>('input[type="file"]');
+  const fileInput = document.querySelector<HTMLInputElement>('input[name="mainImage"]');
   if (fileInput?.files && fileInput.files[0]) {
     formData.append("image", fileInput.files[0]);
   }
+  
+
 
   try {
+
+    // Main project data
     const response = await fetch("http://localhost:5000/api/projects/create", {
       method: "POST",
       body: formData,
@@ -246,12 +265,45 @@ const handleSubmit = async (e: React.FormEvent) => {
       return;
     }
 
+
+    // Campaign data (description, gallery)
+
     const data = await response.json();
+    // Access the ID here:
+    const project_id = data.id;
+
+    formDataCampaign.append("project_id", project_id.toString());
+    formDataCampaign.append("description", form.description);
+    
+    // ✅ UPDATED: Use stored File objects instead of querying DOM
+    console.log(`Uploading ${galleryFiles.length} gallery images`);
+    if (galleryFiles.length > 0) {
+      for (let i = 0; i < galleryFiles.length; i++) {
+        formDataCampaign.append("images", galleryFiles[i]);
+        console.log(`Added image ${i + 1}: ${galleryFiles[i].name}`);
+      }
+    } else {
+      console.log("No gallery images to upload");
+    }
+    
+    const responseCampaign = await fetch("http://localhost:5000/api/projects/campaign", {
+      method: "POST",
+      body: formDataCampaign,
+    });
+    if (!responseCampaign.ok) {
+      const error = await responseCampaign.json();
+      console.error("Error creating campaign:", error);
+      return;
+    }
     console.log("Project created successfully:", data);
+    toast({
+           description: "Project created successfully!"
+         });
     navigate("/");
   } catch (err) {
     console.error("Network error:", err);
   }
+  
 };
 
   return (
@@ -296,6 +348,7 @@ const handleSubmit = async (e: React.FormEvent) => {
               <input
                 type="file"
                 accept="image/*"
+                name="mainImage"
                 onChange={(e) => {
                   if (e.target.files) {
                     const file = e.target.files[0];
@@ -341,6 +394,7 @@ const handleSubmit = async (e: React.FormEvent) => {
             <input
               type="file"
               accept="image/*"
+              name="images"
               multiple
               onChange={handleImageChange}
               className="block w-full text-sm text-gray-500"
