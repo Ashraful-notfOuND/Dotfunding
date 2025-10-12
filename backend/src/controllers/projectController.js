@@ -63,6 +63,125 @@ export const createProject = async (req, res) => {
   }
 };
 
+
+export const createCampaign = async (req, res) => {
+  try {
+    const { project_id, description } = req.body;
+
+    if (!project_id) {
+      return res.status(400).json({ error: "Project ID is required" });
+    }
+    if (!description) {
+      return res.status(400).json({ error: "Description is required" });
+    }
+    if (!req.files || req.files.length === 0) {
+      return res.status(400).json({ error: "At least one image file is required" });
+    }
+
+    const imageUrls = [];
+
+    // Upload each image
+    for (const file of req.files) {
+      const fileExt = file.originalname.split('.').pop();
+      const fileName = `${uuidv4()}.${fileExt}`;
+
+      const { data: uploadData, error: uploadError } = await supabase.storage
+        .from("project-pictures")
+        .upload(fileName, file.buffer, {
+          cacheControl: "3600",
+          upsert: false,
+          contentType: file.mimetype,
+        });
+
+      if (uploadError) {
+        throw uploadError;
+      }
+
+      const { data: urlData } = supabase.storage
+        .from("project-pictures")
+        .getPublicUrl(fileName);
+
+      imageUrls.push(urlData.publicUrl);
+    }
+
+    // Insert into project_campaigns (with image_urls as text[] array)
+    const { data, error } = await supabase
+      .from("project_campaigns")
+      .insert([
+        {
+          project_id,
+          description,
+          image_urls: imageUrls,
+        },
+      ])
+      .select()
+      .single();
+
+    if (error) {
+      throw error;
+    }
+
+    res.status(201).json(data);
+  } catch (err) {
+    console.error("createCampaign error:", err);
+    res.status(400).json({ error: err.message });
+  }
+};
+
+
+
+
+
+
+
+
+
+
+export const getUserProjects = async (req, res) => {
+  try {
+    console.log("Fetching projects for userId:", req.params.userId);
+    const { userId } = req.params;
+    if (!userId) {
+      return res.status(400).json({ error: "userId is required" });
+    }
+
+    // fetch the projects for that userId
+    const { data: projects, error } = await supabase
+      .from("main_projects")
+      .select(`
+        id,
+        title,
+        tagline,
+        image_url,
+        funding_goal,
+        funding_deadline,
+        category
+      `)
+      .eq("user_id", userId);
+
+    if (error) {
+      console.error("Error fetching user’s projects:", error);
+      return res.status(500).json({ error: error.message });
+    }
+
+    const result = projects.map((prj) => ({
+      id: prj.id,
+      title: prj.title,
+      tagline: prj.tagline,
+      imageUrl: prj.image_url,
+      fundingGoal: prj.funding_goal,
+      fundingDeadline: prj.funding_deadline,
+      category: prj.category,
+    }));
+
+    return res.status(200).json({ projects: result });
+  } catch (err) {
+    console.error("Error in getUserProjects:", err);
+    return res.status(500).json({ error: "Internal server error" });
+  }
+};
+
+
 // /**
 //  * Create a new project
 //  */
