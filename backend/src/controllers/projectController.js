@@ -114,6 +114,34 @@ export const createCampaign = async (req, res) => {
     res.status(400).json({ error: err.message });
   }
 };
+// faqs
+export const createFAQs = async (req, res) => {
+  try {
+    const { project_id, faqs } = req.body;
+
+    if (!project_id || !Array.isArray(faqs)) {
+      return res.status(400).json({ error: "Invalid request format" });
+    }
+
+    // Remove any existing FAQ row for this project (optional safeguard)
+    await supabase.from("project_faqs").delete().eq("project_id", project_id);
+
+    // Insert new row with FAQs as JSON
+    const { data, error } = await supabase
+      .from("project_faqs")
+      .insert([{ project_id, faqs }])
+      .select();
+
+    if (error) throw error;
+
+    res.status(201).json({ message: "FAQs saved successfully", data });
+  } catch (err) {
+    console.error("Error saving FAQs:", err);
+    res.status(500).json({ error: "Failed to save FAQs" });
+  }
+};
+
+
 
 /**
  * Create rewards for a project (expects JSON body: { project_id, rewards: [...] })
@@ -349,6 +377,47 @@ export const getProjectById = async (req, res) => {
 };
 
 
+export const getCampaignByProjectId = async (req, res) => {
+  try {
+    console.log("Fetching campaign for projectId:", req.params.projectId);
+    const { projectId } = req.params;
+
+    const { data, error } = await supabase
+      .from("project_campaigns")
+      .select("*")
+      .eq("project_id", projectId)
+      .single();
+
+    if (error || !data) {
+      return res.status(404).json({ error: "Campaign not found" });
+    }
+
+    res.json(data);
+  } catch (err) {
+    console.error("Error fetching campaign:", err);
+    res.status(500).json({ error: "Internal server error" });
+  }
+};
+
+export const getFAQsByProjectId = async (req, res) => {
+  try {
+    const { projectId } = req.params;
+    const { data, error } = await supabase
+      .from("project_faqs")
+      .select("faqs")
+      .eq("project_id", projectId)
+      .single();
+
+    if (error || !data) {
+      return res.status(404).json({ error: "FAQs not found" });
+    }
+
+    res.status(200).json(data.faqs);
+  } catch (err) {
+    console.error("Error fetching FAQs:", err);
+    res.status(500).json({ error: "Failed to fetch FAQs" });
+  }
+};
 // /**
 //  * Create a new project
 //  */
@@ -487,3 +556,4 @@ export const getProjectById = async (req, res) => {
 //     return res.status(500).json({ error: "Failed to fetch projects." });
 //   }
 // };
+
