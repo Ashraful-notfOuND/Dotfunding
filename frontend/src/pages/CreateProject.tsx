@@ -295,6 +295,30 @@ const handleSubmit = async (e: React.FormEvent) => {
       console.error("Error creating campaign:", error);
       return;
     }
+     // Send FAQs
+  if (form.faqs.length > 0) {
+    const faqsPayload = {
+      project_id,
+      faqs: form.faqs.map(f => ({
+        question: f.question,
+        answer: f.answer,
+      })),
+    };
+
+  const responseFaqs = await fetch("http://localhost:5000/api/projects/faqs", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify(faqsPayload),
+  });
+
+  if (!responseFaqs.ok) {
+    const errData = await responseFaqs.json();
+    console.error("Error uploading FAQs:", errData);
+  } else {
+    console.log("FAQs uploaded successfully");
+  }
+}
+
     // ✅ Send rewards (if any) as JSON to backend rewards endpoint
     if (form.rewards && form.rewards.length > 0) {
       try {
