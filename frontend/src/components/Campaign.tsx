@@ -1,19 +1,73 @@
+import { useEffect, useState } from "react";
 
-const Campaign = () => {
+type CampaignProps = {
+  projectId: string;
+};
+
+const Campaign = ({ projectId }: CampaignProps) => {
+  const [description, setDescription] = useState<string>("");
+  const [images, setImages] = useState<string[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
+
+  useEffect(() => {
+    if (!projectId) return;
+
+    const controller = new AbortController();
+
+    const fetchCampaign = async () => {
+      try {
+        setLoading(true);
+        console.log("Fetching campaign for projectId (frontend):", projectId);
+        const res = await fetch(`http://localhost:5000/api/projects/campaign/${projectId}`, {
+          signal: controller.signal,
+        });
+
+        if (!res.ok) {
+          const body = await res.json().catch(() => ({}));
+          throw new Error(body.error || "Failed to fetch campaign data");
+        }
+
+        const data = await res.json();
+        setDescription(data.description || "");
+        setImages(data.image_urls || []);
+      } catch (err: any) {
+        if (err.name !== "AbortError") {
+          setError(err.message);
+          console.error("Error fetching campaign:", err);
+        }
+      } finally {
+        setLoading(false);
+      }
+    };
+
+    fetchCampaign();
+    return () => controller.abort();
+  }, [projectId]);
+
+  if (loading) return <div>Loading campaign...</div>;
+  if (error) return <div className="text-red-600">{error}</div>;
+
   return (
     <div className="space-y-6">
       <h2 className="text-2xl font-bold">Campaign Story</h2>
-      <p>
-        This is where the main story of the project will go. It will include detailed descriptions, images, and videos to attract backers. 
-        Lorem ipsum dolor sit amet, consectetur adipiscing elit. Sed do eiusmod tempor incididunt ut labore et dolore magna aliqua.
-      </p>
-      <img src="/src/assets/project-design.jpg" alt="Project detail" className="w-full rounded-lg" />
-      <p>
-        Ut enim ad minim veniam, quis nostrud exercitation ullamco laboris nisi ut aliquip ex ea commodo consequat. 
-        Duis aute irure dolor in reprehenderit in voluptate velit esse cillum dolore eu fugiat nulla pariatur.
-      </p>
+      <p>{description}</p>
+
+      {images.length > 0 ? (
+        images.map((url, idx) => (
+          <img
+            key={idx}
+            src={url}
+            alt={`Campaign ${idx}`}
+            className="w-full rounded-lg"
+          />
+        ))
+      ) : (
+        <p className="text-sm text-muted-foreground">No campaign images found.</p>
+      )}
     </div>
   );
 };
 
 export default Campaign;
+
