@@ -217,11 +217,11 @@ const ProjectDetail = () => {
             </TabsList>
 
             <TabsContent value="campaign" className="mt-6">
-              <Campaign />
+              <Campaign projectId={project.id} />
             </TabsContent>
 
             <TabsContent value="faq" className="mt-6">
-              <FAQ />
+              <FAQ projectId={project.id} />
             </TabsContent>
 
             <TabsContent value="creator" className="mt-6">
