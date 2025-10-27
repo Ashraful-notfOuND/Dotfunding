@@ -1,0 +1,338 @@
+import dotenv from "dotenv";
+import { supabase } from "../config/supabaseClient.js";
+
+dotenv.config();
+
+const STORE_ID = process.env.SSLCZ_STORE_ID;
+const STORE_PASS = process.env.SSLCZ_STORE_PASS;
+const IS_LIVE = false;
+
+// Initialize transaction: POST /api/payments/init
+export const initPayment = async (req, res) => {
+  try {
+    const body = req.body || {};
+
+    // Expect total_amount, tran_id, success_url, fail_url, cancel_url, ipn_url, product_name
+    const data = {
+      total_amount: body.total_amount,
+      currency: body.currency || "BDT",
+      tran_id: body.tran_id,
+      success_url: body.success_url,
+      fail_url: body.fail_url,
+      cancel_url: body.cancel_url,
+      ipn_url: body.ipn_url,
+  // SSLCommerz requires a shipping_method value. For pledges/digital goods use "NO".
+      shipping_method: body.shipping_method || "NO",
+      product_name: body.product_name || "Product",
+      product_category: body.product_category || "General",
+      product_profile: body.product_profile || "general",
+      cus_name: body.cus_name || "",
+      cus_email: body.cus_email || "",
+      cus_add1: body.cus_add1 || "",
+      cus_city: body.cus_city || "",
+      cus_country: body.cus_country || "",
+      cus_phone: body.cus_phone || "",
+    };
+
+    // Basic validation to surface clear errors to the frontend instead of ambiguous gateway replies
+    const missing = [];
+    if (!data.total_amount || Number(data.total_amount) <= 0) missing.push("total_amount");
+    if (!data.tran_id) missing.push("tran_id");
+    if (!data.success_url) missing.push("success_url");
+    if (!data.ipn_url) missing.push("ipn_url");
+    if (!data.cus_phone) missing.push("cus_phone");
+    if (missing.length > 0) {
+      console.warn("initPayment: missing required init fields:", missing);
+      return res.status(400).json({ error: "Missing required fields for payment init", missing });
+    }
+
+    // Log the payload (without secrets) so we can inspect what we send to SSLCommerz during debugging
+    try {
+      console.info("initPayment: sending payload to SSLCommerz:", JSON.stringify(data));
+    } catch (e) {
+      console.info("initPayment: sending payload (could not stringify)");
+    }
+
+    // dynamic import because sslcommerz-lts is CJS
+    const mod = await import("sslcommerz-lts");
+    const SSLCommerzPayment = mod.default || mod;
+    const sslcz = new SSLCommerzPayment(STORE_ID, STORE_PASS, IS_LIVE);
+
+    const apiResponse = await sslcz.init(data);
+    // log response for debugging
+    console.log("SSLCommerz init response:", apiResponse);
+
+    // return gateway URL to frontend (ensure expected field exists)
+    const gatewayUrl = apiResponse?.GatewayPageURL || apiResponse?.GatewayPageUrl || apiResponse?.gateway_page_url || apiResponse?.redirect_url || apiResponse?.payment_url;
+    if (!gatewayUrl) {
+      // include full response for easier debugging
+      console.error("initPayment: no gateway URL in SSLCommerz response", apiResponse);
+      return res.status(502).json({ error: "No gateway URL returned from SSLCommerz init", response: apiResponse });
+    }
+
+    return res.status(200).json({ ...apiResponse, GatewayPageURL: gatewayUrl });
+  } catch (err) {
+    console.error("initPayment error:", err);
+    return res.status(500).json({ error: err.message || "Failed to init payment" });
+  }
+};
+
+// Validate transaction: POST /api/payments/validate
+// Accepts { val_id, tran_id, project_id, user_id, reward_id, amount }
+export const validatePayment = async (req, res) => {
+  try {
+    const { val_id, tran_id, project_id, user_id, reward_id, amount } = req.body || {};
+    if (!val_id) return res.status(400).json({ error: "val_id is required" });
+
+    const mod = await import("sslcommerz-lts");
+    const SSLCommerzPayment = mod.default || mod;
+    const sslcz = new SSLCommerzPayment(STORE_ID, STORE_PASS, IS_LIVE);
+
+    const validation = await sslcz.validate({ val_id });
+
+    // validation object shape depends on SSLCommerz; check common fields
+    const status = validation?.status || validation?.status_code || validation?.status_message || null;
+
+    // Basic check: treat as success if validation object contains status 'VALID' or 'VALIDATED' or status === 'VALID'
+    const ok = (typeof status === "string" && status.toLowerCase().includes("valid")) || validation?.risk_level === 0 || validation?.status === "VALID";
+
+    // Insert pledge if validated
+    if (ok) {
+      // create a pledge row
+      const pledgeRow = {
+        project_id: project_id || null,
+        user_id: user_id || null,
+        reward_id: reward_id || null,
+        tran_id: tran_id || validation?.tran_id || null,
+        amount: amount ? Number(amount) : Number(validation?.amount) || 0,
+        status: "paid",
+      };
+
+      const { data: pledgeData, error: pledgeError } = await supabase.from("pledges").insert([pledgeRow]).select();
+      if (pledgeError) {
+        console.error("pledge insert error:", pledgeError);
+      }
+
+      // If reward_id provided, increment backers and decrement available safely
+      if (reward_id) {
+        try {
+          const { data: reward } = await supabase.from("reward_table").select("backers, available").eq("id", reward_id).single();
+          if (reward) {
+            const newBackers = (Number(reward.backers) || 0) + 1;
+            const newAvailable = Number(reward.available) > 0 ? Number(reward.available) - 1 : 0;
+            await supabase.from("reward_table").update({ backers: newBackers, available: newAvailable }).eq("id", reward_id);
+          }
+        } catch (e) {
+          console.error("failed updating reward counts", e);
+        }
+      }
+
+      // Optionally update project-level aggregates (not required if computed from pledges)
+      return res.status(200).json({ ok: true, validation, pledge: pledgeData?.[0] ?? null });
+    }
+
+    return res.status(400).json({ ok: false, validation });
+  } catch (err) {
+    console.error("validatePayment error:", err);
+    return res.status(500).json({ error: err.message || "Validation failed" });
+  }
+};
+
+// Success redirect handler: GET /api/payments/success
+// SSLCommerz will redirect here with query params including val_id and tran_id
+export const successHandler = async (req, res) => {
+  try {
+    // SSLCommerz may send data via query params (GET) or form body (POST).
+    const params = req.method === "GET" ? req.query || {} : req.body || {};
+    const { val_id, tran_id, project_id, user_id, reward_id, amount } = params;
+    if (!val_id) return res.status(400).send("val_id required");
+
+    const mod = await import("sslcommerz-lts");
+    const SSLCommerzPayment = mod.default || mod;
+    const sslcz = new SSLCommerzPayment(STORE_ID, STORE_PASS, IS_LIVE);
+  const validation = await sslcz.validate({ val_id });
+
+    // treat as success when validation indicates valid
+    const status = validation?.status || validation?.status_code || null;
+    const ok = (typeof status === "string" && status.toLowerCase().includes("valid")) || validation?.risk_level === 0 || validation?.status === "VALID";
+
+    if (ok) {
+      // Insert pledge similar to validatePayment
+      const pledgeRow = {
+        project_id: project_id || null,
+        user_id: user_id || null,
+        reward_id: reward_id || null,
+        tran_id: tran_id || validation?.tran_id || null,
+        amount: amount ? Number(amount) : Number(validation?.amount) || 0,
+        status: "paid",
+      };
+
+      const { data: pledgeData, error: pledgeError } = await supabase.from("pledges").insert([pledgeRow]).select();
+      if (pledgeError) console.error("pledge insert error:", pledgeError);
+
+      if (reward_id) {
+        try {
+          const { data: reward } = await supabase.from("reward_table").select("backers, available").eq("id", reward_id).single();
+          if (reward) {
+            const newBackers = (Number(reward.backers) || 0) + 1;
+            const newAvailable = Number(reward.available) > 0 ? Number(reward.available) - 1 : 0;
+            await supabase.from("reward_table").update({ backers: newBackers, available: newAvailable }).eq("id", reward_id);
+          }
+        } catch (e) {
+          console.error("failed updating reward counts", e);
+        }
+      }
+
+      // Prefer a return_url supplied by the gateway redirect (we include this in the
+      // success_url query string from the frontend). This allows returning the user
+      // to the exact project page where they opened the pledge modal.
+      const returnUrl = params.return_url || params.returnUrl || params.return || null;
+      if (returnUrl) {
+        return res.redirect(returnUrl);
+      }
+
+      // Redirect to frontend success page if configured. If no FRONTEND_SUCCESS_URL is set
+      // (common during local development) return a simple HTML confirmation so the
+      // user still sees a success page even if the frontend dev server isn't running.
+      const frontendSuccess = process.env.FRONTEND_SUCCESS_URL;
+      if (frontendSuccess && frontendSuccess.length > 0) {
+        return res.redirect(frontendSuccess);
+      }
+
+      // Fallback: send a minimal HTML confirmation with pledge details and a link to
+      // the expected frontend route so developers can still see the result.
+      const defaultFront = "http://localhost:5173/payment-success";
+      const targetFront = frontendSuccess && frontendSuccess.length > 0 ? frontendSuccess : defaultFront;
+
+      // HTML fallback that attempts to go back in history, and falls back to the
+      // frontend success page if that fails. Also provides buttons for the user.
+      const pledgeSummary = `<!doctype html>
+        <html>
+        <head>
+          <meta charset="utf-8" />
+          <meta name="viewport" content="width=device-width,initial-scale=1" />
+          <title>Payment Successful</title>
+          <style>body{font-family:system-ui,Segoe UI,Roboto,Helvetica,Arial,sans-serif;line-height:1.4;padding:20px}button,a{margin-right:12px;padding:8px 12px;border-radius:6px;text-decoration:none;border:1px solid #ddd;background:#f6f6f7;color:#111}h1{color:green}</style>
+        </head>
+        <body>
+          <h1>Payment Successful</h1>
+          <p>Transaction ID: ${pledgeRow.tran_id}</p>
+          <p>Amount: ${pledgeRow.amount}</p>
+          <p>Project: ${project_id || 'N/A'}</p>
+          <p>Reward: ${reward_id || 'N/A'}</p>
+          <p>
+            <button id="backBtn">Return to previous page</button>
+            <a id="openSuccess" href="${targetFront}">Open frontend payment-success page</a>
+          </p>
+          <script>
+            // First try to navigate back (useful when browser history contains the app page).
+            function tryBack(){
+              try{ window.history.back(); }catch(e){}
+            }
+            document.getElementById('backBtn').addEventListener('click', tryBack);
+
+            // Attempt an automatic back, then fallback to frontend success after short delays.
+            setTimeout(function(){ tryBack(); }, 800);
+            setTimeout(function(){ window.location.href = '${targetFront}'; }, 3000);
+          </script>
+        </body>
+        </html>`;
+
+      res.setHeader('Content-Type', 'text/html');
+      return res.status(200).send(pledgeSummary);
+    }
+
+    // On failure, redirect to a failure page (frontend)
+    const frontendFail = process.env.FRONTEND_FAIL_URL || "http://localhost:5173/payment-fail";
+    return res.redirect(frontendFail);
+  } catch (err) {
+    console.error("successHandler error:", err);
+    return res.status(500).send("Server error");
+  }
+};
+
+// IPN endpoint (SSLCommerz server-to-server notification)
+export const ipnHandler = async (req, res) => {
+  try {
+    // SSLCommerz may send values in body (form-encoded). We accept val_id from body.
+    const { val_id } = req.body || {};
+    if (!val_id) return res.status(400).send("val_id required");
+
+    // Reuse validatePayment logic by calling validation and performing same actions
+    // For simplicity, delegate to validatePayment by constructing req.body and calling the function
+    // But since validatePayment expects req/res, we perform similar steps inline
+    const mod = await import("sslcommerz-lts");
+    const SSLCommerzPayment = mod.default || mod;
+    const sslcz = new SSLCommerzPayment(STORE_ID, STORE_PASS, IS_LIVE);
+    const validation = await sslcz.validate({ val_id });
+
+    // If validated, ensure pledge row exists or insert (idempotent logic can be added)
+    // For now just respond 200
+    return res.status(200).json({ received: true, validation });
+  } catch (err) {
+    console.error("ipnHandler error:", err);
+    return res.status(500).json({ error: err.message || "IPN error" });
+  }
+};
+
+export default {
+  initPayment,
+  validatePayment,
+  ipnHandler,
+};
+/*
+const express = require('express')
+const app = express()
+
+const SSLCommerzPayment = require('sslcommerz-lts')
+const store_id = '<your_store_id>'
+const store_passwd = '<your_store_password>'
+const is_live = false //true for live, false for sandbox
+
+const port = 3030
+
+//sslcommerz init
+app.get('/init', (req, res) => {
+    const data = {
+        total_amount: 100,
+        currency: 'BDT',
+        tran_id: 'REF123', // use unique tran_id for each api call
+        success_url: 'http://localhost:3030/success',
+        fail_url: 'http://localhost:3030/fail',
+        cancel_url: 'http://localhost:3030/cancel',
+        ipn_url: 'http://localhost:3030/ipn',
+        shipping_method: 'Courier',
+        product_name: 'Computer.',
+        product_category: 'Electronic',
+        product_profile: 'general',
+        cus_name: 'Customer Name',
+        cus_email: 'customer@example.com',
+        cus_add1: 'Dhaka',
+        cus_add2: 'Dhaka',
+        cus_city: 'Dhaka',
+        cus_state: 'Dhaka',
+        cus_postcode: '1000',
+        cus_country: 'Bangladesh',
+        cus_phone: '01711111111',
+        cus_fax: '01711111111',
+        ship_name: 'Customer Name',
+        ship_add1: 'Dhaka',
+        ship_add2: 'Dhaka',
+        ship_city: 'Dhaka',
+        ship_state: 'Dhaka',
+        ship_postcode: 1000,
+        ship_country: 'Bangladesh',
+    };
+    const sslcz = new SSLCommerzPayment(store_id, store_passwd, is_live)
+    sslcz.init(data).then(apiResponse => {
+        // Redirect the user to payment gateway
+        let GatewayPageURL = apiResponse.GatewayPageURL
+        res.redirect(GatewayPageURL)
+        console.log('Redirecting to: ', GatewayPageURL)
+    });
+})
+
+app.listen(port, () => {
+    console.log(`Example app listening at http://localhost:${port}`)
+})
+*/

@@ -36,6 +36,7 @@ const pledgeSchema = z.object({
   amount: z.string().min(1, "Please enter a pledge amount"),
   email: z.string().email("Please enter a valid email address"),
   fullName: z.string().min(2, "Please enter your full name").max(100),
+  phone: z.string().min(5, "Please enter a valid phone number"),
 });
 
 type PledgeFormValues = z.infer<typeof pledgeSchema>;
@@ -50,6 +51,8 @@ interface PledgeModalProps {
     title: string;
     description: string;
   } | null;
+  projectId?: string | null;
+  userId?: string | null;
 }
 
 const PledgeModal = ({
@@ -58,6 +61,8 @@ const PledgeModal = ({
   projectTitle,
   defaultAmount = "",
   selectedReward,
+  projectId,
+  userId,
 }: PledgeModalProps) => {
   const { toast } = useToast();
   const navigate = useNavigate();
@@ -69,6 +74,7 @@ const PledgeModal = ({
       amount: defaultAmount,
       email: "",
       fullName: "",
+      phone: "",
     },
   });
 
@@ -81,27 +87,80 @@ const PledgeModal = ({
   const onSubmit = async (data: PledgeFormValues) => {
     setIsProcessing(true);
 
-    // --- FULLY SIMULATED STRIPE CHECKOUT FLOW (FRONTEND ONLY) ---
-    console.log("Simulating backend call to create Checkout Session...");
-    await new Promise(resolve => setTimeout(resolve, 2000)); // Simulate network delay
+    try {
+      // build a unique tran_id
+      const tran_id = `tran_${Date.now()}_${Math.random().toString(36).slice(2,8)}`;
+      const amount = Number(data.amount || 0);
 
-    // Simulate successful redirect to Stripe and then back to success page
-    toast({
-      title: "Redirecting to Stripe...",
-      description: "Please complete your payment on the secure Stripe page.",
-    });
+      // success/fail URLs point to backend which will validate and then redirect to frontend
+      // Use Vite env vars (import.meta.env). Set VITE_BACKEND_URL in your frontend .env
+      // Fallbacks are provided for local dev.
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      const env: any = import.meta.env || {};
+      const backendBase = env.VITE_BACKEND_URL || "http://localhost:5000";
+      // Build a frontend return URL so after payment the user can be redirected back to the project page
+      const frontendBase = env.VITE_FRONTEND_URL || env.VITE_FRONTEND_BASE || "http://localhost:5173";
+      const frontendProjectUrl = `${frontendBase.replace(/\/$/, "")}/project/${encodeURIComponent(projectId || "")}`;
 
-    // Simulate a short delay before redirecting to our mock success page
-    await new Promise(resolve => setTimeout(resolve, 1500));
+      const successUrl = `${backendBase}/api/payments/success?project_id=${encodeURIComponent(
+        projectId || ""
+      )}&user_id=${encodeURIComponent(userId || "")} ${selectedReward && (selectedReward as any).id ? `&reward_id=${encodeURIComponent((selectedReward as any).id)}` : ""}&amount=${encodeURIComponent(String(amount))}&return_url=${encodeURIComponent(frontendProjectUrl)}`;
+      const failUrl = env.VITE_FRONTEND_FAIL_URL || "http://localhost:5173/payment-fail";
+      const cancelUrl = env.VITE_FRONTEND_CANCEL_URL || "http://localhost:5173/";
+      const ipnUrl = `${backendBase}/api/payments/ipn`;
 
-    // In a real app, Stripe would redirect back to your success_url
-    // Here, we navigate directly to a mock success page on our frontend.
-    navigate("/payment-success"); // Navigate to a mock success page
+      const payload = {
+        total_amount: amount,
+        currency: "BDT",
+        tran_id,
+        // Indicate no shipping required for pledges
+        shipping_method: "NO",
+        success_url: successUrl,
+        fail_url: failUrl,
+        cancel_url: cancelUrl,
+        ipn_url: ipnUrl,
+  product_name: projectTitle || "Pledge",
+  cus_name: data.fullName,
+  cus_phone: data.phone,
+  cus_email: data.email,
+        // include project/reward info for the success redirect
+        project_id: projectId || null,
+        user_id: userId || null,
+        reward_id: (selectedReward as any)?.id || null,
+      };
 
-    setIsProcessing(false);
-    onOpenChange(false); // Close modal after simulated redirect
-    form.reset();
-    // --- END SIMULATION ---
+      const res = await fetch(`${backendBase}/api/payments/init`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(payload),
+      });
+
+      if (!res.ok) {
+        const err = await res.json().catch(() => ({}));
+        toast({ title: "Payment init failed", description: err?.error || "Could not initialize payment." });
+        setIsProcessing(false);
+        return;
+      }
+
+      const dataResp = await res.json();
+      const gateway = dataResp?.GatewayPageURL || dataResp?.GatewayPageURL || dataResp?.redirect_url || dataResp?.payment_url;
+      if (!gateway) {
+        toast({ title: "Payment init failed", description: "No gateway URL returned" });
+        setIsProcessing(false);
+        return;
+      }
+
+      // Redirect user to payment gateway
+      window.location.href = gateway;
+      return;
+    } catch (err) {
+      console.error("Payment init error:", err);
+      toast({ title: "Payment error", description: "Network or server error when initiating payment." });
+    } finally {
+      setIsProcessing(false);
+      onOpenChange(false);
+      form.reset();
+    }
   };
 
   return (
@@ -189,6 +248,25 @@ const PledgeModal = ({
                     <Input
                       type="email"
                       placeholder="john@example.com"
+                      {...field}
+                    />
+                  </FormControl>
+                  <FormMessage />
+                </FormItem>
+              )}
+            />
+
+            {/* Phone */}
+            <FormField
+              control={form.control}
+              name="phone"
+              render={({ field }) => (
+                <FormItem>
+                  <FormLabel>Phone Number</FormLabel>
+                  <FormControl>
+                    <Input
+                      type="tel"
+                      placeholder="017xxxxxxxx"
                       {...field}
                     />
                   </FormControl>

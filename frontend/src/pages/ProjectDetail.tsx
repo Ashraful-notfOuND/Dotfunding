@@ -20,24 +20,45 @@ import Updates from "@/components/Updates";
 import Comments from "@/components/Comments";
 import CreatorTab from "@/components/CreatorTab";
 import StatisticsTab from "@/components/StatisticsTab";
-
 import { useAuth } from "@/hooks/useAuth";
-import { allProjects } from "@/data/allProjects";
+
+type Reward = {
+  amount: number;
+  title: string;
+  description: string;
+  delivery?: string;
+  backers?: number;
+  available?: number;
+};
+
+type Project = {
+  id: string;
+  title: string;
+  tagline?: string;
+  creator?: string;
+  creatorEmail?: string;
+  images?: string[];
+  videoUrl?: string | null;
+  status?: string;
+  image_urls?: string;
+  fundingGoal?: number;
+  fundingCurrent?: number;
+  backers?: number;
+  daysLeft?: number;
+  category?: string;
+  location?: string;
+  description?: string;
+  rewards?: Reward[];
+};
 
 const ProjectDetail = () => {
   const { user } = useAuth();
   const { id } = useParams();
   const navigate = useNavigate();
-
-  // Find project from allProjects
-  const project = allProjects.find((p) => p.id === id);
-
-  useEffect(() => {
-    if (!project) navigate("/404");
-  }, [project, navigate]);
-
-  if (!project) return null;
-
+  const [project, setProject] = useState<Project | null>(null);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
+  const [rawBody, setRawBody] = useState<any>(null);
   const [pledgeAmount, setPledgeAmount] = useState("");
   const [customPledgeAmount, setCustomPledgeAmount] = useState("");
   const [isPledgeModalOpen, setIsPledgeModalOpen] = useState(false);
@@ -46,6 +67,89 @@ const ProjectDetail = () => {
     title: string;
     description: string;
   } | null>(null);
+  
+  useEffect(() => {
+    if (!id) {
+      console.error("No project ID provided in URL");
+      navigate("/404");
+      return;
+    }
+
+    const controller = new AbortController();
+
+    const fetchProject = async () => {
+      setLoading(true);
+      setError(null);
+      try {
+        const res = await fetch(`http://localhost:5000/api/projects/${id}`, {
+          signal: controller.signal,
+        });
+
+        if (!res.ok) {
+          if (res.status === 404) {
+            console.error("Backend didn't find project");
+            navigate("/404");
+            return;
+          }
+          const body = await res.json().catch(() => ({}));
+          throw new Error(body.error || `Failed to fetch project (${res.status})`);
+        }
+
+  const data = await res.json();
+  // store raw response for debugging
+  setRawBody(data);
+  // Accept either { project: {...} } or direct project object
+  setProject((data && data.project) ? data.project : data ?? null);
+  console.log("ProjectDetail fetch response:", data);
+      } catch (err: any) {
+        if (err.name === "AbortError") return;
+        console.error("Error fetching project:", err);
+        setError(err.message || "Failed to load project");
+      } finally {
+        setLoading(false);
+      }
+    };
+
+    fetchProject();
+
+    return () => controller.abort();
+  }, [id, navigate]);
+
+  if (loading) {
+    return (
+      <div className="min-h-screen flex items-center justify-center">
+        <div>Loading project...</div>
+      </div>
+    );
+  }
+
+  if (error) {
+    return (
+      <div className="min-h-screen flex items-center justify-center">
+        <div className="text-red-600">{error}</div>
+      </div>
+    );
+  }
+
+  // If no project after fetch, show a helpful message instead of returning null
+  if (!project) {
+    const showDebug = typeof window !== "undefined" && new URLSearchParams(window.location.search).get("debug") === "1";
+    return (
+      <div className="min-h-screen flex items-center justify-center">
+        <div className="text-center">
+          <p className="text-lg font-semibold mb-2">Project data not available.</p>
+          <p className="text-sm text-muted-foreground mb-4">The backend returned no project for this id.</p>
+          {error && <div className="text-red-600 mb-4">Error: {error}</div>}
+          {showDebug && (
+            <pre className="text-left max-w-3xl overflow-auto text-xs bg-surface border p-3 rounded">
+              {JSON.stringify(rawBody, null, 2)}
+            </pre>
+          )}
+        </div>
+      </div>
+    );
+  }
+
 
   const handleRewardSelect = (reward: { amount: number; title: string; description: string }) => {
     setSelectedReward(reward);
@@ -65,19 +169,24 @@ const ProjectDetail = () => {
     setIsPledgeModalOpen(true);
   };
 
-  const relatedProjects = allProjects
-  .filter((p) => p.category === project.category && p.id !== project.id)
-  .map((p) => ({
-    id: p.id,
-    title: p.title,
-    creator: p.creator,
-    image: p.image,
-    fundingGoal: p.fundingGoal,
-    fundingCurrent: p.fundingCurrent,
-    backers: p.backers,
-    daysLeft: p.daysLeft,
-    category: p.category,
-  }));
+  // TODO: replace with backend related-projects API. For now, show none.
+  const relatedProjects: any[] = [];
+
+  // Derive safe props for ProjectHero to avoid runtime errors when backend fields differ
+  const heroImages: string[] =
+    (project.images && project.images.length > 0)
+      ? project.images
+      : project.image_urls
+      ? [project.image_urls]
+      : [];
+
+  // ProjectHero expects a specific status union; default to 'active' if missing/unknown
+  const allowedStatuses = ["just-launched", "trending", "funded", "nearly-funded", "active"] as const;
+  const heroStatus = allowedStatuses.includes(project.status as any)
+    ? (project.status as any)
+    : "active";
+
+  const heroCreator = project.creator || "Unknown Creator";
 
   return (
     <div className="min-h-screen flex flex-col">
@@ -88,12 +197,12 @@ const ProjectDetail = () => {
           {/* Main Content */}
           <div className="lg:col-span-2 space-y-6">
             <ProjectHero
-              title={project.title}
-              creator={project.creator}
-              tagline={project.tagline}
-              images={project.images}
-              videoUrl={project.videoUrl}
-              status={project.status}
+              title={project?.title || "Untitled Project"}
+              creator={heroCreator}
+              tagline={project?.tagline || ""}
+              images={heroImages}
+              videoUrl={project?.videoUrl}
+              status={heroStatus}
             />
 
             {/* Tabs */}
@@ -137,10 +246,10 @@ const ProjectDetail = () => {
           {/* Sidebar */}
           <div className="lg:sticky top-24 space-y-6">
             <FundingStats
-              fundingCurrent={project.fundingCurrent}
-              fundingGoal={project.fundingGoal}
-              backers={project.backers}
-              daysLeft={project.daysLeft}
+              fundingCurrent={project?.fundingCurrent ?? 0}
+              fundingGoal={project?.fundingGoal ?? 0}
+              backers={project?.backers ?? 0}
+              daysLeft={project?.daysLeft ?? 0}
             />
 
             {user && user.email === project.creatorEmail && (
@@ -156,7 +265,11 @@ const ProjectDetail = () => {
             <Button
               className="w-full bg-accent hover:bg-accent-hover animate-fade-in"
               size="lg"
-              onClick={handlePledgeClick}
+              onClick={() => {
+                // open pledge modal
+                setSelectedReward(null);
+                setIsPledgeModalOpen(true);
+              }}
             >
               Back this project
             </Button>
@@ -185,7 +298,12 @@ const ProjectDetail = () => {
                     className="flex-1"
                   />
                   <Button
-                    onClick={handleCustomPledge}
+                    onClick={() => {
+                      if (!customPledgeAmount || parseFloat(customPledgeAmount) < 1) return;
+                      setSelectedReward(null);
+                      setPledgeAmount(customPledgeAmount);
+                      setIsPledgeModalOpen(true);
+                    }}
                     disabled={!customPledgeAmount || parseFloat(customPledgeAmount) < 1}
                     className="bg-accent hover:bg-accent-hover"
                   >
@@ -198,11 +316,20 @@ const ProjectDetail = () => {
             {/* Rewards */}
             <div className="space-y-4 animate-fade-in">
               <h3 className="font-bold text-xl">Rewards</h3>
-              {project.rewards.map((reward, index) => (
+              {(project?.rewards || []).map((reward, index) => (
                 <RewardTierCard
                   key={index}
-                  {...reward}
-                  onSelect={() => handleRewardSelect(reward)}
+                  amount={reward.amount}
+                  title={reward.title}
+                  description={reward.description}
+                  delivery={reward.delivery || "TBD"}
+                  backers={reward.backers ?? 0}
+                  available={reward.available ?? 999}
+                  onSelect={() => {
+                    setSelectedReward(reward as any);
+                    setPledgeAmount(String(reward.amount));
+                    setIsPledgeModalOpen(true);
+                  }}
                 />
               ))}
             </div>
@@ -211,7 +338,7 @@ const ProjectDetail = () => {
 
         {/* Related Projects */}
         <div className="mt-16">
-          <RelatedProjects projects={relatedProjects} category={project.category} />
+          <RelatedProjects projects={relatedProjects} category={project?.category || ""} />
 
         </div>
       </div>
@@ -221,9 +348,11 @@ const ProjectDetail = () => {
       <PledgeModal
         open={isPledgeModalOpen}
         onOpenChange={setIsPledgeModalOpen}
-        projectTitle={project.title}
+        projectTitle={project?.title || ""}
         defaultAmount={pledgeAmount}
         selectedReward={selectedReward}
+        projectId={project?.id}
+        userId={user?.id}
       />
     </div>
   );

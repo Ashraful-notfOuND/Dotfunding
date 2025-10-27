@@ -74,57 +74,98 @@ export const createCampaign = async (req, res) => {
     if (!description) {
       return res.status(400).json({ error: "Description is required" });
     }
-    if (!req.files || req.files.length === 0) {
-      return res.status(400).json({ error: "At least one image file is required" });
-    }
-
+    // Prefer storing campaign images as an array in `image_urls` (text[])
+    const files = req.files || [];
     const imageUrls = [];
 
-    // Upload each image
-    for (const file of req.files) {
-      const fileExt = file.originalname.split('.').pop();
-      const fileName = `${uuidv4()}.${fileExt}`;
+    if (files.length > 0) {
+      for (const file of files) {
+        const fileExt = file.originalname.split('.').pop();
+        const fileName = `${uuidv4()}.${fileExt}`;
 
-      const { data: uploadData, error: uploadError } = await supabase.storage
-        .from("project-pictures")
-        .upload(fileName, file.buffer, {
-          cacheControl: "3600",
-          upsert: false,
-          contentType: file.mimetype,
-        });
+        const { data: uploadData, error: uploadError } = await supabase.storage
+          .from("project-pictures")
+          .upload(fileName, file.buffer, {
+            cacheControl: "3600",
+            upsert: false,
+            contentType: file.mimetype,
+          });
 
-      if (uploadError) {
-        throw uploadError;
+        if (uploadError) {
+          throw uploadError;
+        }
+
+        const { data: urlData } = supabase.storage
+          .from("project-pictures")
+          .getPublicUrl(fileName);
+
+        if (urlData && urlData.publicUrl) imageUrls.push(urlData.publicUrl);
       }
-
-      const { data: urlData } = supabase.storage
-        .from("project-pictures")
-        .getPublicUrl(fileName);
-
-      imageUrls.push(urlData.publicUrl);
     }
 
-    // Insert into project_campaigns (with image_urls as text[] array)
-    const { data, error } = await supabase
-      .from("project_campaigns")
-      .insert([
-        {
-          project_id,
-          description,
-          image_urls: imageUrls,
-        },
-      ])
-      .select()
-      .single();
+    const row = imageUrls.length > 0 ? { project_id, description, image_urls: imageUrls } : { project_id, description };
 
-    if (error) {
-      throw error;
-    }
+    const { data, error } = await supabase.from("project_campaigns").insert([row]).select();
+    if (error) throw error;
 
-    res.status(201).json(data);
+    res.status(201).json({ campaigns: data });
   } catch (err) {
     console.error("createCampaign error:", err);
     res.status(400).json({ error: err.message });
+  }
+};
+
+/**
+ * Create rewards for a project (expects JSON body: { project_id, rewards: [...] })
+ */
+export const createRewards = async (req, res) => {
+  try {
+    const { project_id, rewards } = req.body;
+
+    if (!project_id) return res.status(400).json({ error: "project_id is required" });
+    if (!rewards || !Array.isArray(rewards) || rewards.length === 0) {
+      return res.status(400).json({ error: "At least one reward is required" });
+    }
+
+    const rows = rewards.map((r) => ({
+      project_id,
+      title: r.title || "",
+      description: r.description || "",
+      amount: Number(r.amount) || 0,
+      backers: Number(r.backers) || 0,
+      available: Number(r.available) || 0,
+      delivery: r.delivery || null,
+    }));
+
+    const { data, error } = await supabase.from("reward_table").insert(rows).select();
+    if (error) throw error;
+
+    return res.status(201).json({ rewards: data });
+  } catch (err) {
+    console.error("createRewards error:", err);
+    return res.status(500).json({ error: err.message || "Failed to create rewards" });
+  }
+};
+
+/**
+ * Get rewards for a project
+ */
+export const getRewards = async (req, res) => {
+  try {
+    const { projectId } = req.params;
+    if (!projectId) return res.status(400).json({ error: "projectId is required" });
+
+    const { data, error } = await supabase
+      .from("reward_table")
+      .select("id, title, description, amount, backers, available, delivery")
+      .eq("project_id", projectId);
+
+    if (error) throw error;
+
+    return res.status(200).json({ rewards: data });
+  } catch (err) {
+    console.error("getRewards error:", err);
+    return res.status(500).json({ error: err.message || "Failed to fetch rewards" });
   }
 };
 
@@ -177,6 +218,132 @@ export const getUserProjects = async (req, res) => {
     return res.status(200).json({ projects: result });
   } catch (err) {
     console.error("Error in getUserProjects:", err);
+    return res.status(500).json({ error: "Internal server error" });
+  }
+};
+
+
+/**
+ * Get single project by id
+ */
+export const getProjectById = async (req, res) => {
+  try {
+    const { id } = req.params;
+    if (!id) return res.status(400).json({ error: "Project id is required" });
+
+    const { data: project, error } = await supabase
+      .from("main_projects")
+      .select(`id, user_id, title, tagline, image_url, funding_goal, funding_deadline, video_url, location, category`)
+      .eq("id", id)
+      .single();
+
+    if (error) {
+      console.error("Error fetching project:", error);
+      return res.status(500).json({ error: error.message || "Failed to fetch project" });
+    }
+
+    if (!project) return res.status(404).json({ error: "Project not found" });
+
+    // Map fields to frontend-friendly shape
+    // Fetch creator info from `user` table
+    let creator = null;
+    try {
+      const { data: userData } = await supabase
+        .from("user")
+        .select("id, full_name, email")
+        .eq("id", project.user_id)
+        .single();
+      creator = userData ?? null;
+    } catch (e) {
+      // ignore creator fetch errors, continue with null creator
+      console.error("Warning: failed to fetch creator info", e);
+      creator = null;
+    }
+
+    // Fetch campaign rows (description + image_urls array)
+    let campaignImages = [];
+    let campaignDescription = null;
+    try {
+      const { data: campaigns } = await supabase
+        .from("project_campaigns")
+        .select("description, image_urls")
+        .eq("project_id", id);
+
+      if (campaigns && Array.isArray(campaigns)) {
+        // Collect images and pick first non-empty description
+        for (const c of campaigns) {
+          if (Array.isArray(c.image_urls)) campaignImages.push(...c.image_urls);
+          if (!campaignDescription && c.description) campaignDescription = c.description;
+        }
+      }
+    } catch (e) {
+      console.error("Warning: failed to fetch campaign rows", e);
+    }
+
+    // Fetch rewards for this project
+    let rewards = [];
+    try {
+      const { data: rewardsData } = await supabase
+        .from("reward_table")
+        .select("id, title, description, amount, backers, available, delivery")
+        .eq("project_id", id);
+      if (Array.isArray(rewardsData)) {
+        rewards = rewardsData.map((r) => ({
+          id: r.id,
+          title: r.title,
+          description: r.description,
+          amount: Number(r.amount) || 0,
+          backers: Number(r.backers) || 0,
+          available: Number(r.available) || 0,
+          delivery: r.delivery || null,
+        }));
+      }
+    } catch (e) {
+      console.error("Warning: failed to fetch rewards", e);
+    }
+
+  // Build images array: main image first, then campaign images
+  const images = [];
+  if (project.image_url) images.push(project.image_url);
+  if (campaignImages.length) images.push(...campaignImages);
+
+    // Compute daysLeft from funding_deadline if present
+    let daysLeft = null;
+    if (project.funding_deadline) {
+      try {
+        const now = new Date();
+        const d = new Date(project.funding_deadline);
+        const diffMs = d.getTime() - now.getTime();
+        daysLeft = Math.ceil(diffMs / (1000 * 60 * 60 * 24));
+        if (daysLeft < 0) daysLeft = 0;
+      } catch (e) {
+        daysLeft = null;
+      }
+    }
+
+    const result = {
+      id: project.id,
+      title: project.title,
+      tagline: project.tagline,
+      imageUrl: project.image_url,
+      images,
+      fundingGoal: project.funding_goal,
+      fundingDeadline: project.funding_deadline,
+      videoUrl: project.video_url,
+      location: project.location,
+      category: project.category,
+      creator: creator ? (creator.full_name || null) : null,
+      creatorEmail: creator ? creator.email : null,
+      daysLeft,
+      // description is stored in project_campaigns; use the first campaign description if present
+      description: campaignDescription,
+      // rewards fetched from reward_table
+      rewards,
+    };
+
+    return res.status(200).json({ project: result });
+  } catch (err) {
+    console.error("getProjectById error:", err);
     return res.status(500).json({ error: "Internal server error" });
   }
 };

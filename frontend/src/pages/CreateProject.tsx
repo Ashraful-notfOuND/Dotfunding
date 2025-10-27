@@ -295,6 +295,33 @@ const handleSubmit = async (e: React.FormEvent) => {
       console.error("Error creating campaign:", error);
       return;
     }
+    // ✅ Send rewards (if any) as JSON to backend rewards endpoint
+    if (form.rewards && form.rewards.length > 0) {
+      try {
+        const rewardsPayload = form.rewards.map((r) => ({
+          title: r.title,
+          description: r.description,
+          amount: r.amount,
+          delivery: r.delivery,
+          backers: r.backers ?? 0,
+          available: r.available ?? 0,
+        }));
+
+        const responseRewards = await fetch("http://localhost:5000/api/projects/rewards", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ project_id, rewards: rewardsPayload }),
+        });
+
+        if (!responseRewards.ok) {
+          const errBody = await responseRewards.json().catch(() => ({}));
+          console.error("Failed to save rewards:", errBody);
+          // don't block the user, but log the error
+        }
+      } catch (err) {
+        console.error("Network error saving rewards:", err);
+      }
+    }
     console.log("Project created successfully:", data);
     toast({
            description: "Project created successfully!"

@@ -227,7 +227,7 @@ interface Project {
   id: string;
   title: string;
   tagline?: string;
-  imageUrl: string;
+  image_urls: string;
   fundingGoal: number;
   fundingDeadline: string;
   videoUrl?: string;
@@ -279,8 +279,28 @@ const Profile = () => {
         
         const body = await resp.json();
         
-        const projects: Project[] = body.projects;
-        console.log("Frontend: create response data:", body.projects[0].imageUrl);
+        const apiProjects = Array.isArray(body.projects) ? body.projects : [];
+        if (apiProjects.length > 0) {
+          console.log("Frontend: first project response:", apiProjects[0]);
+        } else {
+          console.log("Frontend: no projects returned from API");
+        }
+
+        // Normalize backend shape to frontend Project interface
+        const projects: Project[] = apiProjects.map((p: any) => ({
+          id: p.id,
+          title: p.title,
+          tagline: p.tagline,
+          // backend returns imageUrl (camelCase) while this page expects image_urls
+          image_urls: p.imageUrl || p.image_urls || "",
+          fundingGoal: p.fundingGoal ?? p.funding_goal ?? 0,
+          fundingDeadline: p.fundingDeadline ?? p.funding_deadline ?? "",
+          videoUrl: p.videoUrl ?? p.video_url ?? undefined,
+          location: p.location,
+          category: p.category,
+          creatorName: p.creator || null,
+        }));
+
         setMyProjects(projects);
       } catch (err: any) {
         console.error("Error fetching user’s projects:", err);
@@ -403,7 +423,7 @@ const Profile = () => {
                     id={project.id}
                     title={project.title}
                     creator={user.name ?? ""}
-                    image={project.imageUrl}
+                    image={project.image_urls}
                     fundingGoal={project.fundingGoal}
                     fundingCurrent={0}
                     daysLeft={getDaysLeft(project.fundingDeadline)}

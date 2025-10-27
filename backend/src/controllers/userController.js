@@ -15,7 +15,7 @@ export const signUpUser = async (req, res) => {
   try {
     // 2. Check if user already exists
     const { data: existingUser, error: fetchError } = await supabase
-      .from("users")
+      .from("user")
       .select("*")
       .eq("email", email)
       .single();
@@ -35,7 +35,7 @@ export const signUpUser = async (req, res) => {
 
     // 4. Insert new user
     const { data, error } = await supabase
-      .from("users")
+      .from("user")
       .insert([{ full_name, email, password: hashedPassword }])
       .select(); // select() returns inserted row
 
@@ -68,7 +68,7 @@ export const loginUser = async (req, res) => {
   try {
     // Fetch user by email
     const { data: user, error } = await supabase
-      .from("users")
+      .from("user")
       .select("*")
       .eq("email", email)
       .single();
