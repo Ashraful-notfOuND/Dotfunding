@@ -277,7 +277,7 @@ export const getProjectById = async (req, res) => {
     let creator = null;
     try {
       const { data: userData } = await supabase
-        .from("user")
+        .from("users")
         .select("id, full_name, email")
         .eq("id", project.user_id)
         .single();
@@ -556,4 +556,5 @@ export const getFAQsByProjectId = async (req, res) => {
 //     return res.status(500).json({ error: "Failed to fetch projects." });
 //   }
 // };
+
 
