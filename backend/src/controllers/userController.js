@@ -1,6 +1,6 @@
 import bcrypt from "bcrypt";
 import { supabase } from "../config/supabaseClient.js";
-
+import { v4 as uuidv4 } from "uuid";
 /**
  * Sign up a new user
  */
@@ -15,7 +15,7 @@ export const signUpUser = async (req, res) => {
   try {
     // 2. Check if user already exists
     const { data: existingUser, error: fetchError } = await supabase
-      .from("user")
+      .from("users")
       .select("*")
       .eq("email", email)
       .single();
@@ -35,7 +35,7 @@ export const signUpUser = async (req, res) => {
 
     // 4. Insert new user
     const { data, error } = await supabase
-      .from("user")
+      .from("users")
       .insert([{ full_name, email, password: hashedPassword }])
       .select(); // select() returns inserted row
 
@@ -68,7 +68,7 @@ export const loginUser = async (req, res) => {
   try {
     // Fetch user by email
     const { data: user, error } = await supabase
-      .from("user")
+      .from("users")
       .select("*")
       .eq("email", email)
       .single();
@@ -100,3 +100,82 @@ export const loginUser = async (req, res) => {
   }
 };
 
+export const updateProfile = async (req, res) => {
+  try {
+    const { id, full_name, email, password, bio, location } = req.body;
+    console.log("updateProfile req.body:", req.body);
+    console.log("updateProfile req.file:", req.file);
+    
+    if (!id) return res.status(400).json({ error: "User ID is required" });
+
+    let profilePicUrl = null;
+
+    // Handle profile picture upload
+    if (req.file) {
+      const file = req.file;
+      const fileExt = file.originalname.split(".").pop();
+      const fileName = `${uuidv4()}.${fileExt}`;
+
+      const { error: uploadError } = await supabase.storage
+        .from("profile-pictures")
+        .upload(fileName, file.buffer, {
+          cacheControl: "3600",
+          upsert: true,
+          contentType: file.mimetype,
+        });
+
+      if (uploadError) {
+        console.error("Upload error:", uploadError);
+        throw uploadError;
+      }
+
+      const { data: urlData } = supabase.storage
+        .from("profile-pictures")
+        .getPublicUrl(fileName);
+
+      profilePicUrl = urlData.publicUrl;
+    }
+
+    // Prepare update data
+    let updateData = {
+      full_name,
+      email,
+      bio,
+      location,
+    };
+
+    // Add profile pic if uploaded
+    if (profilePicUrl) {
+      updateData.profile_pic = profilePicUrl;
+    }
+
+    // Hash password if provided
+    if (password && password.trim() !== "") {
+      const hashedPassword = await bcrypt.hash(password, 10);
+      updateData.password = hashedPassword;
+    }
+
+    // Update user in Supabase table
+    const { data, error } = await supabase
+      .from("users") 
+      .update(updateData)
+      .eq("id", id)
+      .select()
+      .single();
+
+    if (error) {
+      console.error("Supabase update error:", error);
+      throw error;
+    }
+
+    return res.status(200).json({ 
+      message: "Profile updated successfully", 
+      user: data 
+    });
+  } catch (err) {
+    console.error("updateProfile error:", err);
+    return res.status(500).json({ 
+      error: err.message || "Failed to update profile" 
+    });
+  }
+};
