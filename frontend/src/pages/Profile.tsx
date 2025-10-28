@@ -325,14 +325,13 @@ const Profile = () => {
   if (!isAuthenticated || !user) {
     return null;
   }
-
   const profileData = {
     name: user.name,
     email: user.email,
-    avatar: user.name
-      .split(" ")
-      .map((n) => n[0])
-      .join(""),
+    // avatar: user.name
+    //   .split(" ")
+    //   .map((n) => n[0])
+    //   .join(""),
     joinedDate: "January 2024",  // you can fetch real date if you have
     projectsCreated: myProjects.length,
     projectsBacked: 12,
@@ -348,9 +347,14 @@ const Profile = () => {
           <Card>
             <CardContent className="pt-6">
               <div className="flex flex-col md:flex-row gap-6 items-start md:items-center">
-                <div className="w-24 h-24 rounded-full bg-primary flex items-center justify-center text-primary-foreground text-3xl font-bold">
-                  {profileData.avatar}
-                </div>
+                <div className="w-24 h-24 rounded-full overflow-hidden">
+                  <img
+                      src={user.profilePic || "/default-avatar.jpg"}
+                      alt="Profile"
+                      onError={(e) => (e.currentTarget.src = "/default-avatar.jpg")}
+                      className="w-full h-full object-cover"
+                  />
+                  </div>
                 <div className="flex-1">
                   <h1 className="text-3xl font-bold mb-2">{profileData.name}</h1>
                   <p className="text-muted-foreground mb-4">{profileData.email}</p>
