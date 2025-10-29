@@ -1,5 +1,5 @@
-import { useState, useEffect } from "react";
-import { useParams, useNavigate, Link } from "react-router-dom";
+import { useState, useEffect, useCallback } from "react";
+import { useParams, useNavigate, Link, useLocation } from "react-router-dom";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -21,6 +21,7 @@ import Comments from "@/components/Comments";
 import CreatorTab from "@/components/CreatorTab";
 import StatisticsTab from "@/components/StatisticsTab";
 import { useAuth } from "@/hooks/useAuth";
+import { useToast } from "@/hooks/use-toast";
 
 type Reward = {
   amount: number;
@@ -55,6 +56,8 @@ const ProjectDetail = () => {
   const { user } = useAuth();
   const { id } = useParams();
   const navigate = useNavigate();
+  const location = useLocation();
+  const { toast } = useToast();
   const [project, setProject] = useState<Project | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -68,52 +71,72 @@ const ProjectDetail = () => {
     description: string;
   } | null>(null);
   
+  const fetchProject = useCallback(async (signal?: AbortSignal) => {
+    setLoading(true);
+    setError(null);
+    try {
+      const res = await fetch(`http://localhost:5000/api/projects/${id}`, {
+        signal,
+      });
+
+      if (!res.ok) {
+        if (res.status === 404) {
+          console.error("Backend didn't find project");
+          navigate("/404");
+          return;
+        }
+        const body = await res.json().catch(() => ({}));
+        throw new Error(body.error || `Failed to fetch project (${res.status})`);
+      }
+
+      const data = await res.json();
+      setRawBody(data);
+      setProject((data && data.project) ? data.project : data ?? null);
+      console.log("ProjectDetail fetch response:", data);
+    } catch (err: any) {
+      if (err.name === "AbortError") return;
+      console.error("Error fetching project:", err);
+      setError(err.message || "Failed to load project");
+    } finally {
+      setLoading(false);
+    }
+  }, [id, navigate]);
+
   useEffect(() => {
     if (!id) {
       console.error("No project ID provided in URL");
       navigate("/404");
       return;
     }
-
     const controller = new AbortController();
-
-    const fetchProject = async () => {
-      setLoading(true);
-      setError(null);
-      try {
-        const res = await fetch(`http://localhost:5000/api/projects/${id}`, {
-          signal: controller.signal,
-        });
-
-        if (!res.ok) {
-          if (res.status === 404) {
-            console.error("Backend didn't find project");
-            navigate("/404");
-            return;
-          }
-          const body = await res.json().catch(() => ({}));
-          throw new Error(body.error || `Failed to fetch project (${res.status})`);
-        }
-
-  const data = await res.json();
-  // store raw response for debugging
-  setRawBody(data);
-  // Accept either { project: {...} } or direct project object
-  setProject((data && data.project) ? data.project : data ?? null);
-  console.log("ProjectDetail fetch response:", data);
-      } catch (err: any) {
-        if (err.name === "AbortError") return;
-        console.error("Error fetching project:", err);
-        setError(err.message || "Failed to load project");
-      } finally {
-        setLoading(false);
-      }
-    };
-
-    fetchProject();
+    fetchProject(controller.signal);
 
     return () => controller.abort();
-  }, [id, navigate]);
+  }, [id, navigate, fetchProject]);
+
+  // React to payment redirect params (payment_status) and show toast + refresh
+  useEffect(() => {
+    const params = new URLSearchParams(location.search);
+    const status = params.get("payment_status");
+    const tran = params.get("tran_id");
+    if (status) {
+      if (status === "success") {
+        toast({ title: "Payment successful", description: `Transaction ${tran} completed.` });
+        // refetch project to update funding and progress
+        fetchProject();
+      } else if (status === "failed") {
+        toast({ title: "Payment failed", description: "Your payment did not complete." });
+      }
+
+      // remove params from URL to keep it clean
+      try {
+        const clean = window.location.pathname;
+        navigate(clean, { replace: true });
+      } catch (e) {
+        // ignore navigation errors
+      }
+    }
+  }, [location.search, navigate, toast, fetchProject]);
 
   if (loading) {
     return (

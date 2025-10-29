@@ -17,17 +17,13 @@ import { Link } from "react-router-dom";
 import heroBanner from "@/assets/hero-banner.jpg"; // Re-import heroBanner
 import { useState, useEffect, useRef } from "react";
 import { motion, useScroll, useTransform } from "framer-motion";
-import { allProjects } from "@/data/allProjects";
+import { allProjects as staticProjects } from "@/data/allProjects";
 import HeroLanding from "@/components/landing/HeroLanding";
 import FeaturesLanding from "@/components/landing/FeaturesLanding";
 import CTALanding from "@/components/landing/CTALanding";
 //import { allProjects } from "@/data/mockProjects";
 
-//const trendingProjects = allProjects.filter(p => p.status === "trending").slice(0, 3);
-const trendingProjects = allProjects.filter(p => p.status === "trending").slice(0, 3);
-const recommendedProjects = allProjects
-  .filter(p => p.status !== "trending")
-  .slice(0, 3);
+// (We'll derive these from fetched projects inside the component)
 
 
 const categories = [
@@ -60,16 +56,40 @@ const AnimatedSection = ({ children }: { children: React.ReactNode }) => {
 
 const Index = () => {
   const [isLoading, setIsLoading] = useState(true);
+  const [projects, setProjects] = useState<any[] | null>(null);
 
   useEffect(() => {
+    let mounted = true;
     const timer = setTimeout(() => {
-      setIsLoading(false);
-    }, 1500);
+      if (mounted) setIsLoading(false);
+    }, 1200);
 
-    return () => clearTimeout(timer);
+    const fetchProjects = async () => {
+      try {
+        const backend = (import.meta.env as any).VITE_BACKEND_URL || "http://localhost:5000";
+        const res = await fetch(`${backend}/api/projects`);
+        if (!res.ok) {
+          console.warn("Failed to fetch projects from backend, using static fallback");
+          setProjects(staticProjects as any);
+          return;
+        }
+        const body = await res.json();
+        if (mounted) setProjects(body.projects || staticProjects as any);
+      } catch (e) {
+        console.warn("Error fetching projects, using static fallback", e);
+        setProjects(staticProjects as any);
+      }
+    };
+
+    fetchProjects();
+
+    return () => {
+      mounted = false;
+      clearTimeout(timer);
+    };
   }, []);
 
-  const renderProjectCards = (projects: typeof allProjects) => (
+  const renderProjectCards = (projects: typeof staticProjects) => (
     <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
       {isLoading
         ? Array.from({ length: 3 }).map((_, i) => <ProjectCardSkeleton key={i} />)
@@ -77,7 +97,7 @@ const Index = () => {
     </div>
   );
 
-  const renderCarouselItems = (projects: typeof allProjects) => (
+  const renderCarouselItems = (projects: typeof staticProjects) => (
     <CarouselContent>
       {isLoading
         ? Array.from({ length: 3 }).map((_, i) => (
@@ -96,6 +116,11 @@ const Index = () => {
         ))}
     </CarouselContent>
   );
+
+  // sourceProjects: prefer backend-fetched projects, fallback to static data
+  const sourceProjects = projects || (staticProjects as any[]);
+  const trendingProjects = sourceProjects.slice(0, 3);
+  const recommendedProjects = sourceProjects.slice(3, 6);
 
   return (
     <div className="min-h-screen flex flex-col">
@@ -176,7 +201,7 @@ const Index = () => {
               <p className="text-muted-foreground">Projects close to their funding goal. Help them cross the finish line!</p>
             </div>
             <Carousel opts={{ align: "start", loop: true }}>
-              {renderCarouselItems(allProjects.filter(p => (p.fundingCurrent / p.fundingGoal) >= 0.8 && (p.fundingCurrent / p.fundingGoal) < 1))}
+              {renderCarouselItems(sourceProjects.filter(p => p.fundingGoal>0 && (p.fundingCurrent / p.fundingGoal) >= 0.8 && (p.fundingCurrent / p.fundingGoal) < 1))}
               <CarouselPrevious />
               <CarouselNext />
             </Carousel>
@@ -200,7 +225,7 @@ const Index = () => {
             twoDaysAgo.setDate(twoDaysAgo.getDate() - 2);
 
             // ✅ Safely filter projects (handles missing createdDate)
-            const justLaunchedProjects = allProjects.filter((p, i) => {
+            const justLaunchedProjects = sourceProjects.filter((p: any, i) => {
               // Use real createdDate if available, or generate a fallback for testing
               const createdDate =
                 p.createdDate instanceof Date

@@ -369,6 +369,24 @@ export const getProjectById = async (req, res) => {
       rewards,
     };
 
+    // Compute fundingCurrent (sum of paid pledges) and backers (distinct users)
+    try {
+      const { data: pledgeRows } = await supabase.from("pledges").select("amount, user_id").eq("project_id", id).eq("status", "paid");
+      if (Array.isArray(pledgeRows)) {
+        const fundingCurrent = pledgeRows.reduce((acc, r) => acc + Number(r.amount || 0), 0);
+        const uniqueBackers = new Set(pledgeRows.map((r) => r.user_id).filter(Boolean));
+        result.fundingCurrent = fundingCurrent;
+        result.backers = uniqueBackers.size;
+      } else {
+        result.fundingCurrent = 0;
+        result.backers = 0;
+      }
+    } catch (e) {
+      console.error("Warning: failed to compute fundingCurrent/backers", e);
+      result.fundingCurrent = 0;
+      result.backers = 0;
+    }
+
     return res.status(200).json({ project: result });
   } catch (err) {
     console.error("getProjectById error:", err);
@@ -416,6 +434,72 @@ export const getFAQsByProjectId = async (req, res) => {
   } catch (err) {
     console.error("Error fetching FAQs:", err);
     res.status(500).json({ error: "Failed to fetch FAQs" });
+  }
+};
+/**
+ * Get all projects (for homepage)
+ */
+export const getAllProjects = async (req, res) => {
+  try {
+    const { data: projects, error } = await supabase
+      .from("main_projects")
+      .select("id, user_id, title, tagline, image_url, funding_goal, funding_deadline, category, created_at")
+      .order("created_at", { ascending: false });
+
+    if (error) throw error;
+
+    // For each project compute fundingCurrent (sum of pledges) and fetch creator name
+    const formatted = await Promise.all(
+      projects.map(async (p) => {
+        // sum pledges for this project
+        let fundingCurrent = 0;
+        try {
+          const { data: pledges } = await supabase.from("pledges").select("amount").eq("project_id", p.id);
+          if (Array.isArray(pledges)) {
+            fundingCurrent = pledges.reduce((acc, r) => acc + Number(r.amount || 0), 0);
+          }
+        } catch (e) {
+          // ignore
+        }
+
+        // fetch creator name
+        let creator = "Unknown";
+        try {
+          const { data: userData } = await supabase.from("users").select("full_name").eq("id", p.user_id).single();
+          if (userData && userData.full_name) creator = userData.full_name;
+        } catch (e) {}
+
+        // compute daysLeft
+        let daysLeft = 0;
+        if (p.funding_deadline) {
+          try {
+            const now = new Date();
+            const d = new Date(p.funding_deadline);
+            const diffMs = d.getTime() - now.getTime();
+            daysLeft = Math.max(0, Math.ceil(diffMs / (1000 * 60 * 60 * 24)));
+          } catch (e) {
+            daysLeft = 0;
+          }
+        }
+
+        return {
+          id: p.id,
+          title: p.title,
+          creator,
+          image: p.image_url,
+          fundingGoal: Number(p.funding_goal) || 0,
+          fundingCurrent,
+          daysLeft,
+          category: p.category || "General",
+          tagline: p.tagline || "",
+        };
+      })
+    );
+
+    return res.status(200).json({ projects: formatted });
+  } catch (err) {
+    console.error("getAllProjects error:", err);
+    return res.status(500).json({ error: "Failed to fetch projects" });
   }
 };
 // /**

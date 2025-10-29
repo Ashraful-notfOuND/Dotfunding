@@ -53,6 +53,27 @@ export const initPayment = async (req, res) => {
       console.info("initPayment: sending payload (could not stringify)");
     }
 
+    // Persist a short-lived payment session so we can resolve tran_id -> project/reward on callback.
+    // This prevents missing project_id in redirects when the gateway doesn't preserve custom query params.
+    try {
+      const sessionRow = {
+        tran_id: data.tran_id,
+        project_id: body.project_id || null,
+        user_id: body.user_id || null,
+        reward_id: body.reward_id || null,
+        amount: Number(data.total_amount) || null,
+        return_url: body.return_url || null,
+        created_at: new Date(),
+      };
+      const { data: sessData, error: sessErr } = await supabase.from("payment_sessions").insert([sessionRow]).select();
+      if (sessErr) {
+        // don't fail the init if session persistence fails, but log it
+        console.warn("initPayment: failed to persist payment session", sessErr);
+      }
+    } catch (e) {
+      console.warn("initPayment: error persisting session", e);
+    }
+
     // dynamic import because sslcommerz-lts is CJS
     const mod = await import("sslcommerz-lts");
     const SSLCommerzPayment = mod.default || mod;
@@ -81,30 +102,80 @@ export const initPayment = async (req, res) => {
 // Accepts { val_id, tran_id, project_id, user_id, reward_id, amount }
 export const validatePayment = async (req, res) => {
   try {
-    const { val_id, tran_id, project_id, user_id, reward_id, amount } = req.body || {};
+    const { val_id, tran_id: body_tran, project_id: body_project_id, user_id: body_user_id, reward_id: body_reward_id, amount: body_amount } = req.body || {};
     if (!val_id) return res.status(400).json({ error: "val_id is required" });
 
     const mod = await import("sslcommerz-lts");
     const SSLCommerzPayment = mod.default || mod;
     const sslcz = new SSLCommerzPayment(STORE_ID, STORE_PASS, IS_LIVE);
 
-    const validation = await sslcz.validate({ val_id });
+  const validation = await sslcz.validate({ val_id });
 
     // validation object shape depends on SSLCommerz; check common fields
-    const status = validation?.status || validation?.status_code || validation?.status_message || null;
+  const status = validation?.status || validation?.status_code || validation?.status_message || null;
 
     // Basic check: treat as success if validation object contains status 'VALID' or 'VALIDATED' or status === 'VALID'
     const ok = (typeof status === "string" && status.toLowerCase().includes("valid")) || validation?.risk_level === 0 || validation?.status === "VALID";
 
     // Insert pledge if validated
     if (ok) {
+      // Resolve tran_id and related metadata. Prefer values from request body, then validation response,
+      // then look up a persisted payment_session inserted at init time.
+      const tran = body_tran || validation?.tran_id || null;
+      let project_id = body_project_id || null;
+      let user_id = body_user_id || null;
+      let reward_id = body_reward_id || null;
+      let amount = body_amount ? Number(body_amount) : (validation?.amount ? Number(validation.amount) : 0);
+
+      if (!project_id && tran) {
+        try {
+          const { data: sess } = await supabase.from("payment_sessions").select("project_id,user_id,reward_id,amount").eq("tran_id", tran).single();
+          if (sess) {
+            project_id = project_id || sess.project_id;
+            user_id = user_id || sess.user_id;
+            reward_id = reward_id || sess.reward_id;
+            amount = amount || Number(sess.amount || 0);
+          }
+        } catch (e) {
+          // ignore lookup errors
+        }
+      }
+      // If project_id is still missing, but we have a reward_id, try to resolve the project
+      if (!project_id && reward_id) {
+        try {
+          const { data: rewardRow, error: rewardErr } = await supabase.from("reward_table").select("project_id").eq("id", reward_id).single();
+          if (!rewardErr && rewardRow && rewardRow.project_id) {
+            project_id = rewardRow.project_id;
+          }
+        } catch (e) {
+          // ignore
+        }
+      }
+      // If we still don't have a project_id, we cannot persist the pledge safely.
+      if (!project_id) {
+        console.error("validatePayment: missing project_id after lookup, cannot persist pledge", { tran, reward_id, session_lookup: !!tran });
+        return res.status(400).json({ error: "Missing project_id; pledge not persisted", tran_id: tran });
+      }
+
+      // Idempotency: if a pledge with this tran_id already exists, return it instead of inserting duplicate
+      if (tran) {
+        try {
+          const { data: existing } = await supabase.from("pledges").select("*").eq("tran_id", tran).single();
+          if (existing) {
+            return res.status(200).json({ ok: true, validation, pledge: existing });
+          }
+        } catch (e) {
+          // ignore
+        }
+      }
+
       // create a pledge row
       const pledgeRow = {
-        project_id: project_id || null,
+        project_id: project_id,
         user_id: user_id || null,
         reward_id: reward_id || null,
-        tran_id: tran_id || validation?.tran_id || null,
-        amount: amount ? Number(amount) : Number(validation?.amount) || 0,
+        tran_id: tran || null,
+        amount: amount || 0,
         status: "paid",
       };
 
@@ -157,38 +228,123 @@ export const successHandler = async (req, res) => {
     const ok = (typeof status === "string" && status.toLowerCase().includes("valid")) || validation?.risk_level === 0 || validation?.status === "VALID";
 
     if (ok) {
-      // Insert pledge similar to validatePayment
+      // Resolve tran_id and metadata similar to validatePayment
+      const tran = tran_id || validation?.tran_id || null;
+      let project_id_res = project_id || null;
+      let user_id_res = user_id || null;
+      let reward_id_res = reward_id || null;
+      let amount_res = amount ? Number(amount) : (validation?.amount ? Number(validation.amount) : 0);
+
+      if (!project_id_res && tran) {
+        try {
+          const { data: sess } = await supabase.from("payment_sessions").select("project_id,user_id,reward_id,amount").eq("tran_id", tran).single();
+          if (sess) {
+            project_id_res = project_id_res || sess.project_id;
+            user_id_res = user_id_res || sess.user_id;
+            reward_id_res = reward_id_res || sess.reward_id;
+            amount_res = amount_res || Number(sess.amount || 0);
+          }
+        } catch (e) {
+          // ignore
+        }
+      }
+      // Also try to read return_url from the persisted session in case the gateway
+      // stripped custom query params during redirect.
+      let session_return_url = null;
+      if (tran) {
+        try {
+          const { data: sess2, error: sessErr2 } = await supabase.from("payment_sessions").select("return_url").eq("tran_id", tran).single();
+          if (!sessErr2 && sess2 && sess2.return_url) session_return_url = sess2.return_url;
+        } catch (e) {
+          // ignore
+        }
+      }
+
+      // If project still missing but we have a reward id, try to resolve project via reward_table
+      if (!project_id_res && reward_id_res) {
+        try {
+          const { data: rewardRow, error: rewardErr } = await supabase.from("reward_table").select("project_id").eq("id", reward_id_res).single();
+          if (!rewardErr && rewardRow && rewardRow.project_id) {
+            project_id_res = rewardRow.project_id;
+          }
+        } catch (e) {
+          // ignore
+        }
+      }
+
+      // If still missing, attempt to parse a project id from a return_url (if present in params)
+      if (!project_id_res) {
+        const possibleReturn = params.return_url || params.returnUrl || params.return || null;
+        if (possibleReturn && typeof possibleReturn === 'string') {
+          try {
+            // common frontend route: /project/<id> or /project?id= or ?projectId=
+            const m1 = possibleReturn.match(/\/project\/(?:detail\/)?([a-zA-Z0-9_-]+)/);
+            if (m1 && m1[1]) project_id_res = m1[1];
+            const m2 = possibleReturn.match(/[?&](?:projectId|project_id|id)=([a-zA-Z0-9_-]+)/);
+            if (!project_id_res && m2 && m2[1]) project_id_res = m2[1];
+          } catch (e) {
+            // ignore
+          }
+        }
+      }
+
+      // If we still don't have a project id, avoid inserting and show fallback
+      if (!project_id_res) {
+        console.error("successHandler: missing project_id after lookup, cannot persist pledge", { tran, reward_id: reward_id_res, return_url: params.return_url || params.returnUrl || null });
+        // Show user-friendly HTML indicating payment succeeded but server couldn't record pledge
+        const msg = `<!doctype html><html><body><h1>Payment Received</h1><p>Transaction ${tran} succeeded, but we couldn't associate it with a project so it was not recorded.</p><p>Please contact support or retry from the project page.</p></body></html>`;
+        res.setHeader('Content-Type', 'text/html');
+        return res.status(200).send(msg);
+      }
+
+      // Idempotency: return existing pledge if tran already stored
+      if (tran) {
+        try {
+          const { data: existing } = await supabase.from("pledges").select("*").eq("tran_id", tran).single();
+          if (existing) {
+            return res.status(200).json({ ok: true, validation, pledge: existing });
+          }
+        } catch (e) {
+          // ignore
+        }
+      }
+
+      // Insert pledge
       const pledgeRow = {
-        project_id: project_id || null,
-        user_id: user_id || null,
-        reward_id: reward_id || null,
-        tran_id: tran_id || validation?.tran_id || null,
-        amount: amount ? Number(amount) : Number(validation?.amount) || 0,
+        project_id: project_id_res,
+        user_id: user_id_res || null,
+        reward_id: reward_id_res || null,
+        tran_id: tran || null,
+        amount: amount_res || 0,
         status: "paid",
       };
 
       const { data: pledgeData, error: pledgeError } = await supabase.from("pledges").insert([pledgeRow]).select();
       if (pledgeError) console.error("pledge insert error:", pledgeError);
 
-      if (reward_id) {
+      if (reward_id_res) {
         try {
-          const { data: reward } = await supabase.from("reward_table").select("backers, available").eq("id", reward_id).single();
+          const { data: reward } = await supabase.from("reward_table").select("backers, available").eq("id", reward_id_res).single();
           if (reward) {
             const newBackers = (Number(reward.backers) || 0) + 1;
             const newAvailable = Number(reward.available) > 0 ? Number(reward.available) - 1 : 0;
-            await supabase.from("reward_table").update({ backers: newBackers, available: newAvailable }).eq("id", reward_id);
+            await supabase.from("reward_table").update({ backers: newBackers, available: newAvailable }).eq("id", reward_id_res);
           }
         } catch (e) {
           console.error("failed updating reward counts", e);
         }
       }
 
-      // Prefer a return_url supplied by the gateway redirect (we include this in the
-      // success_url query string from the frontend). This allows returning the user
-      // to the exact project page where they opened the pledge modal.
-      const returnUrl = params.return_url || params.returnUrl || params.return || null;
+      // Prefer a return_url supplied by the gateway redirect or persisted in session.
+      // The frontend includes the original project page in `return_url` when calling
+      // the init endpoint; some gateways drop custom params so we persisted it earlier.
+      const returnUrl = params.return_url || params.returnUrl || params.return || session_return_url || null;
       if (returnUrl) {
-        return res.redirect(returnUrl);
+        // Append status and tran_id so frontend can show a toast and refresh state
+        const tran_for_redirect = (pledgeRow && pledgeRow.tran_id) || (validation && validation.tran_id) || (params.tran_id || params.tranId || params.tran || "");
+        const separator = returnUrl.includes("?") ? "&" : "?";
+        const redirectTo = `${returnUrl}${separator}payment_status=success&tran_id=${encodeURIComponent(tran_for_redirect)}`;
+        return res.redirect(redirectTo);
       }
 
       // Redirect to frontend success page if configured. If no FRONTEND_SUCCESS_URL is set
@@ -218,11 +374,13 @@ export const successHandler = async (req, res) => {
           <h1>Payment Successful</h1>
           <p>Transaction ID: ${pledgeRow.tran_id}</p>
           <p>Amount: ${pledgeRow.amount}</p>
-          <p>Project: ${project_id || 'N/A'}</p>
-          <p>Reward: ${reward_id || 'N/A'}</p>
+          <p>Project: ${project_id_res || 'N/A'}</p>
+          <p>Reward: ${reward_id_res || 'N/A'}</p>
+          <p>Return URL: ${session_return_url || (params.return_url || params.returnUrl || params.return) || 'N/A'}</p>
           <p>
             <button id="backBtn">Return to previous page</button>
             <a id="openSuccess" href="${targetFront}">Open frontend payment-success page</a>
+            ${returnUrl ? `<a id="openProject" href="${returnUrl}">Open project page</a>` : ""}
           </p>
           <script>
             // First try to navigate back (useful when browser history contains the app page).
@@ -242,9 +400,11 @@ export const successHandler = async (req, res) => {
       return res.status(200).send(pledgeSummary);
     }
 
-    // On failure, redirect to a failure page (frontend)
-    const frontendFail = process.env.FRONTEND_FAIL_URL || "http://localhost:5173/payment-fail";
-    return res.redirect(frontendFail);
+  // On failure, redirect to a failure page (frontend) and include status
+  const frontendFail = process.env.FRONTEND_FAIL_URL || "http://localhost:5173/payment-fail";
+  const failSep = frontendFail.includes("?") ? "&" : "?";
+  const failRedirect = `${frontendFail}${failSep}payment_status=failed`;
+  return res.redirect(failRedirect);
   } catch (err) {
     console.error("successHandler error:", err);
     return res.status(500).send("Server error");
@@ -278,6 +438,7 @@ export const ipnHandler = async (req, res) => {
 export default {
   initPayment,
   validatePayment,
+  successHandler,
   ipnHandler,
 };
 /*

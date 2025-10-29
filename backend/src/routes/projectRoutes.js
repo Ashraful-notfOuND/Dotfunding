@@ -1,5 +1,5 @@
 import express from "express";
-import { createProject, createCampaign, getUserProjects, getProjectById, createRewards, getRewards, getCampaignByProjectId, createFAQs, getFAQsByProjectId } from "../controllers/projectController.js";
+import { createProject, createCampaign, getUserProjects, getProjectById, createRewards, getRewards, getCampaignByProjectId, createFAQs, getFAQsByProjectId, getAllProjects } from "../controllers/projectController.js";
 import multer from "multer";
 
 const upload = multer({ storage: multer.memoryStorage() });
@@ -8,7 +8,8 @@ const router = express.Router();
 
 
 router.post("/create", upload.single("image"), createProject);
-//router.get("/all", getAllProjects);
+// Public: get all projects for homepage
+router.get("/", getAllProjects);
 router.post("/campaign", upload.array("images"), createCampaign);
 router.post("/faqs", createFAQs);
 router.post("/rewards", express.json(), createRewards);

@@ -12,7 +12,7 @@ type FAQItem = {
 };
 
 interface FAQProps {
-  projectId: string;
+  projectId?: string;
 }
 
 const FAQ = ({ projectId }: FAQProps) => {
@@ -21,7 +21,16 @@ const FAQ = ({ projectId }: FAQProps) => {
   const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
-    if (!projectId) return;
+    if (!projectId) {
+      // No projectId provided: show a small set of generic FAQs for the landing page
+      setFaqs([
+        { question: "How does funding work?", answer: "Back a project with any amount. Funds are collected and transferred to creators when goals are met." },
+        { question: "When will I get my reward?", answer: "Reward delivery times are listed on each project page and depend on the creator." },
+        { question: "Is my payment secure?", answer: "We use industry-standard gateways for payments. You will be redirected to a secure checkout." },
+      ]);
+      setLoading(false);
+      return;
+    }
 
     const controller = new AbortController();
 
