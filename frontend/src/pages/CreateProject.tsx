@@ -1,5 +1,5 @@
 import React, { useState } from "react";
-import { useNavigate } from "react-router-dom";
+import { useNavigate, useLocation } from "react-router-dom";
 import { Card, CardContent } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
@@ -44,6 +44,7 @@ function formatDate_dd_mm_yyyy(date: Date): string {
 
 const CreateProject = () => {
   const navigate = useNavigate();
+  const location = useLocation();
   const { user, isAuthenticated } = useAuth();
   console.log("current user:", user.id, user.email);
   const [form, setForm] = useState({
@@ -68,6 +69,7 @@ const CreateProject = () => {
   const [galleryFiles, setGalleryFiles] = useState<File[]>([]);
 
   const [errors, setErrors] = useState<{ [key: string]: string }>({});
+
 
   const validateForm = () => {
     const newErrors: { [key: string]: string } = {};
@@ -355,6 +357,16 @@ const handleSubmit = async (e: React.FormEvent) => {
     console.error("Network error:", err);
   }
   
+};
+
+// Determine where to go back based on how user reached the page
+const handleCancel = () => {
+  // If a "from" state exists (set when navigating), go back there
+  if (location.state?.from === "profile") {
+    navigate("/profile");
+  } else {
+    navigate("/explore");
+  }
 };
 
   return (
@@ -676,19 +688,19 @@ const handleSubmit = async (e: React.FormEvent) => {
           </div>
 
           {/* Submit & Cancel */}
-          <div className="flex gap-3">
-            <Button type="submit" className="w-full bg-primary">
-              Create Project
-            </Button>
-            <Button
-              type="button"
-              variant="outline"
-              className="w-full"
-              onClick={() => navigate("/explore")}
-            >
-              Cancel
-            </Button>
-          </div>
+        <div className="flex gap-3">
+          <Button type="submit" className="w-full bg-primary">
+            Create Project
+          </Button>
+          <Button
+            type="button"
+            variant="outline"
+            className="w-full"
+            onClick={handleCancel}
+          >
+            Cancel
+          </Button>
+        </div>
         </form>
       </CardContent>
     </Card>
