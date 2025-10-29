@@ -450,8 +450,12 @@ const Profile = () => {
                   <p className="text-muted-foreground mb-6">
                     Start your crowdfunding journey by creating your first project
                   </p>
-                  <Button className="bg-accent hover:bg-accent-hover">
-                    Create Your First Project
+                  
+                  <Button
+                    onClick={() => navigate("/create-project", { state: { from: "profile" } })}
+                    className="bg-accent hover:bg-accent-hover"
+                  >
+                    Create your first project
                   </Button>
                 </CardContent>
               </Card>
@@ -473,3 +477,4 @@ const Profile = () => {
 };
 
 export default Profile;
+
