@@ -6,7 +6,7 @@ interface RewardTierCardProps {
   amount: number;
   title: string;
   description: string;
-  delivery: string;
+  delivery?: string | null;
   backers: number;
   available: number;
   onSelect: () => void;
@@ -38,10 +38,12 @@ const RewardTierCard = ({
         <h4 className="font-semibold">{title}</h4>
         <p className="text-sm text-muted-foreground">{description}</p>
         <div className="pt-2 space-y-1 text-sm">
-          <div className="flex items-center gap-2 text-muted-foreground">
-            <Clock className="h-4 w-4" />
-            Estimated delivery: {delivery}
-          </div>
+          {delivery ? (
+            <div className="flex items-center gap-2 text-muted-foreground">
+              <Clock className="h-4 w-4" />
+              Estimated delivery: {delivery}
+            </div>
+          ) : null}
           <div className="flex items-center gap-2 text-muted-foreground">
             <Users className="h-4 w-4" />
             <span className="font-semibold">{backers}</span> backers

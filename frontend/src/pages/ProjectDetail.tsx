@@ -345,7 +345,7 @@ const ProjectDetail = () => {
                   amount={reward.amount}
                   title={reward.title}
                   description={reward.description}
-                  delivery={reward.delivery || "TBD"}
+                  delivery={reward.delivery}
                   backers={reward.backers ?? 0}
                   available={reward.available ?? 999}
                   onSelect={() => {

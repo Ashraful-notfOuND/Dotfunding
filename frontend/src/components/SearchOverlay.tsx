@@ -5,7 +5,8 @@ import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import { Link } from "react-router-dom";
 import useDebounce from "@/hooks/useDebounce";
-import { allProjects } from "@/data/allProjects"; // Import allProjects
+import { allProjects } from "@/data/allProjects"; // fallback static data
+import { useCallback } from "react";
 
 interface SearchOverlayProps {
   isOpen: boolean;
@@ -27,6 +28,7 @@ const SearchOverlay = ({ isOpen, onClose }: SearchOverlayProps) => {
   const [searchTerm, setSearchTerm] = useState("");
   const debouncedSearchTerm = useDebounce(searchTerm, 500);
   const inputRef = useRef<HTMLInputElement>(null);
+  const [projects, setProjects] = useState<any[]>(allProjects || []);
 
   useEffect(() => {
     if (isOpen) {
@@ -42,15 +44,43 @@ const SearchOverlay = ({ isOpen, onClose }: SearchOverlayProps) => {
     return () => {
       document.body.style.overflow = "unset"; // Ensure scroll is re-enabled on unmount
     };
-  }, [isOpen]); const filteredResults = useMemo(() => {
+  }, [isOpen]);
+
+  // Fetch projects from backend when overlay opens so search includes latest projects
+  const fetchProjects = useCallback(async () => {
+    try {
+      const res = await fetch("http://localhost:5000/api/projects");
+      if (!res.ok) return;
+      const body = await res.json().catch(() => null);
+      if (body && Array.isArray(body.projects)) {
+        setProjects(body.projects);
+      }
+    } catch (e) {
+      // ignore network errors and keep fallback static projects
+    }
+  }, []);
+
+  useEffect(() => {
+    if (isOpen) fetchProjects();
+  }, [isOpen, fetchProjects]);
+
+  const filteredResults = useMemo(() => {
     if (!debouncedSearchTerm) return [];
     const lowerCaseSearchTerm = debouncedSearchTerm.toLowerCase();
-    return allProjects.filter(project =>
-      project.title.toLowerCase().includes(lowerCaseSearchTerm) ||
-      project.creator.toLowerCase().includes(lowerCaseSearchTerm) ||
-      project.category.toLowerCase().includes(lowerCaseSearchTerm) ||
-      project.subCategory.toLowerCase().includes(lowerCaseSearchTerm)
-    ).slice(0, 5); // Limit to 5 results for brevity
+    return projects
+      .filter((project) => {
+        const title = (project.title || "").toString().toLowerCase();
+        const creator = (project.creator || project.creatorName || "").toString().toLowerCase();
+        const category = (project.category || "").toString().toLowerCase();
+        const subCategory = (project.subCategory || project.sub_category || "").toString().toLowerCase();
+        return (
+          title.includes(lowerCaseSearchTerm) ||
+          creator.includes(lowerCaseSearchTerm) ||
+          category.includes(lowerCaseSearchTerm) ||
+          subCategory.includes(lowerCaseSearchTerm)
+        );
+      })
+      .slice(0, 5);
   }, [debouncedSearchTerm]);
 
   const overlayVariants = {
