@@ -75,6 +75,7 @@ const CreateProject = () => {
   const [galleryFiles, setGalleryFiles] = useState<File[]>([]);
 
   const [errors, setErrors] = useState<{ [key: string]: string }>({});
+  const [submitting, setSubmitting] = useState(false);
 
 
   const validateForm = () => {
@@ -227,7 +228,25 @@ const CreateProject = () => {
 
 const handleSubmit = async (e: React.FormEvent) => {
   e.preventDefault();
-  if (!validateForm()) return;
+
+  if (submitting) return; // prevent multiple clicks
+  setSubmitting(true);
+
+  if (!form.image) {
+    toast({ description: "Please upload a main project image!" });
+    setSubmitting(false);
+    return;
+  }
+  if(!form.images || form.images.length === 0) {
+    toast({ description: "Please upload at least one gallery image!" });
+    setSubmitting(false);
+    return;
+  }
+
+  if (!validateForm()) {
+    setSubmitting(false);
+    return;
+  }
 
   if (!user) {
     console.error("No logged-in user found");
@@ -511,6 +530,7 @@ const handleCancel = () => {
                 <SelectItem value="Publishing">Publishing</SelectItem>
                 <SelectItem value="Food & Craft">Food & Craft</SelectItem>
               </SelectContent>
+
               </Select>
               {errors.category && (
                 <p className="text-red-600 text-sm">{errors.category}</p>
@@ -695,8 +715,8 @@ const handleCancel = () => {
 
           {/* Submit & Cancel */}
         <div className="flex gap-3">
-          <Button type="submit" className="w-full bg-primary">
-            Create Project
+          <Button type="submit" className="w-full bg-primary" disabled={submitting}>
+            {submitting ? "Creating..." : "Create Project"}
           </Button>
           <Button
             type="button"
