@@ -66,13 +66,9 @@ const Explore = () => {
 
     // ✅ Category-based filtering
     if (selectedCategory !== "All") {
-      filtered = filtered.filter(
-        (p) =>
-          p.category &&
-          p.category.toLowerCase().trim() ===
-            selectedCategory.toLowerCase().trim()
-      );
+      filtered = filtered.filter((p) => p.category === selectedCategory);
     }
+
 
     if (selectedSubCategories.length > 0) {
       filtered = filtered.filter((p) =>
@@ -156,7 +152,7 @@ const Explore = () => {
       <Navbar />
 
       {/* ✅ Updated CategoryNav with backend categories */}
-     <CategoryNav
+   <CategoryNav
   categories={[
     { name: "All", icon: Grid3x3 },
     { name: "Technology", icon: Cpu },
@@ -165,11 +161,16 @@ const Explore = () => {
     { name: "Design", icon: Lightbulb },
     { name: "Film & Video", icon: Film },
     { name: "Music", icon: Music },
-    { name: "Publishing", icon: Grid3x3 }, // placeholder icon
-    { name: "Food & Craft", icon: Grid3x3 }, // placeholder icon
+    { name: "Publishing", icon: Grid3x3 },
+    { name: "Food & Craft", icon: Grid3x3 },
   ]}
   selectedCategory={selectedCategory}
-  onCategoryChange={(cat) => setSelectedCategory(cat)}
+  onCategoryChange={(cat) => {
+    setSelectedCategory(cat);        // change category
+    setSelectedSubCategories([]);    // reset subcategories
+    setSelectedFilters([]);          // reset sidebar filters
+    setSortOption("popularity");     // optional: reset sort
+  }}
 />
 
 
@@ -235,20 +236,19 @@ const Explore = () => {
         {/* Projects */}
         <main className="flex-1">
           <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-6">
-            <AnimatePresence>
-              {currentProjects.map((project) => (
-                <motion.div
-                  key={project.id}
-                  layout
-                  initial={{ opacity: 0, scale: 0.95 }}
-                  animate={{ opacity: 1, scale: 1 }}
-                  exit={{ opacity: 0, scale: 0.95 }}
-                  transition={{ duration: 0.2 }}
-                >
-                  <ProjectCard {...project} />
-                </motion.div>
-              ))}
-            </AnimatePresence>
+           <AnimatePresence mode="wait">
+                {currentProjects.map((project) => (
+                  <motion.div
+                    key={project.id}
+                    initial={{ opacity: 0, scale: 0.95 }}
+                    animate={{ opacity: 1, scale: 1 }}
+                    exit={{ opacity: 0, scale: 0.95 }}
+                    transition={{ duration: 0.07 }}
+                  >
+                    <ProjectCard {...project} />
+                  </motion.div>
+                ))}
+              </AnimatePresence>
           </div>
 
           {filteredProjects.length === 0 && (
