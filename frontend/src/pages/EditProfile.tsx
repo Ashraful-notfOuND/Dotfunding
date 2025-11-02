@@ -173,14 +173,16 @@ const EditProfile = () => {
 
               <div className="space-y-2">
                 <Label htmlFor="bio">Bio *</Label>
-                <Input
+                <textarea
                   id="bio"
                   placeholder="Write a short bio..."
                   value={bio}
                   onChange={(e) => setBio(e.target.value)}
+                  className="w-full border rounded-md p-2 text-sm resize-none h-24"
                 />
                 {errors.bio && <p className="text-red-600 text-sm">{errors.bio}</p>}
               </div>
+
 
               <div className="space-y-2">
                 <Label htmlFor="location">Location *</Label>
