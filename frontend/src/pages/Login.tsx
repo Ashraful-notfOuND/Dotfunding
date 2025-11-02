@@ -7,6 +7,7 @@ import { Link, useNavigate, useLocation } from "react-router-dom";
 import { toast } from "@/hooks/use-toast";
 import { useAuth } from "@/hooks/useAuth";
 import { useState, useEffect } from "react";
+import defaultAvatar from "@/assets/default-avatar.png";
 
 const Login = () => {
   const navigate = useNavigate();
@@ -45,9 +46,12 @@ const handleSubmit = async (e: React.FormEvent) => {
       // set auth state in client
       // data.user should contain at least { email, full_name }
       setAuth({
-          id: data.user.id,
+          id: data.user.id, 
           email: data.user.email,
           name: data.user.full_name,
+          bio: data.user.bio || "",
+          profilePic: data.user.profile_pic || defaultAvatar,
+          location: data.user.location || "Not specified",
         });
         console.log("User logged in: ", data.user.id);
       // Redirect to original page or home
