@@ -101,6 +101,7 @@ const SignUp = () => {
                   placeholder="••••••••"
                   className="pl-10"
                   required
+                  minLength={8}
                 />
               </div>
               <p className="text-xs text-muted-foreground">
