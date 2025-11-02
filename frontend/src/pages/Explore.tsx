@@ -9,7 +9,7 @@ import { Menu } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { AnimatePresence, motion } from "framer-motion";
 //import { allProjects} from "@/data/mockProjects"; // or your mock data path
-import { allProjects } from "@/data/allProjects";
+import { allProjects as staticProjects } from "@/data/allProjects";
 
 // If not using external mock data, your allProjects can stay here
 
@@ -25,12 +25,63 @@ const Explore = () => {
   const [sortOption, setSortOption] = useState("popularity");
   const [fundingGoalRange, setFundingGoalRange] = useState([100000]);
 
+  // Projects state: prefer backend-fetched projects, fall back to static data
+  const [projects, setProjects] = useState<any[]>(staticProjects as any[]);
+
+  useEffect(() => {
+    let mounted = true;
+    const fetchProjects = async () => {
+      try {
+        const backend = (import.meta.env as any).VITE_BACKEND_URL || "http://localhost:5000";
+        const res = await fetch(`${backend}/api/projects`);
+        if (!res.ok) {
+          console.warn("Explore: failed to fetch projects from backend, using static fallback");
+          return;
+        }
+        const body = await res.json();
+        if (!mounted) return;
+        const fetched = (body.projects || []) as any[];
+
+        // Map backend shape to the shape Explore expects (best-effort)
+        const mapped = fetched.map((p) => ({
+          id: p.id,
+          title: p.title,
+          tagline: p.tagline || "",
+          creator: p.creator || p.creator || "",
+          image: p.image || p.imageUrl || "",
+          fundingGoal: p.fundingGoal || p.funding_goal || 0,
+          fundingCurrent: p.fundingCurrent || p.funding_current || 0,
+          backers: p.backers || 0,
+          daysLeft: typeof p.daysLeft === "number" ? p.daysLeft : p.days_left || 0,
+          category: p.category || "All",
+          subCategory: p.subCategory || p.sub_category || "",
+          status: p.status || "active",
+          location: p.location || "",
+          staffPick: p.staffPick || false,
+          description: p.description || "",
+          images: p.images || (p.image ? [p.image] : []),
+          createdDate: p.createdDate ? new Date(p.createdDate) : undefined,
+        }));
+
+        setProjects(mapped.length ? mapped : staticProjects as any[]);
+      } catch (e) {
+        console.warn("Explore: error fetching projects, using static fallback", e);
+        setProjects(staticProjects as any[]);
+      }
+    };
+
+    fetchProjects();
+    return () => {
+      mounted = false;
+    };
+  }, []);
+
   // PAGINATION STATES
   const [currentPage, setCurrentPage] = useState(1);
   const itemsPerPage = 6; // Number of cards per page
 
   const filteredProjects = useMemo(() => {
-    let filtered = [...allProjects];
+  let filtered = [...projects];
 
     if (selectedCategory !== "All") {
       filtered = filtered.filter((p) => p.category === selectedCategory);
