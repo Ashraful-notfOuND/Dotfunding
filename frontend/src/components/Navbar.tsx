@@ -1,4 +1,4 @@
-import { Link } from "react-router-dom";
+import { Link, useNavigate } from "react-router-dom";
 import { Search, User, Menu, LogOut } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -14,9 +14,16 @@ const Navbar = ({ hideSearch }: NavbarProps) => {
   const [isMenuOpen, setIsMenuOpen] = useState(false);
   const [isSearchOpen, setIsSearchOpen] = useState(false);
   const { isAuthenticated, logout } = useAuth();
+  const navigate = useNavigate(); // ✅ added navigate
 
   const openSearch = () => setIsSearchOpen(true);
   const closeSearch = () => setIsSearchOpen(false);
+
+  // handle logout + redirect
+  const handleLogout = () => {
+    logout();      // clear auth state
+    navigate("/"); // redirect to home
+  };
 
   return (
     <nav className="sticky top-0 z-50 bg-card border-b border-border shadow-sm">
@@ -64,7 +71,7 @@ const Navbar = ({ hideSearch }: NavbarProps) => {
                     <User className="h-5 w-5" />
                   </Link>
                 </Button>
-                <Button variant="ghost" size="icon" onClick={logout}>
+                <Button variant="ghost" size="icon" onClick={handleLogout}>
                   <LogOut className="h-5 w-5" />
                 </Button>
               </>
@@ -115,7 +122,7 @@ const Navbar = ({ hideSearch }: NavbarProps) => {
                 <Button variant="ghost" asChild className="justify-start">
                   <Link to="/profile">Profile</Link>
                 </Button>
-                <Button variant="ghost" onClick={logout} className="justify-start">
+                <Button variant="ghost" onClick={handleLogout} className="justify-start">
                   Logout
                 </Button>
               </>
