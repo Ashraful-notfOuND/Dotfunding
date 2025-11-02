@@ -248,7 +248,7 @@ const ProjectDetail = () => {
             </TabsContent>
 
             <TabsContent value="creator" className="mt-6">
-              <CreatorTab />
+              <CreatorTab projectId={project.id}/>
             </TabsContent>
 
             <TabsContent value="updates" className="mt-6">
