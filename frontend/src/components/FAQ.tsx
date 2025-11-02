@@ -96,18 +96,26 @@ const FAQ = ({ projectId }: FAQProps) => {
           </p>
         </div>
 
-        <Accordion type="single" collapsible className="w-full animate-fade-in">
-          {faqs.map((faq, index) => (
-            <AccordionItem key={index} value={`item-${index}`}>
-              <AccordionTrigger className="text-left hover:text-primary transition-smooth">
-                {faq.question}
-              </AccordionTrigger>
-              <AccordionContent className="text-muted-foreground">
-                {faq.answer}
-              </AccordionContent>
-            </AccordionItem>
-          ))}
-        </Accordion>
+<Accordion type="single" collapsible className="w-full animate-fade-in space-y-4">
+  {faqs.map((faq, index) => (
+    <AccordionItem
+      key={index}
+      value={`item-${index}`}
+      className="border border-border rounded-xl shadow-sm hover:shadow-md transition-shadow duration-300 bg-card"
+    >
+      <AccordionTrigger className="text-left flex items-start gap-3 px-6 py-4 text-lg md:text-xl font-semibold hover:text-primary transition-colors">
+        <span className="text-primary font-bold">{index + 1}.</span>
+        <span className="flex-1">{faq.question}</span>
+      </AccordionTrigger>
+      <AccordionContent className="px-6 py-4 text-muted-foreground text-base md:text-lg bg-background/50 rounded-b-xl">
+        {faq.answer}
+      </AccordionContent>
+    </AccordionItem>
+  ))}
+</Accordion>
+
+
+
       </div>
     </section>
   );
