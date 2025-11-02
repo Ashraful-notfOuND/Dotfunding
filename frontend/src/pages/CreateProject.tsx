@@ -16,7 +16,7 @@ interface Reward {
   amount: string;
   title: string;
   description: string;
-  delivery: string;
+  delivery: Date | null; 
   backers: number;
   available: number;
 }
@@ -127,7 +127,7 @@ const CreateProject = () => {
           amount: "", // blank by default
           title: "",
           description: "",
-          delivery: "",
+          delivery: null, // ✅ null by default
           backers: 0,
           available: 0,
         },
@@ -143,7 +143,7 @@ const CreateProject = () => {
   const handleRewardChange = (
     index: number,
     field: keyof Reward,
-    value: string
+    value: string | Date | null
   ) => {
     const updated = [...form.rewards];
     (updated[index] as any)[field] = value;
@@ -349,14 +349,15 @@ const handleSubmit = async (e: React.FormEvent) => {
     // ✅ Send rewards (if any) as JSON to backend rewards endpoint
     if (form.rewards && form.rewards.length > 0) {
       try {
-        const rewardsPayload = form.rewards.map((r) => ({
+       const rewardsPayload = form.rewards.map((r) => ({
           title: r.title,
           description: r.description,
           amount: r.amount,
-          delivery: r.delivery,
+          delivery: r.delivery ? new Date(r.delivery).toISOString().split("T")[0] : "",
           backers: r.backers ?? 0,
           available: r.available ?? 0,
         }));
+
 
         const responseRewards = await fetch("http://localhost:5000/api/projects/rewards", {
           method: "POST",
@@ -657,13 +658,33 @@ const handleCancel = () => {
                     {errors[`reward_amount_${i}`]}
                   </p>
                 )}
-                <Input
-                  placeholder="Delivery Date"
-                  value={reward.delivery}
-                  onChange={(e) =>
-                    handleRewardChange(i, "delivery", e.target.value)
-                  }
-                />
+                <div>
+                  <Label>Delivery Date</Label>
+                  <Popover>
+                    <PopoverTrigger asChild>
+                      <Button
+                        variant="outline"
+                        className="w-full justify-start text-left font-normal"
+                      >
+                        <CalendarIcon className="mr-2 h-4 w-4" />
+                        {reward.delivery
+                          ? formatDate_dd_mm_yyyy(reward.delivery)
+                          : <span>Pick a date</span>}
+                      </Button>
+                    </PopoverTrigger>
+                    <PopoverContent className="w-auto p-0">
+                      <Calendar
+                        mode="single"
+                        selected={reward.delivery ?? undefined}
+                        onSelect={(date) => {
+                          handleRewardChange(i, "delivery", date ?? null);
+                        }}
+                        initialFocus
+                      />
+                    </PopoverContent>
+                  </Popover>
+                </div>
+
                 <Textarea
                   placeholder="Reward Description"
                   value={reward.description}
