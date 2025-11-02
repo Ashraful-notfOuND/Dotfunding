@@ -189,16 +189,16 @@ const EditProject = () => {
                     <SelectTrigger>
                       <SelectValue placeholder="Select Category" />
                     </SelectTrigger>
-                    <SelectContent>
-                      <SelectItem value="technology">Technology</SelectItem>
-                      <SelectItem value="art">Art</SelectItem>
-                      <SelectItem value="games">Games</SelectItem>
-                      <SelectItem value="design">Design</SelectItem>
-                      <SelectItem value="film">Film & Video</SelectItem>
-                      <SelectItem value="music">Music</SelectItem>
-                      <SelectItem value="publishing">Publishing</SelectItem>
-                      <SelectItem value="food">Food & Craft</SelectItem>
-                    </SelectContent>
+                      <SelectContent>
+                        <SelectItem value="Technology">Technology</SelectItem>
+                        <SelectItem value="Art">Art</SelectItem>
+                        <SelectItem value="Games">Games</SelectItem>
+                        <SelectItem value="Design">Design</SelectItem>
+                        <SelectItem value="Film & Video">Film & Video</SelectItem>
+                        <SelectItem value="Music">Music</SelectItem>
+                        <SelectItem value="Publishing">Publishing</SelectItem>
+                        <SelectItem value="Food & Craft">Food & Craft</SelectItem>
+                      </SelectContent>
                   </Select>
                   {errors.category && <p className="text-red-600 text-sm">{errors.category}</p>}
                 </div>
