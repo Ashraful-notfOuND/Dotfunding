@@ -436,6 +436,43 @@ export const getFAQsByProjectId = async (req, res) => {
     res.status(500).json({ error: "Failed to fetch FAQs" });
   }
 };
+
+// project creater info
+
+export const getProjectCreator = async (req, res) => {
+  const { projectId } = req.params;
+
+  try {
+    // Step 1: Fetch the project to get its user_id
+    const { data: project, error: projectError } = await supabase
+      .from("main_projects")
+      .select("user_id")
+      .eq("id", projectId)
+      .single();
+
+    if (projectError || !project) {
+      return res.status(404).json({ error: "Project not found." });
+    }
+
+    // Step 2: Use user_id to fetch creator info from users table
+    const { data: user, error: userError } = await supabase
+      .from("users")
+      .select("id, full_name, bio, location, profile_pic")
+      .eq("id", project.user_id)
+      .single();
+
+    if (userError || !user) {
+      return res.status(404).json({ error: "Creator not found." });
+    }
+
+    // Step 3: Return the user data
+    res.status(200).json({ user });
+  } catch (err) {
+    console.error("Error fetching creator:", err);
+    res.status(500).json({ error: "Internal server error" });
+  }
+};
+
 /**
  * Get all projects (for homepage)
  */
