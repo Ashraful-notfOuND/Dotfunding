@@ -1,4 +1,4 @@
-import React, { useState } from "react";
+import React, { useEffect, useState } from "react";
 import { useNavigate, useLocation } from "react-router-dom";
 import { Card, CardContent } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
@@ -46,7 +46,13 @@ const CreateProject = () => {
   const navigate = useNavigate();
   const location = useLocation();
   const { user, isAuthenticated } = useAuth();
-  console.log("current user:", user.id, user.email);
+  useEffect(() => {
+    if (!isAuthenticated || !user?.id) {
+      navigate("/login", { replace: true });
+    }
+  }, [isAuthenticated, user, navigate]);
+  console.log("current user:", user?.id, user?.email);
+
   const [form, setForm] = useState({
     title: "",
     tagline: "",
@@ -496,15 +502,15 @@ const handleCancel = () => {
                   <SelectValue placeholder="Select Category" />
                 </SelectTrigger>
                 <SelectContent>
-                  <SelectItem value="technology">Technology</SelectItem>
-                  <SelectItem value="art">Art</SelectItem>
-                  <SelectItem value="games">Games</SelectItem>
-                  <SelectItem value="design">Design</SelectItem>
-                  <SelectItem value="film">Film & Video</SelectItem>
-                  <SelectItem value="music">Music</SelectItem>
-                  <SelectItem value="publishing">Publishing</SelectItem>
-                  <SelectItem value="food">Food & Craft</SelectItem>
-                </SelectContent>
+                <SelectItem value="Technology">Technology</SelectItem>
+                <SelectItem value="Art">Art</SelectItem>
+                <SelectItem value="Games">Games</SelectItem>
+                <SelectItem value="Design">Design</SelectItem>
+                <SelectItem value="Film & Video">Film & Video</SelectItem>
+                <SelectItem value="Music">Music</SelectItem>
+                <SelectItem value="Publishing">Publishing</SelectItem>
+                <SelectItem value="Food & Craft">Food & Craft</SelectItem>
+              </SelectContent>
               </Select>
               {errors.category && (
                 <p className="text-red-600 text-sm">{errors.category}</p>
