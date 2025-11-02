@@ -16,6 +16,47 @@ interface ProjectHeroProps {
 }
 
 const ProjectHero = ({ title, creator, tagline, images, videoUrl, status }: ProjectHeroProps) => {
+  // Normalize common video URLs (YouTube watch, youtu.be short links, Vimeo) into embed URLs
+  const normalizeVideoUrl = (url?: string) => {
+    if (!url) return null;
+    try {
+      const u = url.trim();
+      // already an embed URL
+      if (u.includes("/embed/")) return u;
+
+      // YouTube long watch URL
+      if (u.includes("youtube.com/watch")) {
+        const params = new URL(u).searchParams;
+        const v = params.get("v");
+        if (v) return `https://www.youtube.com/embed/${v}`;
+      }
+
+      // youtu.be short link
+      if (u.includes("youtu.be/")) {
+        const parts = u.split("youtu.be/");
+        if (parts[1]) {
+          const id = parts[1].split(/[?&]/)[0];
+          return `https://www.youtube.com/embed/${id}`;
+        }
+      }
+
+      // Vimeo (convert to player URL)
+      if (u.includes("vimeo.com/")) {
+        const parts = u.split("vimeo.com/");
+        if (parts[1]) {
+          const id = parts[1].split(/[?&]/)[0];
+          return `https://player.vimeo.com/video/${id}`;
+        }
+      }
+
+      // fallback: return original (may still work)
+      return u;
+    } catch (e) {
+      return url;
+    }
+  };
+
+  const embedUrl = normalizeVideoUrl(videoUrl);
   const statusConfig = {
     "just-launched": { label: "Just Launched", variant: "default" as const },
     "trending": { label: "Trending", variant: "secondary" as const },
@@ -39,10 +80,10 @@ const ProjectHero = ({ title, creator, tagline, images, videoUrl, status }: Proj
         </div>
       </div>
 
-      {videoUrl ? (
+      {embedUrl ? (
         <div className="relative aspect-video w-full rounded-xl overflow-hidden shadow-lg">
           <iframe
-            src={videoUrl}
+            src={embedUrl as string}
             title="Project Video"
             allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
             allowFullScreen
