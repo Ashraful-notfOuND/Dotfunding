@@ -4,19 +4,15 @@ import Navbar from "@/components/Navbar";
 import Footer from "@/components/Footer";
 import ProjectCard from "@/components/ProjectCard";
 import CategoryNav from "@/components/CategoryNav";
-import FilterPanel from "@/components/FilterPanel";
 import { Menu } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { AnimatePresence, motion } from "framer-motion";
-//import { allProjects} from "@/data/mockProjects"; // or your mock data path
-import { allProjects as staticProjects } from "@/data/allProjects";
-
-// If not using external mock data, your allProjects can stay here
+import { Palette, Film, Gamepad2, Lightbulb, Music, Cpu, Grid3x3 } from "lucide-react";
+import FilterPanel from "@/components/FilterPanel";
 
 const Explore = () => {
-  const [searchParams, setSearchParams] = useSearchParams();
+  const [searchParams] = useSearchParams();
   const [isMobileFiltersOpen, setIsMobileFiltersOpen] = useState(false);
-
   const [selectedCategory, setSelectedCategory] = useState(
     searchParams.get("category") || "All"
   );
@@ -25,66 +21,57 @@ const Explore = () => {
   const [sortOption, setSortOption] = useState("popularity");
   const [fundingGoalRange, setFundingGoalRange] = useState([100000]);
 
-  // Projects state: prefer backend-fetched projects, fall back to static data
-  const [projects, setProjects] = useState<any[]>(staticProjects as any[]);
+  // backend projects
+  const [projects, setProjects] = useState<any[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
+
+  // pagination
+  const [currentPage, setCurrentPage] = useState(1);
+  const itemsPerPage = 6;
 
   useEffect(() => {
-    let mounted = true;
     const fetchProjects = async () => {
+      setLoading(true);
       try {
-        const backend = (import.meta.env as any).VITE_BACKEND_URL || "http://localhost:5000";
-        const res = await fetch(`${backend}/api/projects`);
-        if (!res.ok) {
-          console.warn("Explore: failed to fetch projects from backend, using static fallback");
-          return;
-        }
-        const body = await res.json();
-        if (!mounted) return;
-        const fetched = (body.projects || []) as any[];
-
-        // Map backend shape to the shape Explore expects (best-effort)
-        const mapped = fetched.map((p) => ({
-          id: p.id,
-          title: p.title,
-          tagline: p.tagline || "",
-          creator: p.creator || p.creator || "",
-          image: p.image || p.imageUrl || "",
-          fundingGoal: p.fundingGoal || p.funding_goal || 0,
-          fundingCurrent: p.fundingCurrent || p.funding_current || 0,
-          backers: p.backers || 0,
-          daysLeft: typeof p.daysLeft === "number" ? p.daysLeft : p.days_left || 0,
-          category: p.category || "All",
-          subCategory: p.subCategory || p.sub_category || "",
-          status: p.status || "active",
-          location: p.location || "",
-          staffPick: p.staffPick || false,
-          description: p.description || "",
-          images: p.images || (p.image ? [p.image] : []),
-          createdDate: p.createdDate ? new Date(p.createdDate) : undefined,
-        }));
-
-        setProjects(mapped.length ? mapped : staticProjects as any[]);
-      } catch (e) {
-        console.warn("Explore: error fetching projects, using static fallback", e);
-        setProjects(staticProjects as any[]);
+        const res = await fetch("http://localhost:5000/api/projects");
+        if (!res.ok) throw new Error(`Failed to fetch projects (${res.status})`);
+        const data = await res.json();
+        setProjects(data.projects || data);
+      } catch (err: any) {
+        console.error("Error fetching projects:", err);
+        setError(err.message || "Failed to load projects");
+      } finally {
+        setLoading(false);
       }
     };
-
     fetchProjects();
-    return () => {
-      mounted = false;
-    };
   }, []);
 
-  // PAGINATION STATES
-  const [currentPage, setCurrentPage] = useState(1);
-  const itemsPerPage = 6; // Number of cards per page
+  const normalizedProjects = useMemo(() => {
+    return projects.map((p) => ({
+      ...p,
+      image: p.image || p.image_urls || "",
+      images: p.images || (p.image_urls ? [p.image_urls] : []),
+      status: p.status || "active",
+      fundingCurrent: p.fundingCurrent || 0,
+      fundingGoal: p.fundingGoal || 0,
+      backers: p.backers || 0,
+      daysLeft: p.daysLeft || 0,
+    }));
+  }, [projects]);
 
   const filteredProjects = useMemo(() => {
-  let filtered = [...projects];
+    let filtered = [...normalizedProjects];
 
+    // ✅ Category-based filtering
     if (selectedCategory !== "All") {
-      filtered = filtered.filter((p) => p.category === selectedCategory);
+      filtered = filtered.filter(
+        (p) =>
+          p.category &&
+          p.category.toLowerCase().trim() ===
+            selectedCategory.toLowerCase().trim()
+      );
     }
 
     if (selectedSubCategories.length > 0) {
@@ -112,7 +99,8 @@ const Explore = () => {
       case "funding":
         filtered.sort(
           (a, b) =>
-            b.fundingCurrent / b.fundingGoal - a.fundingCurrent / a.fundingGoal
+            b.fundingCurrent / b.fundingGoal -
+            a.fundingCurrent / a.fundingGoal
         );
         break;
       case "end-date":
@@ -121,16 +109,15 @@ const Explore = () => {
       case "newest":
         filtered.sort((a, b) => parseInt(b.id) - parseInt(a.id));
         break;
-      case "popularity":
       default:
         filtered.sort((a, b) => (b.backers || 0) - (a.backers || 0));
         break;
     }
 
-    // Reset to first page if filters change
     setCurrentPage(1);
     return filtered;
   }, [
+    normalizedProjects,
     selectedCategory,
     selectedSubCategories,
     selectedFilters,
@@ -138,7 +125,20 @@ const Explore = () => {
     fundingGoalRange,
   ]);
 
-  // PAGINATION LOGIC
+  if (loading)
+    return (
+      <div className="min-h-screen flex items-center justify-center">
+        <p>Loading projects...</p>
+      </div>
+    );
+
+  if (error)
+    return (
+      <div className="min-h-screen flex items-center justify-center text-red-500">
+        <p>{error}</p>
+      </div>
+    );
+
   const totalPages = Math.ceil(filteredProjects.length / itemsPerPage);
   const startIndex = (currentPage - 1) * itemsPerPage;
   const endIndex = startIndex + itemsPerPage;
@@ -151,156 +151,154 @@ const Explore = () => {
     }
   };
 
-  const handleFilterToggle = (filter: string) => {
-    setSelectedFilters((prev) =>
-      prev.includes(filter)
-        ? prev.filter((f) => f !== filter)
-        : [...prev, filter]
-    );
-  };
-
-  const handleSubCategoryToggle = (subCategory: string) => {
-    setSelectedSubCategories((prev) =>
-      prev.includes(subCategory)
-        ? prev.filter((s) => s !== subCategory)
-        : [...prev, subCategory]
-    );
-  };
-
-  const clearAllFilters = () => {
-    setSelectedCategory("All");
-    setSelectedSubCategories([]);
-    setSelectedFilters([]);
-    setFundingGoalRange([100000]);
-    setSortOption("popularity");
-  };
-
   return (
     <div className="min-h-screen flex flex-col bg-background">
       <Navbar />
-      <CategoryNav
-        selectedCategory={selectedCategory}
-        onCategoryChange={(cat) => setSelectedCategory(cat)}
-      />
-      <div className="container mx-auto px-4 py-8">
-        <div className="flex gap-8">
-          <aside className="hidden lg:block w-72 flex-shrink-0">
-            <div className="sticky top-24">
-              <FilterPanel
-                selectedFilters={selectedFilters}
-                onFilterToggle={handleFilterToggle}
-                sortOption={sortOption}
-                onSortChange={setSortOption}
-                fundingGoalRange={fundingGoalRange}
-                onFundingGoalChange={setFundingGoalRange}
-                selectedSubCategories={selectedSubCategories}
-                onSubCategoryToggle={handleSubCategoryToggle}
-              />
+
+      {/* ✅ Updated CategoryNav with backend categories */}
+     <CategoryNav
+  categories={[
+    { name: "All", icon: Grid3x3 },
+    { name: "Technology", icon: Cpu },
+    { name: "Art", icon: Palette },
+    { name: "Games", icon: Gamepad2 },
+    { name: "Design", icon: Lightbulb },
+    { name: "Film & Video", icon: Film },
+    { name: "Music", icon: Music },
+    { name: "Publishing", icon: Grid3x3 }, // placeholder icon
+    { name: "Food & Craft", icon: Grid3x3 }, // placeholder icon
+  ]}
+  selectedCategory={selectedCategory}
+  onCategoryChange={(cat) => setSelectedCategory(cat)}
+/>
+
+
+      {/* Main Section */}
+      <div className="container mx-auto px-4 py-8 flex flex-col md:flex-row gap-6">
+        {/* Sidebar */}
+        <aside className="hidden lg:block w-72 flex-shrink-0">
+  <div className="sticky top-24">
+    <FilterPanel
+      selectedFilters={selectedFilters}
+      onFilterToggle={(filter) =>
+        setSelectedFilters((prev) =>
+          prev.includes(filter)
+            ? prev.filter((f) => f !== filter)
+            : [...prev, filter]
+        )
+      }
+      sortOption={sortOption}
+      onSortChange={setSortOption}
+      fundingGoalRange={fundingGoalRange}
+      onFundingGoalChange={setFundingGoalRange}
+      selectedSubCategories={selectedSubCategories}
+      onSubCategoryToggle={(subCategory) =>
+        setSelectedSubCategories((prev) =>
+          prev.includes(subCategory)
+            ? prev.filter((s) => s !== subCategory)
+            : [...prev, subCategory]
+        )
+      }
+    />
+  </div>
+</aside>
+
+{/* Mobile Filters */}
+{isMobileFiltersOpen && (
+  <div className="lg:hidden mb-6 animate-fade-in">
+    <FilterPanel
+      selectedFilters={selectedFilters}
+      onFilterToggle={(filter) =>
+        setSelectedFilters((prev) =>
+          prev.includes(filter)
+            ? prev.filter((f) => f !== filter)
+            : [...prev, filter]
+        )
+      }
+      sortOption={sortOption}
+      onSortChange={setSortOption}
+      fundingGoalRange={fundingGoalRange}
+      onFundingGoalChange={setFundingGoalRange}
+      selectedSubCategories={selectedSubCategories}
+      onSubCategoryToggle={(subCategory) =>
+        setSelectedSubCategories((prev) =>
+          prev.includes(subCategory)
+            ? prev.filter((s) => s !== subCategory)
+            : [...prev, subCategory]
+        )
+      }
+    />
+  </div>
+)}
+
+
+        {/* Projects */}
+        <main className="flex-1">
+          <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-6">
+            <AnimatePresence>
+              {currentProjects.map((project) => (
+                <motion.div
+                  key={project.id}
+                  layout
+                  initial={{ opacity: 0, scale: 0.95 }}
+                  animate={{ opacity: 1, scale: 1 }}
+                  exit={{ opacity: 0, scale: 0.95 }}
+                  transition={{ duration: 0.2 }}
+                >
+                  <ProjectCard {...project} />
+                </motion.div>
+              ))}
+            </AnimatePresence>
+          </div>
+
+          {filteredProjects.length === 0 && (
+            <div className="text-center py-16">
+              <p className="text-lg text-muted-foreground mb-4">
+                No projects found in this category.
+              </p>
+              <Button variant="outline" onClick={() => setSelectedCategory("All")}>
+                View All Projects
+              </Button>
             </div>
-          </aside>
-          <main className="flex-1 min-w-0">
-            <div className="lg:hidden mb-4 flex items-center justify-between">
-              <h1 className="text-2xl font-bold">
-                {selectedCategory === "All" ? "All Projects" : selectedCategory}
-              </h1>
+          )}
+
+          {/* Pagination */}
+          {filteredProjects.length > 0 && (
+            <div className="flex justify-center items-center gap-2 mt-10">
               <Button
                 variant="outline"
                 size="sm"
-                onClick={() => setIsMobileFiltersOpen((o) => !o)}
+                onClick={() => handlePageChange(currentPage - 1)}
+                disabled={currentPage === 1}
               >
-                <Menu className="h-4 w-4 mr-2" /> Filters
+                Previous
+              </Button>
+              {[...Array(totalPages)].map((_, index) => {
+                const page = index + 1;
+                return (
+                  <Button
+                    key={page}
+                    variant={page === currentPage ? "default" : "outline"}
+                    size="sm"
+                    onClick={() => handlePageChange(page)}
+                  >
+                    {page}
+                  </Button>
+                );
+              })}
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={() => handlePageChange(currentPage + 1)}
+                disabled={currentPage === totalPages}
+              >
+                Next
               </Button>
             </div>
-
-            {isMobileFiltersOpen && (
-              <div className="lg:hidden mb-6 animate-fade-in">
-                <FilterPanel
-                  selectedFilters={selectedFilters}
-                  onFilterToggle={handleFilterToggle}
-                  sortOption={sortOption}
-                  onSortChange={setSortOption}
-                  fundingGoalRange={fundingGoalRange}
-                  onFundingGoalChange={setFundingGoalRange}
-                  selectedSubCategories={selectedSubCategories}
-                  onSubCategoryToggle={handleSubCategoryToggle}
-                />
-              </div>
-            )}
-
-            <div className="mb-6 flex justify-between items-center">
-              <p className="text-muted-foreground">
-                Showing {filteredProjects.length}{" "}
-                {filteredProjects.length === 1 ? "project" : "projects"}
-              </p>
-            </div>
-
-            <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-6">
-              <AnimatePresence>
-                {currentProjects.map((project) => (
-                  <motion.div
-                    key={project.id}
-                    layout
-                    initial={{ opacity: 0, scale: 0.95 }}
-                    animate={{ opacity: 1, scale: 1 }}
-                    exit={{ opacity: 0, scale: 0.95 }}
-                    transition={{ duration: 0.2 }}
-                  >
-                    <ProjectCard {...project} />
-                  </motion.div>
-                ))}
-              </AnimatePresence>
-            </div>
-
-            {filteredProjects.length === 0 && (
-              <div className="text-center py-16">
-                <p className="text-lg text-muted-foreground mb-4">
-                  No projects found.
-                </p>
-                <Button variant="outline" onClick={clearAllFilters}>
-                  Clear All Filters
-                </Button>
-              </div>
-            )}
-
-            {/*PAGINATION COMPONENT */}
-            {filteredProjects.length > 0 && (
-              <div className="flex justify-center items-center gap-2 mt-10">
-                <Button
-                  variant="outline"
-                  size="sm"
-                  onClick={() => handlePageChange(currentPage - 1)}
-                  disabled={currentPage === 1}
-                >
-                  Previous
-                </Button>
-
-                {[...Array(totalPages)].map((_, index) => {
-                  const page = index + 1;
-                  return (
-                    <Button
-                      key={page}
-                      variant={page === currentPage ? "default" : "outline"}
-                      size="sm"
-                      onClick={() => handlePageChange(page)}
-                    >
-                      {page}
-                    </Button>
-                  );
-                })}
-
-                <Button
-                  variant="outline"
-                  size="sm"
-                  onClick={() => handlePageChange(currentPage + 1)}
-                  disabled={currentPage === totalPages}
-                >
-                  Next
-                </Button>
-              </div>
-            )}
-          </main>
-        </div>
+          )}
+        </main>
       </div>
+
       <Footer />
     </div>
   );
