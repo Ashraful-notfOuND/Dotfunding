@@ -71,7 +71,7 @@ const ProjectDetail = () => {
     title: string;
     description: string;
   } | null>(null);
-  
+
   const fetchProject = useCallback(async (signal?: AbortSignal) => {
     setLoading(true);
     setError(null);
@@ -114,24 +114,24 @@ const ProjectDetail = () => {
 
     return () => controller.abort();
   }, [id, navigate, fetchProject]);
-   // Fetch rewards after project is loaded
-useEffect(() => {
-  if (!project) return; // wait until project is loaded
- console.log("Fetching rewards for projectId in frontend:", project.id);
-  const fetchRewards = async () => {
-    try {
+  // Fetch rewards after project is loaded
+  useEffect(() => {
+    if (!project) return; // wait until project is loaded
+    console.log("Fetching rewards for projectId in frontend:", project.id);
+    const fetchRewards = async () => {
+      try {
 
-      const res = await fetch(`http://localhost:5000/api/projects/rewards/${project.id}`);
-      if (!res.ok) throw new Error("Failed to fetch rewards");
-      const data = await res.json();
-      setRewards(data.rewards || []);
-    } catch (err) {
-      console.error("Failed to fetch rewards:", err);
-    }
-  };
+        const res = await fetch(`http://localhost:5000/api/projects/rewards/${project.id}`);
+        if (!res.ok) throw new Error("Failed to fetch rewards");
+        const data = await res.json();
+        setRewards(data.rewards || []);
+      } catch (err) {
+        console.error("Failed to fetch rewards:", err);
+      }
+    };
 
-  fetchRewards();
-}, [project]);
+    fetchRewards();
+  }, [project]);
 
   // React to payment redirect params (payment_status) and show toast + refresh
   useEffect(() => {
@@ -219,8 +219,8 @@ useEffect(() => {
     (project.images && project.images.length > 0)
       ? project.images
       : project.image_urls
-      ? [project.image_urls]
-      : [];
+        ? [project.image_urls]
+        : [];
 
   // ProjectHero expects a specific status union; default to 'active' if missing/unknown
   const allowedStatuses = ["just-launched", "trending", "funded", "nearly-funded", "active"] as const;
@@ -249,46 +249,46 @@ useEffect(() => {
 
             {/* Tabs */}
             <Tabs defaultValue="campaign" className="w-full">
-            <TabsList className="w-full justify-start">
-              <TabsTrigger value="campaign">Campaign</TabsTrigger>
-              <TabsTrigger value="faq">FAQ</TabsTrigger>
-              <TabsTrigger value="creator">Creator</TabsTrigger>
-              <TabsTrigger value="updates">Updates</TabsTrigger>
-              <TabsTrigger value="comments">Comments</TabsTrigger>
-              <TabsTrigger value="statistics">Statistics</TabsTrigger>
-            </TabsList>
+              <TabsList className="w-full justify-start">
+                <TabsTrigger value="campaign">Campaign</TabsTrigger>
+                <TabsTrigger value="faq">FAQ</TabsTrigger>
+                <TabsTrigger value="creator">Creator</TabsTrigger>
+                <TabsTrigger value="updates">Updates</TabsTrigger>
+                <TabsTrigger value="comments">Comments</TabsTrigger>
+                <TabsTrigger value="statistics">Statistics</TabsTrigger>
+              </TabsList>
 
-            <TabsContent value="campaign" className="mt-6">
-              <Campaign projectId={project.id} />
-            </TabsContent>
+              <TabsContent value="campaign" className="mt-6">
+                <Campaign projectId={project.id} />
+              </TabsContent>
 
-            <TabsContent value="faq" className="mt-6">
-              <FAQ projectId={project.id} />
-            </TabsContent>
+              <TabsContent value="faq" className="mt-6">
+                <FAQ projectId={project.id} />
+              </TabsContent>
 
-            <TabsContent value="creator" className="mt-6">
-              <CreatorTab projectId={project.id}/>
-            </TabsContent>
+              <TabsContent value="creator" className="mt-6">
+                <CreatorTab projectId={project.id} />
+              </TabsContent>
 
-            <TabsContent value="updates" className="mt-6">
-              <Updates />
-            </TabsContent>
+              <TabsContent value="updates" className="mt-6">
+                <Updates />
+              </TabsContent>
 
-            <TabsContent value="comments" className="mt-6">
-              <Comments />
-            </TabsContent>
+              <TabsContent value="comments" className="mt-6">
+                <Comments />
+              </TabsContent>
 
-            <TabsContent value="statistics" className="mt-6">
-              <StatisticsTab />
-            </TabsContent>
-          </Tabs>
+              <TabsContent value="statistics" className="mt-6">
+                <StatisticsTab />
+              </TabsContent>
+            </Tabs>
 
           </div>
 
           {/* Sidebar */}
           <div className="lg:sticky top-24 space-y-6">
             <FundingStats
-              fundingCurrent={project?.fundingCurrent ?? 0}
+              fundingCurrent={500}
               fundingGoal={project?.fundingGoal ?? 0}
               backers={project?.backers ?? 0}
               daysLeft={project?.daysLeft ?? 0}
@@ -356,28 +356,28 @@ useEffect(() => {
             </Card>
 
             {/* Rewards */}
-           {/* Rewards */}
-              <div className="space-y-4 animate-fade-in">
-                <h3 className="font-bold text-xl">Rewards</h3>
-                {rewards.length > 0 ? rewards.map((reward, index) => (
-                  <RewardTierCard
-                    key={index}
-                    amount={reward.amount}
-                    title={reward.title}
-                    description={reward.description}
-                    delivery={reward.delivery}
-                    backers={reward.backers ?? 0}
-                    available={reward.available ?? 999}
-                    onSelect={() => {
-                      setSelectedReward(reward as any);
-                      setPledgeAmount(String(reward.amount));
-                      setIsPledgeModalOpen(true);
-                    }}
-                  />
-                )) : (
-                  <p className="text-muted-foreground">No rewards available yet.</p>
-                )}
-              </div>
+            {/* Rewards */}
+            <div className="space-y-4 animate-fade-in">
+              <h3 className="font-bold text-xl">Rewards</h3>
+              {rewards.length > 0 ? rewards.map((reward, index) => (
+                <RewardTierCard
+                  key={index}
+                  amount={reward.amount}
+                  title={reward.title}
+                  description={reward.description}
+                  delivery={reward.delivery}
+                  backers={reward.backers ?? 0}
+                  available={reward.available ?? 999}
+                  onSelect={() => {
+                    setSelectedReward(reward as any);
+                    setPledgeAmount(String(reward.amount));
+                    setIsPledgeModalOpen(true);
+                  }}
+                />
+              )) : (
+                <p className="text-muted-foreground">No rewards available yet.</p>
+              )}
+            </div>
           </div>
         </div>
 

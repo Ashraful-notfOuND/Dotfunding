@@ -11,6 +11,7 @@ interface FundingStatsProps {
 }
 
 const FundingStats = ({ fundingCurrent, fundingGoal, backers, daysLeft }: FundingStatsProps) => {
+  fundingCurrent
   const [animatedProgress, setAnimatedProgress] = useState(0);
   const fundingPercentage = Math.min((fundingCurrent / fundingGoal) * 100, 100);
 

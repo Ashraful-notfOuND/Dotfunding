@@ -114,11 +114,12 @@ const FilterPanel = ({
           Funding Goal
         </h3>
         <Slider
-          defaultValue={[100000]}
+          defaultValue={[5000]}
           value={fundingGoalRange}
           onValueChange={onFundingGoalChange}
-          max={100000}
-          step={1000}
+          min={0}
+          max={5000}
+          step={50}
         />
         <p className="text-sm text-muted-foreground mt-2">
           Up to ${fundingGoalRange[0].toLocaleString()}

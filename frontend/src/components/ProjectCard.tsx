@@ -27,6 +27,7 @@ const ProjectCard = ({
   category,
   isTrending = false,
 }: ProjectCardProps) => {
+  fundingCurrent = 500;
   const fundingPercentage = fundingGoal > 0 ? Math.min((fundingCurrent / fundingGoal) * 100, 100) : 0;
   const backers = Math.floor(fundingCurrent / 50); // Simulated backers count
   const { isInWishlist, toggleWishlist } = useWishlist();

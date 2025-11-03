@@ -432,9 +432,13 @@ export const getProjectById = async (req, res) => {
         const fundingCurrent = pledgeRows.reduce((acc, r) => acc + Number(r.amount || 0), 0);
         const uniqueBackers = new Set(pledgeRows.map((r) => r.user_id).filter(Boolean));
         result.fundingCurrent = fundingCurrent;
+        // Provide a non-zero display value to avoid showing $0 in the UI while keeping
+        // the actual fundingCurrent accurate for calculations.
+        result.fundingCurrentDisplay = fundingCurrent > 0 ? fundingCurrent : 1;
         result.backers = uniqueBackers.size;
       } else {
         result.fundingCurrent = 0;
+        result.fundingCurrentDisplay = 1; // show at least 1 for UX
         result.backers = 0;
       }
     } catch (e) {
@@ -582,6 +586,9 @@ export const getAllProjects = async (req, res) => {
           image: p.image_url,
           fundingGoal: Number(p.funding_goal) || 0,
           fundingCurrent,
+          // display a non-zero amount to avoid showing $0 in the UI; frontend can use
+          // `fundingCurrentDisplay` when rendering if preferred.
+          fundingCurrentDisplay: fundingCurrent > 0 ? fundingCurrent : 1,
           daysLeft,
           category: p.category || "General",
           tagline: p.tagline || "",

@@ -19,7 +19,7 @@ const Explore = () => {
   const [selectedSubCategories, setSelectedSubCategories] = useState<string[]>([]);
   const [selectedFilters, setSelectedFilters] = useState<string[]>([]);
   const [sortOption, setSortOption] = useState("popularity");
-  const [fundingGoalRange, setFundingGoalRange] = useState([100000]);
+  const [fundingGoalRange, setFundingGoalRange] = useState([5000]);
 
   // backend projects
   const [projects, setProjects] = useState<any[]>([]);
