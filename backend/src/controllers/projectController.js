@@ -146,8 +146,37 @@ export const createFAQs = async (req, res) => {
 /**
  * Create rewards for a project (expects JSON body: { project_id, rewards: [...] })
  */
+// export const createRewards = async (req, res) => {
+//   try {
+//     const { project_id, rewards } = req.body;
+
+//     if (!project_id) return res.status(400).json({ error: "project_id is required" });
+//     if (!rewards || !Array.isArray(rewards) || rewards.length === 0) {
+//       return res.status(400).json({ error: "At least one reward is required" });
+//     }
+
+//     const rows = rewards.map((r) => ({
+//       project_id,
+//       title: r.title || "",
+//       description: r.description || "",
+//       amount: Number(r.amount) || 0,
+//       backers: Number(r.backers) || 0,
+//       available: Number(r.available) || 0,
+//       delivery: r.delivery || null,
+//     }));
+
+//     const { data, error } = await supabase.from("reward_table").insert(rows).select();
+//     if (error) throw error;
+
+//     return res.status(201).json({ rewards: data });
+//   } catch (err) {
+//     console.error("createRewards error:", err);
+//     return res.status(500).json({ error: err.message || "Failed to create rewards" });
+//   }
+// };
 export const createRewards = async (req, res) => {
   try {
+    console.log("Creating rewards for projectId:", req.body.project_id);
     const { project_id, rewards } = req.body;
 
     if (!project_id) return res.status(400).json({ error: "project_id is required" });
@@ -155,17 +184,23 @@ export const createRewards = async (req, res) => {
       return res.status(400).json({ error: "At least one reward is required" });
     }
 
-    const rows = rewards.map((r) => ({
+    // Map rewards and generate UUID for each
+    const rows = rewards.map(r => ({
+      id: uuidv4(),
       project_id,
       title: r.title || "",
       description: r.description || "",
       amount: Number(r.amount) || 0,
       backers: Number(r.backers) || 0,
       available: Number(r.available) || 0,
-      delivery: r.delivery || null,
+      delivery: r.delivery || null
     }));
 
-    const { data, error } = await supabase.from("reward_table").insert(rows).select();
+    const { data, error } = await supabase
+      .from("rewards")
+      .insert(rows)
+      .select();
+
     if (error) throw error;
 
     return res.status(201).json({ rewards: data });
@@ -174,17 +209,17 @@ export const createRewards = async (req, res) => {
     return res.status(500).json({ error: err.message || "Failed to create rewards" });
   }
 };
-
 /**
  * Get rewards for a project
  */
 export const getRewards = async (req, res) => {
   try {
+    console.log("Fetching rewards for projectId:", req.params.projectId);
     const { projectId } = req.params;
     if (!projectId) return res.status(400).json({ error: "projectId is required" });
 
     const { data, error } = await supabase
-      .from("reward_table")
+      .from("rewards")
       .select("id, title, description, amount, backers, available, delivery")
       .eq("project_id", projectId);
 
@@ -196,6 +231,27 @@ export const getRewards = async (req, res) => {
     return res.status(500).json({ error: err.message || "Failed to fetch rewards" });
   }
 };
+/**
+ * Get rewards for a project
+ */
+// export const getRewards = async (req, res) => {
+//   try {
+//     const { projectId } = req.params;
+//     if (!projectId) return res.status(400).json({ error: "projectId is required" });
+
+//     const { data, error } = await supabase
+//       .from("reward_table")
+//       .select("id, title, description, amount, backers, available, delivery")
+//       .eq("project_id", projectId);
+
+//     if (error) throw error;
+
+//     return res.status(200).json({ rewards: data });
+//   } catch (err) {
+//     console.error("getRewards error:", err);
+//     return res.status(500).json({ error: err.message || "Failed to fetch rewards" });
+//   }
+// };
 
 
 

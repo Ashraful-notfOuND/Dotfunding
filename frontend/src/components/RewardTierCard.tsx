@@ -21,7 +21,7 @@ const RewardTierCard = ({
   available,
   onSelect,
 }: RewardTierCardProps) => {
-  const isSoldOut = available === 0;
+  const isSoldOut = available === 1;
 
   return (
     <Card className={`border-2 transition-smooth hover:border-primary ${isSoldOut ? 'opacity-60' : ''}`}>
@@ -41,7 +41,11 @@ const RewardTierCard = ({
           {delivery ? (
             <div className="flex items-center gap-2 text-muted-foreground">
               <Clock className="h-4 w-4" />
-              Estimated delivery: {delivery}
+              Estimated delivery: {new Date(delivery).toLocaleDateString(undefined, {
+                year: "numeric",
+                month: "short",
+                day: "numeric",
+              })}
             </div>
           ) : null}
           <div className="flex items-center gap-2 text-muted-foreground">

@@ -65,6 +65,7 @@ const ProjectDetail = () => {
   const [pledgeAmount, setPledgeAmount] = useState("");
   const [customPledgeAmount, setCustomPledgeAmount] = useState("");
   const [isPledgeModalOpen, setIsPledgeModalOpen] = useState(false);
+  const [rewards, setRewards] = useState<Reward[]>([]);
   const [selectedReward, setSelectedReward] = useState<{
     amount: number;
     title: string;
@@ -113,6 +114,24 @@ const ProjectDetail = () => {
 
     return () => controller.abort();
   }, [id, navigate, fetchProject]);
+   // Fetch rewards after project is loaded
+useEffect(() => {
+  if (!project) return; // wait until project is loaded
+ console.log("Fetching rewards for projectId in frontend:", project.id);
+  const fetchRewards = async () => {
+    try {
+
+      const res = await fetch(`http://localhost:5000/api/projects/rewards/${project.id}`);
+      if (!res.ok) throw new Error("Failed to fetch rewards");
+      const data = await res.json();
+      setRewards(data.rewards || []);
+    } catch (err) {
+      console.error("Failed to fetch rewards:", err);
+    }
+  };
+
+  fetchRewards();
+}, [project]);
 
   // React to payment redirect params (payment_status) and show toast + refresh
   useEffect(() => {
@@ -337,25 +356,28 @@ const ProjectDetail = () => {
             </Card>
 
             {/* Rewards */}
-            <div className="space-y-4 animate-fade-in">
-              <h3 className="font-bold text-xl">Rewards</h3>
-              {(project?.rewards || []).map((reward, index) => (
-                <RewardTierCard
-                  key={index}
-                  amount={reward.amount}
-                  title={reward.title}
-                  description={reward.description}
-                  delivery={reward.delivery}
-                  backers={reward.backers ?? 0}
-                  available={reward.available ?? 999}
-                  onSelect={() => {
-                    setSelectedReward(reward as any);
-                    setPledgeAmount(String(reward.amount));
-                    setIsPledgeModalOpen(true);
-                  }}
-                />
-              ))}
-            </div>
+           {/* Rewards */}
+              <div className="space-y-4 animate-fade-in">
+                <h3 className="font-bold text-xl">Rewards</h3>
+                {rewards.length > 0 ? rewards.map((reward, index) => (
+                  <RewardTierCard
+                    key={index}
+                    amount={reward.amount}
+                    title={reward.title}
+                    description={reward.description}
+                    delivery={reward.delivery}
+                    backers={reward.backers ?? 0}
+                    available={reward.available ?? 999}
+                    onSelect={() => {
+                      setSelectedReward(reward as any);
+                      setPledgeAmount(String(reward.amount));
+                      setIsPledgeModalOpen(true);
+                    }}
+                  />
+                )) : (
+                  <p className="text-muted-foreground">No rewards available yet.</p>
+                )}
+              </div>
           </div>
         </div>
 

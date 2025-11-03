@@ -225,6 +225,34 @@ const CreateProject = () => {
       images: prev.images.filter((_, i) => i !== index),
     }));
   };
+const submitRewards = async (project_id: number) => {
+  if (!form.rewards || form.rewards.length === 0) return;
+
+  const rewardsPayload = form.rewards.map((r) => ({
+    title: r.title,
+    description: r.description,
+    amount: r.amount,
+    delivery: r.delivery ? new Date(r.delivery).toISOString().split("T")[0] : "",
+    backers: r.backers ?? 0,
+    available: r.available ?? 0,
+  }));
+
+  try {
+    const response = await fetch("http://localhost:5000/api/projects/rewards", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ project_id, rewards: rewardsPayload }),
+    });
+    if (!response.ok) {
+      const err = await response.json().catch(() => ({}));
+      console.error("Failed to save rewards:", err);
+    } else {
+      console.log("Rewards uploaded successfully");
+    }
+  } catch (err) {
+    console.error("Network error saving rewards:", err);
+  }
+};
 
 const handleSubmit = async (e: React.FormEvent) => {
   e.preventDefault();
@@ -298,7 +326,7 @@ const handleSubmit = async (e: React.FormEvent) => {
     const data = await response.json();
     // Access the ID here:
     const project_id = data.id;
-
+    await submitRewards(project_id);
     formDataCampaign.append("project_id", project_id.toString());
     formDataCampaign.append("description", form.description);
     
@@ -347,33 +375,33 @@ const handleSubmit = async (e: React.FormEvent) => {
 }
 
     // ✅ Send rewards (if any) as JSON to backend rewards endpoint
-    if (form.rewards && form.rewards.length > 0) {
-      try {
-       const rewardsPayload = form.rewards.map((r) => ({
-          title: r.title,
-          description: r.description,
-          amount: r.amount,
-          delivery: r.delivery ? new Date(r.delivery).toISOString().split("T")[0] : "",
-          backers: r.backers ?? 0,
-          available: r.available ?? 0,
-        }));
+    // if (form.rewards && form.rewards.length > 0) {
+    //   try {
+    //    const rewardsPayload = form.rewards.map((r) => ({
+    //       title: r.title,
+    //       description: r.description,
+    //       amount: r.amount,
+    //       delivery: r.delivery ? new Date(r.delivery).toISOString().split("T")[0] : "",
+    //       backers: r.backers ?? 0,
+    //       available: r.available ?? 0,
+    //     }));
 
 
-        const responseRewards = await fetch("http://localhost:5000/api/projects/rewards", {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ project_id, rewards: rewardsPayload }),
-        });
+    //     const responseRewards = await fetch("http://localhost:5000/api/projects/rewards", {
+    //       method: "POST",
+    //       headers: { "Content-Type": "application/json" },
+    //       body: JSON.stringify({ project_id, rewards: rewardsPayload }),
+    //     });
 
-        if (!responseRewards.ok) {
-          const errBody = await responseRewards.json().catch(() => ({}));
-          console.error("Failed to save rewards:", errBody);
-          // don't block the user, but log the error
-        }
-      } catch (err) {
-        console.error("Network error saving rewards:", err);
-      }
-    }
+    //     if (!responseRewards.ok) {
+    //       const errBody = await responseRewards.json().catch(() => ({}));
+    //       console.error("Failed to save rewards:", errBody);
+    //       // don't block the user, but log the error
+    //     }
+    //   } catch (err) {
+    //     console.error("Network error saving rewards:", err);
+    //   }
+    // }
     console.log("Project created successfully:", data);
     toast({
            description: "Project created successfully!"
