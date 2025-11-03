@@ -1,9 +1,11 @@
 import { useEffect, useState } from "react";
+import { useNavigate } from "react-router-dom";
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import defaultAvatar from "@/assets/default-avatar.png";
 
 interface CreatorProfile {
+  id?: string;
   name: string;
   avatar: string;
   bio: string;
@@ -13,6 +15,7 @@ interface CreatorProfile {
 }
 
 const CreatorTab = ({ projectId }: { projectId: string }) => {
+  const navigate = useNavigate();
   const [creator, setCreator] = useState<CreatorProfile | null>(null);
   const [loading, setLoading] = useState(true);
 
@@ -23,7 +26,9 @@ const CreatorTab = ({ projectId }: { projectId: string }) => {
         const data = await res.json();
 
         if (res.ok && data.user) {
+          const creatorId = data.user.id || data.user.user_id || data.user.uid || data.user.userId;
           setCreator({
+            id: creatorId,
             name: data.user.full_name,
             avatar: data.user.profile_pic || defaultAvatar,
             bio: data.user.bio || "No bio provided yet.",
@@ -122,7 +127,13 @@ const CreatorTab = ({ projectId }: { projectId: string }) => {
             </div>
           </div>
 
-          <Button variant="outline" className="w-full">
+          <Button
+            variant="outline"
+            className="w-full"
+            onClick={() => {
+              if (creator?.id) navigate(`/creator/${creator.id}`);
+            }}
+          >
             View Full Profile
           </Button>
         </div>

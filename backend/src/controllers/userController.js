@@ -179,3 +179,33 @@ export const updateProfile = async (req, res) => {
     });
   }
 };
+
+/**
+ * Get user by id
+ */
+export const getUserById = async (req, res) => {
+  try {
+    const { id } = req.params;
+    if (!id) return res.status(400).json({ error: "User id is required" });
+
+    const { data: user, error } = await supabase
+      .from("users")
+      .select("id, full_name, email, bio, location, profile_pic")
+      .eq("id", id)
+      .single();
+
+    if (error) {
+      // If no rows
+      if (error.code === "PGRST116") return res.status(404).json({ error: "User not found" });
+      console.error("Supabase getUserById error:", error);
+      return res.status(500).json({ error: "Failed to fetch user" });
+    }
+
+    if (!user) return res.status(404).json({ error: "User not found" });
+
+    return res.status(200).json({ user });
+  } catch (err) {
+    console.error("getUserById error:", err);
+    return res.status(500).json({ error: "Internal server error" });
+  }
+};

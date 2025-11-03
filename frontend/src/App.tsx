@@ -17,6 +17,7 @@ import EditProfile from "./pages/EditProfile";
 import EditProject from "./pages/EditProject";
 import PaymentSuccess from "./pages/PaymentSuccess";
 import NotFound from "./pages/NotFound";
+import CreatorProfile from "./pages/CreatorProfile";
 
 const queryClient = new QueryClient();
 
@@ -56,6 +57,7 @@ const App = () => {
             <Route path="/profile/edit" element={<PageWrapper><EditProfile /></PageWrapper>} />
                       <Route path="/project/:id/edit" element={<PageWrapper><EditProject /></PageWrapper>} />
                       <Route path="/payment-success" element={<PageWrapper><PaymentSuccess /></PageWrapper>} />
+                      <Route path="/creator/:id" element={<PageWrapper><CreatorProfile /></PageWrapper>} />
                       {/* ADD ALL CUSTOM ROUTES ABOVE THE CATCH-ALL "*" ROUTE */}            <Route path="*" element={<PageWrapper><NotFound /></PageWrapper>} />
           </Routes>
         </AnimatePresence>
