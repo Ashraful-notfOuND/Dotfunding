@@ -407,6 +407,7 @@ export const getProjectById = async (req, res) => {
 
     const result = {
       id: project.id,
+      user_id: project.user_id,
       title: project.title,
       tagline: project.tagline,
       imageUrl: project.image_url,
@@ -740,5 +741,6 @@ export const getAllProjects = async (req, res) => {
 //     return res.status(500).json({ error: "Failed to fetch projects." });
 //   }
 // };
+
 
 
