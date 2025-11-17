@@ -406,14 +406,14 @@ const PledgeModal = ({
       const env: any = import.meta.env || {};
       const backendBase = env.VITE_BACKEND_URL || "http://localhost:5000";
       // Build a frontend return URL so after payment the user can be redirected back to the project page
-      const frontendBase = env.VITE_FRONTEND_URL || env.VITE_FRONTEND_BASE || "http://localhost:5173";
+      const frontendBase = env.VITE_FRONTEND_URL || env.VITE_FRONTEND_BASE || "http://localhost:8080";
       const frontendProjectUrl = `${frontendBase.replace(/\/$/, "")}/project/${encodeURIComponent(projectId || "")}`;
 
       const successUrl = `${backendBase}/api/payments/success?project_id=${encodeURIComponent(
         projectId || ""
-      )}&user_id=${encodeURIComponent(userId || "")} ${selectedReward && (selectedReward as any).id ? `&reward_id=${encodeURIComponent((selectedReward as any).id)}` : ""}&amount=${encodeURIComponent(String(amount))}&return_url=${encodeURIComponent(frontendProjectUrl)}`;
-      const failUrl = env.VITE_FRONTEND_FAIL_URL || "http://localhost:5173/payment-fail";
-      const cancelUrl = env.VITE_FRONTEND_CANCEL_URL || "http://localhost:5173/";
+      )}&user_id=${encodeURIComponent(userId || "")}${selectedReward && (selectedReward as any).id ? `&reward_id=${encodeURIComponent((selectedReward as any).id)}` : ""}&amount=${encodeURIComponent(String(amount))}&return_url=${encodeURIComponent(frontendProjectUrl)}`;
+      const failUrl = env.VITE_FRONTEND_FAIL_URL || "http://localhost:8080/payment-fail";
+      const cancelUrl = env.VITE_FRONTEND_CANCEL_URL || "http://localhost:8080/";
       const ipnUrl = `${backendBase}/api/payments/ipn`;
 
       const payload = {
@@ -432,8 +432,9 @@ const PledgeModal = ({
 
         project_id: projectId || null,
         user_id: userId || null,
-        owner_id: ownerId || null,        // ✅ added
+        owner_id: ownerId || null,
         reward_id: (selectedReward as any)?.id || null,
+        return_url: frontendProjectUrl, // Add return_url to payload body
       };
 
       const res = await fetch(`${backendBase}/api/payments/init`, {
@@ -449,41 +450,18 @@ const PledgeModal = ({
         return;
       }
 
-      // const dataResp = await res.json();
-      // const gateway = dataResp?.GatewayPageURL || dataResp?.GatewayPageURL || dataResp?.redirect_url || dataResp?.payment_url;
-      // if (!gateway) {
-      //   toast({ title: "Payment init failed", description: "No gateway URL returned" });
-      //   setIsProcessing(false);
-      //   return;
-      // }
-
-
-      // Notify project owner about the new pledge
-
-      console.log("Preparing to send notification:", { ownerId, projectId, userId, amount });
-      if (ownerId && projectId && userId) {
-        console.log("Sending notification to project owner:", ownerId, userId, amount);
-        try {
-          await fetch(`http://localhost:5000/api/notifications/`, {
-            method: "POST",
-            headers: { "Content-Type": "application/json" },
-            body: JSON.stringify({
-              projectId,
-              senderId: userId,
-              receiverId: ownerId,
-              amount,
-              message: `You received a new pledge of $${amount} from a supporter!`,
-            }),
-          });
-        } catch (notifErr) {
-          console.error("Notification API error:", notifErr);
-        }
+      const dataResp = await res.json();
+      const gateway = dataResp?.GatewayPageURL || dataResp?.gatewayPageURL || dataResp?.redirect_url || dataResp?.payment_url;
+      if (!gateway) {
+        toast({ title: "Payment init failed", description: "No gateway URL returned" });
+        setIsProcessing(false);
+        return;
       }
 
+      console.log("Redirecting to payment gateway:", gateway);
 
       // Redirect user to payment gateway
-      //window.location.href = gateway;
-      return;
+      window.location.href = gateway;
     } catch (err) {
       console.error("Payment init error:", err);
       toast({ title: "Payment error", description: "Network or server error when initiating payment." });

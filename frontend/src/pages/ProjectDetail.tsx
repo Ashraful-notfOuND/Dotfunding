@@ -697,7 +697,7 @@ const ProjectDetail = () => {
           {/* Sidebar */}
           <div className="lg:sticky top-24 space-y-6">
             <FundingStats
-              fundingCurrent={500}
+              fundingCurrent={project?.fundingCurrent ?? 0}
               fundingGoal={project?.fundingGoal ?? 0}
               backers={project?.backers ?? 0}
               daysLeft={project?.daysLeft ?? 0}

@@ -7,6 +7,39 @@ const STORE_ID = process.env.SSLCZ_STORE_ID;
 const STORE_PASS = process.env.SSLCZ_STORE_PASS;
 const IS_LIVE = false;
 
+/**
+ * Helper function to update project backed amount
+ * Calculates total from all paid pledges for the project
+ */
+const updateProjectBackedAmount = async (project_id) => {
+  try {
+    if (!project_id) return;
+
+    // Get all paid pledges for this project
+    const { data: pledges, error } = await supabase
+      .from("pledges")
+      .select("amount")
+      .eq("project_id", project_id)
+      .eq("status", "paid");
+
+    if (error) {
+      console.error("Error fetching pledges for project:", error);
+      return;
+    }
+
+    // Calculate total backed amount
+    const totalBacked = pledges.reduce((sum, pledge) => sum + Number(pledge.amount || 0), 0);
+    
+    console.log(`Project ${project_id}: Total backed amount = ${totalBacked} (from ${pledges.length} pledges)`);
+    
+    // Note: We don't store this in the projects table as it's computed dynamically
+    // This function is for logging and potential future use
+    return totalBacked;
+  } catch (err) {
+    console.error("Error updating project backed amount:", err);
+  }
+};
+
 // Initialize transaction: POST /api/payments/init
 export const initPayment = async (req, res) => {
   try {
@@ -198,7 +231,28 @@ export const validatePayment = async (req, res) => {
         }
       }
 
-      // Optionally update project-level aggregates (not required if computed from pledges)
+      // Update project backed amount (computed from pledges)
+      await updateProjectBackedAmount(project_id);
+
+      // Send notification to project owner
+      if (project_id && user_id && amount) {
+        try {
+          const { data: project } = await supabase.from("projects").select("user_id").eq("id", project_id).single();
+          if (project && project.user_id) {
+            await supabase.from("notifications").insert([{
+              project_id: project_id,
+              sender_id: user_id,
+              receiver_id: project.user_id,
+              amount: amount,
+              message: `You received a new pledge of $${amount} from a supporter!`,
+            }]);
+            console.log(`Notification sent to project owner ${project.user_id}`);
+          }
+        } catch (notifErr) {
+          console.error("Failed to send notification:", notifErr);
+        }
+      }
+
       return res.status(200).json({ ok: true, validation, pledge: pledgeData?.[0] ?? null });
     }
 
@@ -302,7 +356,19 @@ export const successHandler = async (req, res) => {
         try {
           const { data: existing } = await supabase.from("pledges").select("*").eq("tran_id", tran).single();
           if (existing) {
-            return res.status(200).json({ ok: true, validation, pledge: existing });
+            console.log("successHandler: Pledge already exists, redirecting user");
+            
+            // Redirect to return_url or frontend
+            const returnUrl = params.return_url || params.returnUrl || params.return || session_return_url || null;
+            if (returnUrl) {
+              const separator = returnUrl.includes("?") ? "&" : "?";
+              const redirectTo = `${returnUrl}${separator}payment_status=success&tran_id=${encodeURIComponent(tran)}`;
+              return res.redirect(redirectTo);
+            }
+            
+            // Fallback: redirect to frontend success page
+            const frontendSuccess = process.env.FRONTEND_SUCCESS_URL || "http://localhost:5173/payment-success";
+            return res.redirect(frontendSuccess);
           }
         } catch (e) {
           // ignore
@@ -335,29 +401,77 @@ export const successHandler = async (req, res) => {
         }
       }
 
+      // Update project backed amount (computed from pledges)
+      await updateProjectBackedAmount(project_id_res);
+
+      // Send notification to project owner
+      if (project_id_res && user_id_res && amount_res) {
+        try {
+          // Get project owner
+          const { data: project } = await supabase
+            .from("projects")
+            .select("user_id")
+            .eq("id", project_id_res)
+            .single();
+          
+          if (project && project.user_id) {
+            // Create notification
+            await supabase.from("notifications").insert([{
+              project_id: project_id_res,
+              sender_id: user_id_res,
+              receiver_id: project.user_id,
+              amount: amount_res,
+              message: `You received a new pledge of $${amount_res} from a supporter!`,
+            }]);
+            console.log(`Notification sent to project owner ${project.user_id} for pledge of $${amount_res}`);
+          }
+        } catch (notifErr) {
+          console.error("Failed to send notification:", notifErr);
+          // Don't fail the payment if notification fails
+        }
+      }
+
       // Prefer a return_url supplied by the gateway redirect or persisted in session.
       // The frontend includes the original project page in `return_url` when calling
       // the init endpoint; some gateways drop custom params so we persisted it earlier.
       const returnUrl = params.return_url || params.returnUrl || params.return || session_return_url || null;
+      
+      console.log("successHandler: returnUrl resolution:", {
+        params_return_url: params.return_url,
+        params_returnUrl: params.returnUrl,
+        params_return: params.return,
+        session_return_url: session_return_url,
+        final_returnUrl: returnUrl
+      });
+      
       if (returnUrl) {
         // Append status and tran_id so frontend can show a toast and refresh state
         const tran_for_redirect = (pledgeRow && pledgeRow.tran_id) || (validation && validation.tran_id) || (params.tran_id || params.tranId || params.tran || "");
         const separator = returnUrl.includes("?") ? "&" : "?";
         const redirectTo = `${returnUrl}${separator}payment_status=success&tran_id=${encodeURIComponent(tran_for_redirect)}`;
+        console.log("successHandler: Redirecting to:", redirectTo);
         return res.redirect(redirectTo);
+      }
+
+      // Fallback: if we have project_id, construct the project page URL
+      if (project_id_res) {
+        const frontendBase = process.env.FRONTEND_URL || process.env.VITE_FRONTEND_URL || "http://localhost:8080";
+        const projectUrl = `${frontendBase}/project/${project_id_res}?payment_status=success&tran_id=${encodeURIComponent(tran || "")}`;
+        console.log("successHandler: Fallback redirect to project page:", projectUrl);
+        return res.redirect(projectUrl);
       }
 
       // Redirect to frontend success page if configured. If no FRONTEND_SUCCESS_URL is set
       // (common during local development) return a simple HTML confirmation so the
       // user still sees a success page even if the frontend dev server isn't running.
-      const frontendSuccess = process.env.FRONTEND_SUCCESS_URL;
+      const frontendSuccess = process.env.FRONTEND_SUCCESS_URL || "http://localhost:8080/payment-success";
       if (frontendSuccess && frontendSuccess.length > 0) {
         return res.redirect(frontendSuccess);
       }
 
       // Fallback: send a minimal HTML confirmation with pledge details and a link to
       // the expected frontend route so developers can still see the result.
-      const defaultFront = "http://localhost:5173/payment-success";
+      const defaultFront = "http://localhost:8080/payment-success";
       const targetFront = frontendSuccess && frontendSuccess.length > 0 ? frontendSuccess : defaultFront;
 
       // HTML fallback that attempts to go back in history, and falls back to the
@@ -415,19 +529,141 @@ export const successHandler = async (req, res) => {
 export const ipnHandler = async (req, res) => {
   try {
     // SSLCommerz may send values in body (form-encoded). We accept val_id from body.
-    const { val_id } = req.body || {};
+    const { val_id, tran_id, status } = req.body || {};
+    console.log("IPN received:", { val_id, tran_id, status, body: req.body });
+    
     if (!val_id) return res.status(400).send("val_id required");
 
-    // Reuse validatePayment logic by calling validation and performing same actions
-    // For simplicity, delegate to validatePayment by constructing req.body and calling the function
-    // But since validatePayment expects req/res, we perform similar steps inline
+    // Validate the transaction with SSLCommerz
     const mod = await import("sslcommerz-lts");
     const SSLCommerzPayment = mod.default || mod;
     const sslcz = new SSLCommerzPayment(STORE_ID, STORE_PASS, IS_LIVE);
     const validation = await sslcz.validate({ val_id });
 
-    // If validated, ensure pledge row exists or insert (idempotent logic can be added)
-    // For now just respond 200
+    console.log("IPN validation response:", validation);
+
+    // Check if payment is valid
+    const validStatus = validation?.status || validation?.status_code || null;
+    const isValid = (typeof validStatus === "string" && validStatus.toLowerCase().includes("valid")) || 
+                    validation?.risk_level === 0 || 
+                    validation?.status === "VALID";
+
+    if (isValid) {
+      // Extract transaction details
+      const tran = tran_id || validation?.tran_id || null;
+      
+      // Try to get project details from payment session
+      let project_id = null;
+      let user_id = null;
+      let reward_id = null;
+      let amount = validation?.amount ? Number(validation.amount) : 0;
+
+      if (tran) {
+        try {
+          const { data: sess } = await supabase
+            .from("payment_sessions")
+            .select("project_id,user_id,reward_id,amount")
+            .eq("tran_id", tran)
+            .single();
+          
+          if (sess) {
+            project_id = sess.project_id;
+            user_id = sess.user_id;
+            reward_id = sess.reward_id;
+            amount = amount || Number(sess.amount || 0);
+          }
+        } catch (e) {
+          console.warn("IPN: Could not fetch payment session:", e);
+        }
+      }
+
+      // Check if pledge already exists (idempotency)
+      if (tran) {
+        try {
+          const { data: existing } = await supabase
+            .from("pledges")
+            .select("*")
+            .eq("tran_id", tran)
+            .single();
+          
+          if (existing) {
+            console.log("IPN: Pledge already exists for tran_id:", tran);
+            return res.status(200).json({ received: true, message: "Pledge already recorded", validation });
+          }
+        } catch (e) {
+          // No existing pledge, continue to create
+        }
+      }
+
+      // Create pledge if we have project_id
+      if (project_id && tran) {
+        const pledgeRow = {
+          project_id: project_id,
+          user_id: user_id || null,
+          reward_id: reward_id || null,
+          tran_id: tran,
+          amount: amount || 0,
+          status: "paid",
+        };
+
+        const { data: pledgeData, error: pledgeError } = await supabase
+          .from("pledges")
+          .insert([pledgeRow])
+          .select();
+
+        if (pledgeError) {
+          console.error("IPN: Pledge insert error:", pledgeError);
+        } else {
+          console.log("IPN: Pledge created successfully:", pledgeData[0]);
+
+          // Update reward counts if applicable
+          if (reward_id) {
+            try {
+              const { data: reward } = await supabase
+                .from("reward_table")
+                .select("backers, available")
+                .eq("id", reward_id)
+                .single();
+              
+              if (reward) {
+                const newBackers = (Number(reward.backers) || 0) + 1;
+                const newAvailable = Number(reward.available) > 0 ? Number(reward.available) - 1 : 0;
+                await supabase
+                  .from("reward_table")
+                  .update({ backers: newBackers, available: newAvailable })
+                  .eq("id", reward_id);
+              }
+            } catch (e) {
+              console.error("IPN: Failed updating reward counts", e);
+            }
+          }
+
+          // Update project backed amount
+          await updateProjectBackedAmount(project_id);
+
+          // Send notification to project owner
+          try {
+            const { data: project } = await supabase.from("projects").select("user_id").eq("id", project_id).single();
+            if (project && project.user_id && user_id) {
+              await supabase.from("notifications").insert([{
+                project_id: project_id,
+                sender_id: user_id,
+                receiver_id: project.user_id,
+                amount: amount,
+                message: `You received a new pledge of $${amount} from a supporter!`,
+              }]);
+              console.log(`IPN: Notification sent to project owner ${project.user_id}`);
+            }
+          } catch (notifErr) {
+            console.error("IPN: Failed to send notification:", notifErr);
+          }
+        }
+      } else {
+        console.warn("IPN: Missing project_id or tran_id, cannot create pledge");
+      }
+    }
+
+    // Always return 200 to acknowledge receipt
     return res.status(200).json({ received: true, validation });
   } catch (err) {
     console.error("ipnHandler error:", err);
