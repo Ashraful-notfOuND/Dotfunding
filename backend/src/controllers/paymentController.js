@@ -1,11 +1,38 @@
 import dotenv from "dotenv";
 import { supabase } from "../config/supabaseClient.js";
+import {
+  PaymentProcessor,
+  PaymentStrategyFactory,
+} from "../services/PaymentStrategy.js";
 
 dotenv.config();
 
-const STORE_ID = process.env.SSLCZ_STORE_ID;
-const STORE_PASS = process.env.SSLCZ_STORE_PASS;
-const IS_LIVE = false;
+// Initialize default payment strategy (SSLCommerz)
+const defaultStrategy = PaymentStrategyFactory.createStrategy("sslcommerz", {
+  storeId: process.env.SSLCZ_STORE_ID,
+  storePass: process.env.SSLCZ_STORE_PASS,
+  isLive: false,
+});
+
+const paymentProcessor = new PaymentProcessor(defaultStrategy);
+
+/**
+ * Helper function to get gateway configuration
+ */
+const getGatewayConfig = (gatewayType) => {
+  if (gatewayType === 'sslcommerz') {
+    return {
+      storeId: process.env.SSLCZ_STORE_ID,
+      storePass: process.env.SSLCZ_STORE_PASS,
+      isLive: false,
+    };
+  } else if (gatewayType === 'stripe') {
+    return {
+      apiKey: process.env.STRIPE_API_KEY,
+    };
+  }
+  throw new Error(`Unknown gateway type: ${gatewayType}`);
+};
 
 /**
  * Helper function to update project backed amount
@@ -44,6 +71,13 @@ const updateProjectBackedAmount = async (project_id) => {
 export const initPayment = async (req, res) => {
   try {
     const body = req.body || {};
+
+    // Allow switching payment gateway (future feature)
+    const gateway = body.gateway || "sslcommerz";
+    if (gateway !== "sslcommerz") {
+      const strategy = PaymentStrategyFactory.createStrategy(gateway, getConfigForGateway(gateway));
+      paymentProcessor.setStrategy(strategy);
+    }
 
     // Expect total_amount, tran_id, success_url, fail_url, cancel_url, ipn_url, product_name
     const data = {
@@ -107,24 +141,30 @@ export const initPayment = async (req, res) => {
       console.warn("initPayment: error persisting session", e);
     }
 
-    // dynamic import because sslcommerz-lts is CJS
-    const mod = await import("sslcommerz-lts");
-    const SSLCommerzPayment = mod.default || mod;
-    const sslcz = new SSLCommerzPayment(STORE_ID, STORE_PASS, IS_LIVE);
-
-    const apiResponse = await sslcz.init(data);
-    // log response for debugging
-    console.log("SSLCommerz init response:", apiResponse);
-
-    // return gateway URL to frontend (ensure expected field exists)
-    const gatewayUrl = apiResponse?.GatewayPageURL || apiResponse?.GatewayPageUrl || apiResponse?.gateway_page_url || apiResponse?.redirect_url || apiResponse?.payment_url;
-    if (!gatewayUrl) {
-      // include full response for easier debugging
-      console.error("initPayment: no gateway URL in SSLCommerz response", apiResponse);
-      return res.status(502).json({ error: "No gateway URL returned from SSLCommerz init", response: apiResponse });
+    // Use Strategy Pattern to process payment
+    const result = await paymentProcessor.process(data);
+    
+    if (!result.success) {
+      console.error("initPayment: payment processing failed", result.error);
+      return res.status(500).json({ 
+        error: result.error || "Payment processing failed" 
+      });
     }
 
-    return res.status(200).json({ ...apiResponse, GatewayPageURL: gatewayUrl });
+    // return gateway URL to frontend
+    const gatewayUrl = result.gatewayUrl;
+    if (!gatewayUrl) {
+      console.error("initPayment: no gateway URL in response", result);
+      return res.status(502).json({ 
+        error: "No gateway URL returned from payment gateway", 
+        response: result.response 
+      });
+    }
+
+    return res.status(200).json({ 
+      ...result.response, 
+      GatewayPageURL: gatewayUrl 
+    });
   } catch (err) {
     console.error("initPayment error:", err);
     return res.status(500).json({ error: err.message || "Failed to init payment" });
@@ -138,13 +178,19 @@ export const validatePayment = async (req, res) => {
     const { val_id, tran_id: body_tran, project_id: body_project_id, user_id: body_user_id, reward_id: body_reward_id, amount: body_amount } = req.body || {};
     if (!val_id) return res.status(400).json({ error: "val_id is required" });
 
-    const mod = await import("sslcommerz-lts");
-    const SSLCommerzPayment = mod.default || mod;
-    const sslcz = new SSLCommerzPayment(STORE_ID, STORE_PASS, IS_LIVE);
+    // Use Strategy Pattern to validate payment
+    const result = await paymentProcessor.validate({ val_id });
+    
+    if (!result.success) {
+      return res.status(400).json({ 
+        ok: false, 
+        error: result.error,
+        validation: result.validation 
+      });
+    }
 
-  const validation = await sslcz.validate({ val_id });
+    const validation = result.validation;
 
-    // validation object shape depends on SSLCommerz; check common fields
   const status = validation?.status || validation?.status_code || validation?.status_message || null;
 
     // Basic check: treat as success if validation object contains status 'VALID' or 'VALIDATED' or status === 'VALID'
@@ -272,10 +318,12 @@ export const successHandler = async (req, res) => {
     const { val_id, tran_id, project_id, user_id, reward_id, amount } = params;
     if (!val_id) return res.status(400).send("val_id required");
 
-    const mod = await import("sslcommerz-lts");
-    const SSLCommerzPayment = mod.default || mod;
-    const sslcz = new SSLCommerzPayment(STORE_ID, STORE_PASS, IS_LIVE);
-  const validation = await sslcz.validate({ val_id });
+    // Use Strategy Pattern to validate payment
+    const gatewayConfig = getGatewayConfig('sslcommerz');
+    const strategy = PaymentStrategyFactory.createStrategy('sslcommerz', gatewayConfig);
+    const processor = new PaymentProcessor(strategy);
+    const validationResult = await processor.validate({ val_id });
+    const validation = validationResult.validation;
 
     // treat as success when validation indicates valid
     const status = validation?.status || validation?.status_code || null;
@@ -534,11 +582,12 @@ export const ipnHandler = async (req, res) => {
     
     if (!val_id) return res.status(400).send("val_id required");
 
-    // Validate the transaction with SSLCommerz
-    const mod = await import("sslcommerz-lts");
-    const SSLCommerzPayment = mod.default || mod;
-    const sslcz = new SSLCommerzPayment(STORE_ID, STORE_PASS, IS_LIVE);
-    const validation = await sslcz.validate({ val_id });
+    // Use Strategy Pattern to validate payment
+    const gatewayConfig = getGatewayConfig('sslcommerz');
+    const strategy = PaymentStrategyFactory.createStrategy('sslcommerz', gatewayConfig);
+    const processor = new PaymentProcessor(strategy);
+    const validationResult = await processor.validate({ val_id });
+    const validation = validationResult.validation;
 
     console.log("IPN validation response:", validation);
 
@@ -670,6 +719,25 @@ export const ipnHandler = async (req, res) => {
     return res.status(500).json({ error: err.message || "IPN error" });
   }
 };
+
+/**
+ * Helper function to get configuration for different payment gateways
+ * Enables strategy pattern's runtime gateway switching
+ */
+function getConfigForGateway(gateway) {
+  const configs = {
+    sslcommerz: {
+      storeId: process.env.SSLCZ_STORE_ID,
+      storePass: process.env.SSLCZ_STORE_PASS,
+      isLive: false,
+    },
+    stripe: {
+      apiKey: process.env.STRIPE_API_KEY,
+    },
+    // Add more gateways as needed
+  };
+  return configs[gateway.toLowerCase()] || {};
+}
 
 export default {
   initPayment,
