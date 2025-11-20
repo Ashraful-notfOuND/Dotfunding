@@ -5,6 +5,7 @@ import userRoutes from "./routes/userRoutes.js";
 import projectRoutes from "./routes/projectRoutes.js";
 import paymentRoutes from "./routes/paymentRoutes.js";
 import notificationRoutes from "./routes/notificationRoutes.js";
+import commentsRoutes from "./routes/commentsRoutes.js";
 
 const app = express();
 
@@ -18,9 +19,11 @@ app.use("/api/users", userRoutes);
 app.use("/api/projects", projectRoutes);
 app.use("/api/payments", paymentRoutes);
 app.use("/api/notifications", notificationRoutes);
+app.use("/api/comments", commentsRoutes);
 // Test route
 app.get("/", (req, res) => {
   res.send("✅ Backend is running!");
 });
 
 export default app;
+
