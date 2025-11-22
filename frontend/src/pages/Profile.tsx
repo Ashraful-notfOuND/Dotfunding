@@ -270,15 +270,17 @@
 
 import { useState, useEffect } from "react";
 import { useAuth } from "@/hooks/useAuth";
-import { useNavigate, Link } from "react-router-dom";
+import { useNavigate, Link, useSearchParams } from "react-router-dom";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import Navbar from "@/components/Navbar";
 import Footer from "@/components/Footer";
 import ProjectCard from "@/components/ProjectCard";
-import { User, Settings, Heart } from "lucide-react";
+import { User, Settings, Heart, Bell, Gift, MessageSquare, Clock, CheckCircle, DollarSign } from "lucide-react";
 import defaultAvatar from "@/assets/default-avatar.png";
+import NotificationDetailsModal from "@/components/NotificationDetailsModal";
+import NotificationSettings from "@/components/NotificationSettings";
 
 
 interface Project {
@@ -297,6 +299,7 @@ interface Project {
 const Profile = () => {
   const { user, isAuthenticated } = useAuth();
   const navigate = useNavigate();
+  const [searchParams] = useSearchParams();
 
   const [myProjects, setMyProjects] = useState<Project[]>([]);
   const [loadingProjects, setLoadingProjects] = useState<boolean>(false);
@@ -306,6 +309,9 @@ const Profile = () => {
   const [notifications, setNotifications] = useState<any[]>([]);
   const [loadingNotifications, setLoadingNotifications] = useState(false);
   const [errorNotifications, setErrorNotifications] = useState<string | null>(null);
+  const [selectedNotification, setSelectedNotification] = useState<any>(null);
+  const [isModalOpen, setIsModalOpen] = useState(false);
+  const [activeTab, setActiveTab] = useState("created");
   // === end added ===
 
   useEffect(() => {
@@ -313,6 +319,14 @@ const Profile = () => {
       navigate("/login");
     }
   }, [isAuthenticated, navigate]);
+
+  // Check for tab query parameter
+  useEffect(() => {
+    const tab = searchParams.get("tab");
+    if (tab) {
+      setActiveTab(tab);
+    }
+  }, [searchParams]);
 
   useEffect(() => {
     if (!isAuthenticated || !user) return;
@@ -421,12 +435,6 @@ const Profile = () => {
         const data = await resp.json();
         const notifs = Array.isArray(data.notifications) ? data.notifications : [];
         setNotifications(notifs);
-
-        // Mark as read
-        await fetch(`http://localhost:5000/api/notifications/mark-read/${user.id}`, {
-          method: "PUT",
-          headers: { "Content-Type": "application/json" },
-        });
       } catch (err: any) {
         console.error("Error fetching notifications:", err);
         setErrorNotifications(err.message || "Error fetching notifications");
@@ -458,9 +466,16 @@ const Profile = () => {
     projectsBacked: 0,
     totalBacked: 0,
   };
-
   return (
     <div className="min-h-screen flex flex-col">
+      <NotificationDetailsModal
+        isOpen={isModalOpen}
+        onClose={() => {
+          setIsModalOpen(false);
+          setSelectedNotification(null);
+        }}
+        notification={selectedNotification}
+      />
       <Navbar />
 
       <div className="container mx-auto px-4 py-12">
@@ -516,7 +531,7 @@ const Profile = () => {
           </Card>
         </div>
 
-        <Tabs defaultValue="created" className="w-full">
+        <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full">
           <TabsList className="mb-8">
             <TabsTrigger value="created" className="flex items-center gap-2">
               <User className="h-4 w-4" />
@@ -529,7 +544,20 @@ const Profile = () => {
 
             {/* === added notifications tab === */}
             <TabsTrigger value="notifications" className="flex items-center gap-2">
-              🔔 Notifications
+              <Bell className="h-4 w-4" />
+              Notifications
+              {notifications.filter(n => !n.is_read).length > 0 && (
+                <span className="ml-1 inline-flex items-center justify-center h-5 min-w-5 px-1.5 rounded-full bg-red-500 text-white text-xs font-semibold">
+                  {notifications.filter(n => !n.is_read).length > 9 ? '9+' : notifications.filter(n => !n.is_read).length}
+                </span>
+              )}
+            </TabsTrigger>
+            {/* === end added === */}
+
+            {/* === added settings tab === */}
+            <TabsTrigger value="settings" className="flex items-center gap-2">
+              <Settings className="h-4 w-4" />
+              Settings
             </TabsTrigger>
             {/* === end added === */}
           </TabsList>
@@ -601,45 +629,148 @@ const Profile = () => {
               <p className="text-muted-foreground">Updates about activity on your projects</p>
             </div>
 
-            {loadingNotifications && <p>Loading notifications...</p>}
+            {loadingNotifications && (
+              <div className="flex justify-center items-center py-12">
+                <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary"></div>
+              </div>
+            )}
+            
             {errorNotifications && (
-              <p className="text-red-500">Error: {errorNotifications}</p>
+              <Card className="border-red-200 bg-red-50 dark:bg-red-950">
+                <CardContent className="py-4">
+                  <p className="text-red-600 dark:text-red-400">Error: {errorNotifications}</p>
+                </CardContent>
+              </Card>
             )}
 
-            <div className="flex flex-col gap-4">
-              {notifications.map((notif) => (
-                <Card
-                  key={notif.id}
-                  className={`transition-colors duration-200 ${notif.is_read ? "" : "bg-yellow-50 dark:bg-yellow-900"
+            <div className="space-y-3">
+              {notifications.map((notif) => {
+                const isUnread = !notif.is_read;
+                const notifDate = new Date(notif.created_at);
+                const isRecent = Date.now() - notifDate.getTime() < 24 * 60 * 60 * 1000;
+
+                return (
+                  <Card
+                    key={notif.id}
+                    onClick={async () => {
+                      setSelectedNotification(notif);
+                      setIsModalOpen(true);
+                      
+                      // Mark this specific notification as read
+                      if (!notif.is_read) {
+                        try {
+                          const response = await fetch(`http://localhost:5000/api/notifications/${notif.id}/read`, {
+                            method: "PUT",
+                            headers: { "Content-Type": "application/json" },
+                          });
+                          
+                          if (response.ok) {
+                            // Update local state
+                            setNotifications(prev => 
+                              prev.map(n => n.id === notif.id ? { ...n, is_read: true } : n)
+                            );
+                          }
+                        } catch (err) {
+                          console.error("Error marking notification as read:", err);
+                        }
+                      }
+                    }}
+                    className={`transition-all duration-300 hover:shadow-md cursor-pointer ${
+                      isUnread 
+                        ? "border-l-4 border-l-primary bg-primary/5 dark:bg-primary/10" 
+                        : "hover:bg-accent/50"
                     }`}
-                >
-                  <CardContent className="py-4">
-                    <div className="flex justify-between items-start">
-                      <p className="text-foreground font-medium">{notif.message}</p>
-                      {!notif.is_read && (
-                        <span className="text-xs text-white bg-accent px-2 py-0.5 rounded">
-                          NEW
-                        </span>
-                      )}
-                    </div>
-                    <p className="text-xs text-muted-foreground mt-2">
-                      {new Date(notif.createdAt).toLocaleString()}
-                    </p>
-                  </CardContent>
-                </Card>
-              ))}
+                  >
+                    <CardContent className="py-4">
+                      <div className="flex items-start gap-4">
+                        {/* Icon based on notification type */}
+                        <div className={`flex-shrink-0 w-10 h-10 rounded-full flex items-center justify-center ${
+                          isUnread ? "bg-primary/20" : "bg-muted"
+                        }`}>
+                          {notif.amount ? (
+                            <DollarSign className={`h-5 w-5 ${isUnread ? "text-primary" : "text-muted-foreground"}`} />
+                          ) : (
+                            <Bell className={`h-5 w-5 ${isUnread ? "text-primary" : "text-muted-foreground"}`} />
+                          )}
+                        </div>
+
+                        {/* Content */}
+                        <div className="flex-1 min-w-0">
+                          <div className="flex items-start justify-between gap-2 mb-1">
+                            <p className={`text-sm leading-relaxed ${
+                              isUnread ? "font-semibold text-foreground" : "text-muted-foreground"
+                            }`}>
+                              {notif.message}
+                            </p>
+                            {isUnread && (
+                              <span className="flex-shrink-0 inline-flex items-center gap-1 text-xs font-medium text-primary bg-primary/10 px-2 py-1 rounded-full">
+                                <div className="w-1.5 h-1.5 bg-primary rounded-full animate-pulse" />
+                                New
+                              </span>
+                            )}
+                          </div>
+
+                          {/* Amount display if present */}
+                          {notif.amount && (
+                            <div className="inline-flex items-center gap-1 mb-2 text-sm font-semibold text-green-600 dark:text-green-400 bg-green-50 dark:bg-green-950 px-2 py-0.5 rounded">
+                              <DollarSign className="h-3 w-3" />
+                              {notif.amount}
+                            </div>
+                          )}
+
+                          {/* Footer with timestamp and status */}
+                          <div className="flex items-center gap-3 text-xs text-muted-foreground mt-2">
+                            <div className="flex items-center gap-1">
+                              <Clock className="h-3 w-3" />
+                              {notifDate.toLocaleDateString('en-US', { 
+                                month: 'short', 
+                                day: 'numeric', 
+                                year: notifDate.getFullYear() !== new Date().getFullYear() ? 'numeric' : undefined 
+                              })}
+                              {' at '}
+                              {notifDate.toLocaleTimeString('en-US', { 
+                                hour: 'numeric', 
+                                minute: '2-digit' 
+                              })}
+                            </div>
+                            {isRecent && (
+                              <span className="inline-flex items-center gap-1 text-amber-600 dark:text-amber-400">
+                                <Clock className="h-3 w-3" />
+                                Recent
+                              </span>
+                            )}
+                            {!isUnread && (
+                              <span className="inline-flex items-center gap-1">
+                                <CheckCircle className="h-3 w-3" />
+                                Read
+                              </span>
+                            )}
+                          </div>
+                        </div>
+                      </div>
+                    </CardContent>
+                  </Card>
+                );
+              })}
 
               {notifications.length === 0 && !loadingNotifications && (
-                <Card className="py-12">
+                <Card className="py-16 border-dashed">
                   <CardContent className="text-center">
+                    <div className="w-16 h-16 mx-auto mb-4 rounded-full bg-muted flex items-center justify-center">
+                      <Bell className="h-8 w-8 text-muted-foreground" />
+                    </div>
                     <h3 className="text-xl font-semibold mb-2">No notifications yet</h3>
-                    <p className="text-muted-foreground">
-                      You'll see updates here when someone backs your project.
+                    <p className="text-muted-foreground max-w-md mx-auto">
+                      You'll see updates here when someone backs your project or interacts with your campaigns.
                     </p>
                   </CardContent>
                 </Card>
               )}
             </div>
+          </TabsContent>
+
+          <TabsContent value="settings">
+            <NotificationSettings />
           </TabsContent>
 
         </Tabs>

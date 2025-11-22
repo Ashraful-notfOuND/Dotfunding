@@ -1,5 +1,5 @@
 import express from "express";
-import { createNotification, getNotifications, markNotificationsRead } from "../controllers/notificationController.js";
+import { createNotification, getNotifications, markNotificationsRead, markNotificationRead } from "../controllers/notificationController.js";
 
 const router = express.Router();
 
@@ -9,6 +9,10 @@ router.post("/", createNotification);
 // Get notifications for a user
 router.get("/:userId", getNotifications);
 
+// Mark all notifications as read for a user
 router.put("/mark-read/:userId", markNotificationsRead);
+
+// Mark a single notification as read
+router.put("/:notificationId/read", markNotificationRead);
 
 export default router;

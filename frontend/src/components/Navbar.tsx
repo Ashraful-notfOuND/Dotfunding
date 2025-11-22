@@ -1,8 +1,8 @@
 import { Link, useNavigate } from "react-router-dom";
-import { Search, User, Menu, LogOut } from "lucide-react";
+import { Search, User, Menu, LogOut, Bell } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { useAuth } from "@/hooks/useAuth";
 import SearchOverlay from "@/components/SearchOverlay"; // Import SearchOverlay
 
@@ -13,11 +13,41 @@ interface NavbarProps {
 const Navbar = ({ hideSearch }: NavbarProps) => {
   const [isMenuOpen, setIsMenuOpen] = useState(false);
   const [isSearchOpen, setIsSearchOpen] = useState(false);
-  const { isAuthenticated, logout } = useAuth();
+  const [unreadCount, setUnreadCount] = useState(0);
+  const { isAuthenticated, logout, user } = useAuth();
   const navigate = useNavigate(); // ✅ added navigate
 
   const openSearch = () => setIsSearchOpen(true);
   const closeSearch = () => setIsSearchOpen(false);
+
+  // Fetch unread notification count
+  useEffect(() => {
+    if (!isAuthenticated || !user) return;
+
+    const fetchUnreadCount = async () => {
+      try {
+        const resp = await fetch(`http://localhost:5000/api/notifications/${user.id}`, {
+          method: "GET",
+          headers: { "Content-Type": "application/json" },
+        });
+
+        if (resp.ok) {
+          const data = await resp.json();
+          const notifications = Array.isArray(data.notifications) ? data.notifications : [];
+          const unread = notifications.filter((n: any) => !n.is_read).length;
+          setUnreadCount(unread);
+        }
+      } catch (err) {
+        console.error("Error fetching notifications:", err);
+      }
+    };
+
+    fetchUnreadCount();
+    // Poll every 30 seconds for new notifications
+    const interval = setInterval(fetchUnreadCount, 30000);
+
+    return () => clearInterval(interval);
+  }, [isAuthenticated, user]);
 
   // handle logout + redirect
   const handleLogout = () => {
@@ -66,6 +96,16 @@ const Navbar = ({ hideSearch }: NavbarProps) => {
             </Button>
             {isAuthenticated ? (
               <>
+                <Button variant="ghost" size="icon" asChild className="relative">
+                  <Link to="/profile?tab=notifications">
+                    <Bell className="h-5 w-5" />
+                    {unreadCount > 0 && (
+                      <span className="absolute -top-1 -right-1 h-5 w-5 rounded-full bg-red-500 text-white text-xs flex items-center justify-center font-semibold animate-pulse">
+                        {unreadCount > 9 ? '9+' : unreadCount}
+                      </span>
+                    )}
+                  </Link>
+                </Button>
                 <Button variant="ghost" size="icon" asChild>
                   <Link to="/profile">
                     <User className="h-5 w-5" />
@@ -119,6 +159,17 @@ const Navbar = ({ hideSearch }: NavbarProps) => {
             </Button>
             {isAuthenticated ? (
               <>
+                <Button variant="ghost" asChild className="justify-start relative">
+                  <Link to="/profile?tab=notifications" className="flex items-center gap-2">
+                    <Bell className="h-5 w-5" />
+                    Notifications
+                    {unreadCount > 0 && (
+                      <span className="ml-auto h-5 w-5 rounded-full bg-red-500 text-white text-xs flex items-center justify-center font-semibold">
+                        {unreadCount > 9 ? '9+' : unreadCount}
+                      </span>
+                    )}
+                  </Link>
+                </Button>
                 <Button variant="ghost" asChild className="justify-start">
                   <Link to="/profile">Profile</Link>
                 </Button>

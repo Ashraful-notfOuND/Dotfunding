@@ -807,6 +807,9 @@ const ProjectDetail = () => {
         projectId={project?.id}     // project id
         ownerId={ownerId}           // ✅ owner id from simple variable
         userId={user?.id}           // current logged in user
+        userEmail={user?.email}
+        userName={user?.name}
+        userPhone={user?.phone}
       />
     </div>
   );

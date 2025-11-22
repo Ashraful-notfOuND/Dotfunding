@@ -130,15 +130,31 @@ export const initPayment = async (req, res) => {
         reward_id: body.reward_id || null,
         amount: Number(data.total_amount) || null,
         return_url: body.return_url || null,
-        created_at: new Date(),
+        backer_message: body.donor_message || null,
+        created_at: new Date().toISOString(),
       };
-      const { data: sessData, error: sessErr } = await supabase.from("payment_sessions").insert([sessionRow]).select();
+      console.log("initPayment: Creating payment_session:", JSON.stringify(sessionRow, null, 2));
+      
+      const { data: sessData, error: sessErr } = await supabase
+        .from("payment_sessions")
+        .insert([sessionRow])
+        .select();
+      
       if (sessErr) {
-        // don't fail the init if session persistence fails, but log it
-        console.warn("initPayment: failed to persist payment session", sessErr);
+        // Log detailed error but don't fail payment init
+        console.error("initPayment: failed to persist payment session - ERROR DETAILS:", {
+          error: sessErr,
+          message: sessErr.message,
+          details: sessErr.details,
+          hint: sessErr.hint,
+          code: sessErr.code
+        });
+        console.error("initPayment: payment_sessions table may not exist. Run the SQL migration!");
+      } else {
+        console.log("initPayment: payment_session created successfully:", JSON.stringify(sessData, null, 2));
       }
     } catch (e) {
-      console.warn("initPayment: error persisting session", e);
+      console.error("initPayment: exception while persisting session:", e);
     }
 
     // Use Strategy Pattern to process payment
@@ -283,7 +299,11 @@ export const validatePayment = async (req, res) => {
       // Send notification to project owner
       if (project_id && user_id && amount) {
         try {
-          const { data: project } = await supabase.from("projects").select("user_id").eq("id", project_id).single();
+          // Get session data for backer_message
+          const { data: sess } = await supabase.from("payment_sessions").select("backer_message").eq("tran_id", tran_id).single();
+          const backerMessage = sess?.backer_message || null;
+          
+          const { data: project } = await supabase.from("main_projects").select("user_id").eq("id", project_id).single();
           if (project && project.user_id) {
             await supabase.from("notifications").insert([{
               project_id: project_id,
@@ -291,6 +311,7 @@ export const validatePayment = async (req, res) => {
               receiver_id: project.user_id,
               amount: amount,
               message: `You received a new pledge of $${amount} from a supporter!`,
+              backer_message: backerMessage,
             }]);
             console.log(`Notification sent to project owner ${project.user_id}`);
           }
@@ -316,6 +337,17 @@ export const successHandler = async (req, res) => {
     // SSLCommerz may send data via query params (GET) or form body (POST).
     const params = req.method === "GET" ? req.query || {} : req.body || {};
     const { val_id, tran_id, project_id, user_id, reward_id, amount } = params;
+    
+    console.log("successHandler: received params:", { 
+      val_id, 
+      tran_id, 
+      project_id, 
+      user_id, 
+      reward_id, 
+      amount,
+      return_url: params.return_url 
+    });
+    
     if (!val_id) return res.status(400).send("val_id required");
 
     // Use Strategy Pattern to validate payment
@@ -338,16 +370,19 @@ export const successHandler = async (req, res) => {
       let amount_res = amount ? Number(amount) : (validation?.amount ? Number(validation.amount) : 0);
 
       if (!project_id_res && tran) {
+        console.log("successHandler: Looking up payment_session for tran_id:", tran);
         try {
-          const { data: sess } = await supabase.from("payment_sessions").select("project_id,user_id,reward_id,amount").eq("tran_id", tran).single();
+          const { data: sess, error: sessErr } = await supabase.from("payment_sessions").select("project_id,user_id,reward_id,amount").eq("tran_id", tran).single();
+          console.log("successHandler: payment_session lookup result:", { sess, error: sessErr });
           if (sess) {
             project_id_res = project_id_res || sess.project_id;
             user_id_res = user_id_res || sess.user_id;
             reward_id_res = reward_id_res || sess.reward_id;
             amount_res = amount_res || Number(sess.amount || 0);
+            console.log("successHandler: Updated from session:", { project_id_res, user_id_res, reward_id_res, amount_res });
           }
         } catch (e) {
-          // ignore
+          console.error("successHandler: Error looking up payment_session:", e);
         }
       }
       // Also try to read return_url from the persisted session in case the gateway
@@ -379,22 +414,34 @@ export const successHandler = async (req, res) => {
         const possibleReturn = params.return_url || params.returnUrl || params.return || null;
         if (possibleReturn && typeof possibleReturn === 'string') {
           try {
-            // common frontend route: /project/<id> or /project?id= or ?projectId=
+            // common frontend route: /project/<id> - support UUIDs with hyphens
             const m1 = possibleReturn.match(/\/project\/(?:detail\/)?([a-zA-Z0-9_-]+)/);
-            if (m1 && m1[1]) project_id_res = m1[1];
+            if (m1 && m1[1]) {
+              project_id_res = m1[1];
+              console.log("successHandler: Extracted project_id from return_url path:", project_id_res);
+            }
             const m2 = possibleReturn.match(/[?&](?:projectId|project_id|id)=([a-zA-Z0-9_-]+)/);
-            if (!project_id_res && m2 && m2[1]) project_id_res = m2[1];
+            if (!project_id_res && m2 && m2[1]) {
+              project_id_res = m2[1];
+              console.log("successHandler: Extracted project_id from return_url query:", project_id_res);
+            }
           } catch (e) {
-            // ignore
+            console.error("successHandler: Error parsing return_url:", e);
           }
         }
       }
 
       // If we still don't have a project id, avoid inserting and show fallback
       if (!project_id_res) {
-        console.error("successHandler: missing project_id after lookup, cannot persist pledge", { tran, reward_id: reward_id_res, return_url: params.return_url || params.returnUrl || null });
+        console.error("successHandler: missing project_id after all lookup attempts", { 
+          tran, 
+          reward_id: reward_id_res, 
+          return_url: params.return_url || params.returnUrl || null,
+          params_project_id: params.project_id,
+          all_params: params
+        });
         // Show user-friendly HTML indicating payment succeeded but server couldn't record pledge
-        const msg = `<!doctype html><html><body><h1>Payment Received</h1><p>Transaction ${tran} succeeded, but we couldn't associate it with a project so it was not recorded.</p><p>Please contact support or retry from the project page.</p></body></html>`;
+        const msg = `<!doctype html><html><body><h1>Payment Received</h1><p>Transaction ${tran} succeeded, but we couldn't associate it with a project so it was not recorded.</p><p>Please contact support or retry from the project page.</p><p><small>Debug: project_id from params: ${params.project_id}, return_url: ${params.return_url}</small></p></body></html>`;
         res.setHeader('Content-Type', 'text/html');
         return res.status(200).send(msg);
       }
@@ -455,9 +502,13 @@ export const successHandler = async (req, res) => {
       // Send notification to project owner
       if (project_id_res && user_id_res && amount_res) {
         try {
+          // Get backer_message from payment_sessions
+          const { data: sess } = await supabase.from("payment_sessions").select("backer_message").eq("tran_id", tran).single();
+          const backerMessage = sess?.backer_message || null;
+          
           // Get project owner
           const { data: project } = await supabase
-            .from("projects")
+            .from("main_projects")
             .select("user_id")
             .eq("id", project_id_res)
             .single();
@@ -470,6 +521,7 @@ export const successHandler = async (req, res) => {
               receiver_id: project.user_id,
               amount: amount_res,
               message: `You received a new pledge of $${amount_res} from a supporter!`,
+              backer_message: backerMessage,
             }]);
             console.log(`Notification sent to project owner ${project.user_id} for pledge of $${amount_res}`);
           }
@@ -692,7 +744,11 @@ export const ipnHandler = async (req, res) => {
 
           // Send notification to project owner
           try {
-            const { data: project } = await supabase.from("projects").select("user_id").eq("id", project_id).single();
+            // Get backer_message from payment_sessions
+            const { data: sess } = await supabase.from("payment_sessions").select("backer_message").eq("tran_id", tran).single();
+            const backerMessage = sess?.backer_message || null;
+            
+            const { data: project } = await supabase.from("main_projects").select("user_id").eq("id", project_id).single();
             if (project && project.user_id && user_id) {
               await supabase.from("notifications").insert([{
                 project_id: project_id,
@@ -700,6 +756,7 @@ export const ipnHandler = async (req, res) => {
                 receiver_id: project.user_id,
                 amount: amount,
                 message: `You received a new pledge of $${amount} from a supporter!`,
+                backer_message: backerMessage,
               }]);
               console.log(`IPN: Notification sent to project owner ${project.user_id}`);
             }

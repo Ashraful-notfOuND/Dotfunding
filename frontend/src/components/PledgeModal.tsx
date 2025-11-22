@@ -339,9 +339,7 @@ import { useNavigate } from "react-router-dom";
 
 const pledgeSchema = z.object({
   amount: z.string().min(1, "Please enter a pledge amount"),
-  email: z.string().email("Please enter a valid email address"),
-  fullName: z.string().min(2, "Please enter your full name").max(100),
-  phone: z.string().min(5, "Please enter a valid phone number"),
+  donorMessage: z.string().optional(),
 });
 
 type PledgeFormValues = z.infer<typeof pledgeSchema>;
@@ -358,7 +356,10 @@ interface PledgeModalProps {
   } | null;
   projectId?: string | null;
   userId?: string | null;
-  ownerId?: string | null;   // ✅ added
+  ownerId?: string | null;
+  userEmail?: string;
+  userName?: string;
+  userPhone?: string;
 }
 
 const PledgeModal = ({
@@ -369,7 +370,10 @@ const PledgeModal = ({
   selectedReward,
   projectId,
   userId,
-  ownerId,            // ✅ added
+  ownerId,
+  userEmail,
+  userName,
+  userPhone,
 }: PledgeModalProps) => {
   const { toast } = useToast();
   const navigate = useNavigate();
@@ -379,9 +383,7 @@ const PledgeModal = ({
     resolver: zodResolver(pledgeSchema),
     defaultValues: {
       amount: defaultAmount,
-      email: "",
-      fullName: "",
-      phone: "",
+      donorMessage: "",
     },
   });
 
@@ -393,6 +395,15 @@ const PledgeModal = ({
 
   const onSubmit = async (data: PledgeFormValues) => {
     setIsProcessing(true);
+
+    // Show warning if user doesn't have phone number in profile
+    if (!userPhone) {
+      toast({
+        title: "Missing phone number",
+        description: "Using default phone number. Please update your profile with your phone number.",
+        variant: "default",
+      });
+    }
 
     try {
       // build a unique tran_id
@@ -426,9 +437,10 @@ const PledgeModal = ({
         cancel_url: cancelUrl,
         ipn_url: ipnUrl,
         product_name: projectTitle || "Pledge",
-        cus_name: data.fullName,
-        cus_phone: data.phone,
-        cus_email: data.email,
+        cus_name: userName || "Anonymous Donor",
+        cus_phone: userPhone || "01700000000", // Valid Bangladesh phone format
+        cus_email: userEmail || "donor@dotfunding.com",
+        donor_message: data.donorMessage || "",
 
         project_id: projectId || null,
         user_id: userId || null,
@@ -531,54 +543,43 @@ const PledgeModal = ({
               )}
             />
 
-            {/* Full Name */}
-            <FormField
-              control={form.control}
-              name="fullName"
-              render={({ field }) => (
-                <FormItem>
-                  <FormLabel>Full Name</FormLabel>
-                  <FormControl>
-                    <Input placeholder="ifti" {...field} />
-                  </FormControl>
-                  <FormMessage />
-                </FormItem>
-              )}
-            />
+            {/* Display User Info (Read-only) */}
+            <div className="bg-muted/50 rounded-lg p-4 space-y-3">
+              <h4 className="font-medium text-sm text-muted-foreground">Your Information</h4>
+              <div className="space-y-2 text-sm">
+                <div className="flex items-center gap-2">
+                  <span className="font-medium">Name:</span>
+                  <span>{userName || "Not provided"}</span>
+                </div>
+                <div className="flex items-center gap-2">
+                  <span className="font-medium">Email:</span>
+                  <span>{userEmail || "Not provided"}</span>
+                </div>
+                <div className="flex items-center gap-2">
+                  <span className="font-medium">Phone:</span>
+                  <span>{userPhone || "Not provided"}</span>
+                </div>
+              </div>
+            </div>
 
-            {/* Email */}
+            {/* Donor Message (Optional) */}
             <FormField
               control={form.control}
-              name="email"
+              name="donorMessage"
               render={({ field }) => (
                 <FormItem>
-                  <FormLabel>Email Address</FormLabel>
+                  <FormLabel>Leave a Message (Optional)</FormLabel>
                   <FormControl>
-                    <Input
-                      type="email"
-                      placeholder="john@example.com"
+                    <textarea
                       {...field}
+                      placeholder="Share why you're supporting this project..."
+                      className="w-full min-h-[100px] px-3 py-2 text-sm rounded-md border border-input bg-background ring-offset-background placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50"
+                      maxLength={500}
                     />
                   </FormControl>
-                  <FormMessage />
-                </FormItem>
-              )}
-            />
-
-            {/* Phone */}
-            <FormField
-              control={form.control}
-              name="phone"
-              render={({ field }) => (
-                <FormItem>
-                  <FormLabel>Phone Number</FormLabel>
-                  <FormControl>
-                    <Input
-                      type="tel"
-                      placeholder="017xxxxxxxx"
-                      {...field}
-                    />
-                  </FormControl>
+                  <p className="text-xs text-muted-foreground">
+                    Your message will be visible to the project creator
+                  </p>
                   <FormMessage />
                 </FormItem>
               )}

@@ -6,7 +6,7 @@ import { supabase } from "../config/supabaseClient.js";
 
 export const createNotification = async (req, res) => {
   try {
-    const { projectId, senderId, receiverId, amount, message } = req.body;
+    const { projectId, senderId, receiverId, amount, message, donorMessage } = req.body;
 
     // Validate input
     if (!projectId || !senderId || !receiverId || !amount) {
@@ -23,6 +23,7 @@ export const createNotification = async (req, res) => {
           receiver_id: receiverId,
           amount: amount,
           message: message || `You received a new pledge of $${amount}!`,
+          backer_message: donorMessage || null,
         },
       ])
       .select();
@@ -51,7 +52,7 @@ export const getNotifications = async (req, res) => {
     const { userId } = req.params;
     if (!userId) return res.status(400).json({ error: "User ID is required" });
 
-    // Fetch notifications
+    // Fetch notifications - simplified without joins first
     const { data: notifications, error: fetchError } = await supabase
       .from("notifications")
       .select("*")
@@ -60,25 +61,30 @@ export const getNotifications = async (req, res) => {
 
     if (fetchError) {
       console.error("Supabase fetch error:", fetchError);
-      return res.status(500).json({ error: "Failed to fetch notifications" });
+      return res.status(500).json({ error: "Failed to fetch notifications", details: fetchError });
     }
 
-    // Update all fetched notifications to mark them as read
-    const idsToUpdate = notifications.map((n) => n.id);
-
-    if (idsToUpdate.length > 0) {
-      const { error: updateError } = await supabase
-        .from("notifications")
-        .update({ is_read: true })
-        .in("id", idsToUpdate);
-
-      if (updateError) {
-        console.error("Supabase update error:", updateError);
-        // We don't fail the request if marking as read fails
+    // Transform the data to include metadata
+    const transformedNotifications = notifications.map(notif => ({
+      id: notif.id,
+      message: notif.message,
+      amount: notif.amount,
+      is_read: notif.is_read,
+      created_at: notif.created_at,
+      type: notif.type || 'donation',
+      metadata: {
+        projectId: notif.project_id,
+        projectTitle: null, // Will need to fetch separately if needed
+        donorId: notif.sender_id,
+        donorName: null, // Will need to fetch separately if needed
+        donorEmail: null,
+        donorProfilePic: null,
+        donationDate: notif.created_at,
+        donorMessage: notif.backer_message,
       }
-    }
+    }));
 
-    return res.status(200).json({ notifications });
+    return res.status(200).json({ notifications: transformedNotifications });
   } catch (err) {
     console.error("getNotifications error:", err);
     return res.status(500).json({ error: "Internal server error" });
@@ -106,6 +112,31 @@ export const markNotificationsRead = async (req, res) => {
     return res.status(200).json({ message: "Notifications marked as read" });
   } catch (err) {
     console.error("markNotificationsRead error:", err);
+    return res.status(500).json({ error: "Internal server error" });
+  }
+};
+
+/**
+ * Mark a single notification as read
+ */
+export const markNotificationRead = async (req, res) => {
+  try {
+    const { notificationId } = req.params;
+    if (!notificationId) return res.status(400).json({ error: "Notification ID is required" });
+
+    const { error } = await supabase
+      .from("notifications")
+      .update({ is_read: true })
+      .eq("id", notificationId);
+
+    if (error) {
+      console.error("Supabase update error:", error);
+      return res.status(500).json({ error: "Failed to mark notification as read" });
+    }
+
+    return res.status(200).json({ message: "Notification marked as read" });
+  } catch (err) {
+    console.error("markNotificationRead error:", err);
     return res.status(500).json({ error: "Internal server error" });
   }
 };
