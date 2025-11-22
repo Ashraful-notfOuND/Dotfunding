@@ -34,11 +34,31 @@ const NotificationSettings = () => {
   const [loading, setLoading] = useState(false);
 
   useEffect(() => {
-    // Load saved preferences from localStorage or API
-    const savedPrefs = localStorage.getItem(`notif_prefs_${user?.id}`);
-    if (savedPrefs) {
-      setPreferences(JSON.parse(savedPrefs));
-    }
+    const fetchPreferences = async () => {
+      if (!user?.id) return;
+      
+      try {
+        const response = await fetch(`http://localhost:5000/api/notifications/preferences/${user.id}`);
+        if (response.ok) {
+          const data = await response.json();
+          // Map backend field names to frontend state
+          setPreferences({
+            emailNotifications: data.email_enabled,
+            pushNotifications: data.push_enabled,
+            newPledge: data.pledge_notifications,
+            projectUpdate: data.update_notifications,
+            newComment: data.comment_notifications,
+            projectRecommendation: data.recommendation_notifications,
+            milestoneReached: data.milestone_notifications,
+            campaignEnding: data.campaign_ending_notifications,
+          });
+        }
+      } catch (error) {
+        console.error("Failed to fetch preferences:", error);
+      }
+    };
+
+    fetchPreferences();
   }, [user?.id]);
 
   const handleToggle = (key: keyof NotificationPreferences) => {
@@ -49,23 +69,42 @@ const NotificationSettings = () => {
   };
 
   const handleSave = async () => {
+    if (!user?.id) return;
+    
     setLoading(true);
     try {
-      // Save to localStorage (in production, save to backend)
-      localStorage.setItem(`notif_prefs_${user?.id}`, JSON.stringify(preferences));
-      
-      // TODO: Send to backend API
-      // await fetch(`http://localhost:5000/api/users/${user?.id}/notification-preferences`, {
-      //   method: 'PUT',
-      //   headers: { 'Content-Type': 'application/json' },
-      //   body: JSON.stringify(preferences),
-      // });
+      // Map frontend field names to backend schema
+      const backendPrefs = {
+        userId: user.id,
+        email_enabled: preferences.emailNotifications,
+        push_enabled: preferences.pushNotifications,
+        pledge_notifications: preferences.newPledge,
+        comment_notifications: preferences.newComment,
+        update_notifications: preferences.projectUpdate,
+        recommendation_notifications: preferences.projectRecommendation,
+        milestone_notifications: preferences.milestoneReached,
+        campaign_ending_notifications: preferences.campaignEnding,
+      };
+
+      console.log('🔧 Frontend preferences state:', preferences);
+      console.log('📤 Sending to backend:', backendPrefs);
+
+      const response = await fetch('http://localhost:5000/api/notifications/preferences', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(backendPrefs),
+      });
+
+      if (!response.ok) {
+        throw new Error('Failed to save preferences');
+      }
 
       toast({
         title: "Settings saved",
         description: "Your notification preferences have been updated.",
       });
     } catch (error) {
+      console.error("Save preferences error:", error);
       toast({
         title: "Error",
         description: "Failed to save preferences. Please try again.",
