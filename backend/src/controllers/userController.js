@@ -91,7 +91,7 @@ export const loginUser = async (req, res) => {
     // Login successful
     return res.status(200).json({
       message: "Login successful!",
-      user: { id: user.id, full_name: user.full_name, email: user.email, bio: user.bio, location: user.location, profile_pic: user.profile_pic },
+      user: { id: user.id, full_name: user.full_name, email: user.email, phone: user.phone, bio: user.bio, location: user.location, profile_pic: user.profile_pic },
     });
 
   } catch (err) {
@@ -102,7 +102,7 @@ export const loginUser = async (req, res) => {
 
 export const updateProfile = async (req, res) => {
   try {
-    const { id, full_name, email, password, bio, location } = req.body;
+    const { id, full_name, email, password, phone, bio, location } = req.body;
     console.log("updateProfile req.body:", req.body);
     console.log("updateProfile req.file:", req.file);
     
@@ -140,6 +140,7 @@ export const updateProfile = async (req, res) => {
     let updateData = {
       full_name,
       email,
+      phone,
       bio,
       location,
     };
@@ -190,7 +191,7 @@ export const getUserById = async (req, res) => {
 
     const { data: user, error } = await supabase
       .from("users")
-      .select("id, full_name, email, bio, location, profile_pic")
+      .select("id, full_name, email, phone, bio, location, profile_pic")
       .eq("id", id)
       .single();
 

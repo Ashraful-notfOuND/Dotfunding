@@ -15,6 +15,7 @@ const EditProfile = () => {
   const [name, setName] = useState("");
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
+  const [phone, setPhone] = useState("");
   const [bio, setBio] = useState("");
   const [location, setLocation] = useState("");
   const [profilePicFile, setProfilePicFile] = useState<File | null>(null);
@@ -29,6 +30,7 @@ const EditProfile = () => {
     } else if (user) {
       setName(user.name || "");
       setEmail(user.email || "");
+      setPhone(user.phone || "");
       setBio(user.bio || "");
       setLocation(user.location || "");
       setProfilePicPreview(user.profilePic || "");
@@ -68,6 +70,7 @@ const EditProfile = () => {
       formData.append("full_name", name);
       formData.append("email", email);
       formData.append("password", password);
+      formData.append("phone", phone);
       formData.append("bio", bio);
       formData.append("location", location);
 
@@ -88,6 +91,7 @@ const EditProfile = () => {
           ...user,
           name: data.user.full_name,
           email: data.user.email,
+          phone: data.user.phone,
           bio: data.user.bio,
           location: data.user.location,
           profilePic: data.user.profile_pic,
@@ -147,6 +151,17 @@ const EditProfile = () => {
                   placeholder="Enter new password"
                   value={password}
                   onChange={(e) => setPassword(e.target.value)}
+                />
+              </div>
+
+              <div className="space-y-2">
+                <Label htmlFor="phone">Phone Number</Label>
+                <Input
+                  id="phone"
+                  type="tel"
+                  placeholder="+880 1234567890"
+                  value={phone}
+                  onChange={(e) => setPhone(e.target.value)}
                 />
               </div>
 
