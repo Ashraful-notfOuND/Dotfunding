@@ -4,6 +4,7 @@ import {
   PaymentProcessor,
   PaymentStrategyFactory,
 } from "../services/PaymentStrategy.js";
+import EmailService from "../services/EmailService.js";
 
 dotenv.config();
 
@@ -303,17 +304,45 @@ export const validatePayment = async (req, res) => {
           const { data: sess } = await supabase.from("payment_sessions").select("backer_message").eq("tran_id", tran_id).single();
           const backerMessage = sess?.backer_message || null;
           
-          const { data: project } = await supabase.from("main_projects").select("user_id").eq("id", project_id).single();
+          const { data: project } = await supabase.from("main_projects").select("user_id, title").eq("id", project_id).single();
           if (project && project.user_id) {
-            await supabase.from("notifications").insert([{
-              project_id: project_id,
-              sender_id: user_id,
-              receiver_id: project.user_id,
-              amount: amount,
-              message: `You received a new pledge of $${amount} from a supporter!`,
-              backer_message: backerMessage,
-            }]);
-            console.log(`Notification sent to project owner ${project.user_id}`);
+            // Get backer info
+            const { data: backer } = await supabase.from("users").select("full_name").eq("id", user_id).single();
+            // Get creator email and preferences
+            const { data: creator } = await supabase.from("users").select("email, full_name").eq("id", project.user_id).single();
+            const { data: prefs } = await supabase.from("notification_preferences").select("*").eq("user_id", project.user_id).single();
+            
+            // Check if user wants pledge notifications (default true if no preferences)
+            const wantsPledgeNotif = prefs ? prefs.pledge_notifications : true;
+            const wantsEmail = prefs ? prefs.email_enabled : true;
+            
+            // Create in-app notification if enabled
+            if (wantsPledgeNotif) {
+              await supabase.from("notifications").insert([{
+                project_id: project_id,
+                sender_id: user_id,
+                receiver_id: project.user_id,
+                amount: amount,
+                message: `You received a new pledge of $${amount} from a supporter!`,
+                backer_message: backerMessage,
+              }]);
+              console.log(`Notification sent to project owner ${project.user_id}`);
+            }
+            
+            // Send email notification if enabled
+            if (creator?.email && wantsEmail && wantsPledgeNotif) {
+              await EmailService.sendPledgeNotification({
+                recipientEmail: creator.email,
+                recipientName: creator.full_name || 'Creator',
+                donorName: backer?.full_name || 'Anonymous',
+                amount: amount,
+                projectTitle: project.title || 'Your Project',
+                donorMessage: backerMessage,
+              });
+              console.log(`Email notification sent to ${creator.email}`);
+            } else if (!wantsEmail) {
+              console.log(`Email notification skipped - user disabled email notifications`);
+            }
           }
         } catch (notifErr) {
           console.error("Failed to send notification:", notifErr);
@@ -509,21 +538,48 @@ export const successHandler = async (req, res) => {
           // Get project owner
           const { data: project } = await supabase
             .from("main_projects")
-            .select("user_id")
+            .select("user_id, title")
             .eq("id", project_id_res)
             .single();
           
           if (project && project.user_id) {
-            // Create notification
-            await supabase.from("notifications").insert([{
-              project_id: project_id_res,
-              sender_id: user_id_res,
-              receiver_id: project.user_id,
-              amount: amount_res,
-              message: `You received a new pledge of $${amount_res} from a supporter!`,
-              backer_message: backerMessage,
-            }]);
-            console.log(`Notification sent to project owner ${project.user_id} for pledge of $${amount_res}`);
+            // Get backer info
+            const { data: backer } = await supabase.from("users").select("full_name").eq("id", user_id_res).single();
+            // Get creator email and preferences
+            const { data: creator } = await supabase.from("users").select("email, full_name").eq("id", project.user_id).single();
+            const { data: prefs } = await supabase.from("notification_preferences").select("*").eq("user_id", project.user_id).single();
+            
+            // Check if user wants pledge notifications (default true if no preferences)
+            const wantsPledgeNotif = prefs ? prefs.pledge_notifications : true;
+            const wantsEmail = prefs ? prefs.email_enabled : true;
+            
+            // Create in-app notification if enabled
+            if (wantsPledgeNotif) {
+              await supabase.from("notifications").insert([{
+                project_id: project_id_res,
+                sender_id: user_id_res,
+                receiver_id: project.user_id,
+                amount: amount_res,
+                message: `You received a new pledge of $${amount_res} from a supporter!`,
+                backer_message: backerMessage,
+              }]);
+              console.log(`Notification sent to project owner ${project.user_id} for pledge of $${amount_res}`);
+            }
+            
+            // Send email notification if enabled
+            if (creator?.email && wantsEmail && wantsPledgeNotif) {
+              await EmailService.sendPledgeNotification({
+                recipientEmail: creator.email,
+                recipientName: creator.full_name || 'Creator',
+                donorName: backer?.full_name || 'Anonymous',
+                amount: amount_res,
+                projectTitle: project.title || 'Your Project',
+                donorMessage: backerMessage,
+              });
+              console.log(`Email notification sent to ${creator.email}`);
+            } else if (!wantsEmail) {
+              console.log(`Email notification skipped - user disabled email notifications`);
+            }
           }
         } catch (notifErr) {
           console.error("Failed to send notification:", notifErr);
@@ -748,17 +804,45 @@ export const ipnHandler = async (req, res) => {
             const { data: sess } = await supabase.from("payment_sessions").select("backer_message").eq("tran_id", tran).single();
             const backerMessage = sess?.backer_message || null;
             
-            const { data: project } = await supabase.from("main_projects").select("user_id").eq("id", project_id).single();
+            const { data: project } = await supabase.from("main_projects").select("user_id, title").eq("id", project_id).single();
             if (project && project.user_id && user_id) {
-              await supabase.from("notifications").insert([{
-                project_id: project_id,
-                sender_id: user_id,
-                receiver_id: project.user_id,
-                amount: amount,
-                message: `You received a new pledge of $${amount} from a supporter!`,
-                backer_message: backerMessage,
-              }]);
-              console.log(`IPN: Notification sent to project owner ${project.user_id}`);
+              // Get backer info
+              const { data: backer } = await supabase.from("users").select("full_name").eq("id", user_id).single();
+              // Get creator email and preferences
+              const { data: creator } = await supabase.from("users").select("email, full_name").eq("id", project.user_id).single();
+              const { data: prefs } = await supabase.from("notification_preferences").select("*").eq("user_id", project.user_id).single();
+              
+              // Check if user wants pledge notifications (default true if no preferences)
+              const wantsPledgeNotif = prefs ? prefs.pledge_notifications : true;
+              const wantsEmail = prefs ? prefs.email_enabled : true;
+              
+              // Create in-app notification if enabled
+              if (wantsPledgeNotif) {
+                await supabase.from("notifications").insert([{
+                  project_id: project_id,
+                  sender_id: user_id,
+                  receiver_id: project.user_id,
+                  amount: amount,
+                  message: `You received a new pledge of $${amount} from a supporter!`,
+                  backer_message: backerMessage,
+                }]);
+                console.log(`IPN: Notification sent to project owner ${project.user_id}`);
+              }
+              
+              // Send email notification if enabled
+              if (creator?.email && wantsEmail && wantsPledgeNotif) {
+                await EmailService.sendPledgeNotification({
+                  recipientEmail: creator.email,
+                  recipientName: creator.full_name || 'Creator',
+                  donorName: backer?.full_name || 'Anonymous',
+                  amount: amount,
+                  projectTitle: project.title || 'Your Project',
+                  donorMessage: backerMessage,
+                });
+                console.log(`IPN: Email notification sent to ${creator.email}`);
+              } else if (!wantsEmail) {
+                console.log(`IPN: Email notification skipped - user disabled email notifications`);
+              }
             }
           } catch (notifErr) {
             console.error("IPN: Failed to send notification:", notifErr);

@@ -140,3 +140,104 @@ export const markNotificationRead = async (req, res) => {
     return res.status(500).json({ error: "Internal server error" });
   }
 };
+
+/**
+ * Save notification preferences
+ */
+export const saveNotificationPreferences = async (req, res) => {
+  try {
+    console.log('📥 Received saveNotificationPreferences request');
+    console.log('Request body:', JSON.stringify(req.body, null, 2));
+    
+    const { 
+      userId, 
+      email_enabled, 
+      push_enabled, 
+      pledge_notifications,
+      comment_notifications,
+      update_notifications,
+      recommendation_notifications,
+      milestone_notifications,
+      campaign_ending_notifications
+    } = req.body;
+    
+    if (!userId) {
+      console.log('❌ Missing userId');
+      return res.status(400).json({ error: "User ID is required" });
+    }
+
+    console.log('💾 Saving preferences for user:', userId);
+    console.log('Email enabled:', email_enabled);
+    console.log('Push enabled:', push_enabled);
+    console.log('Pledge notifications:', pledge_notifications);
+
+    // Upsert preferences
+    const { data, error } = await supabase
+      .from("notification_preferences")
+      .upsert({
+        user_id: userId,
+        email_enabled: email_enabled ?? true,
+        push_enabled: push_enabled ?? true,
+        pledge_notifications: pledge_notifications ?? true,
+        comment_notifications: comment_notifications ?? true,
+        update_notifications: update_notifications ?? true,
+        recommendation_notifications: recommendation_notifications ?? true,
+        milestone_notifications: milestone_notifications ?? true,
+        campaign_ending_notifications: campaign_ending_notifications ?? true,
+        updated_at: new Date().toISOString(),
+      }, {
+        onConflict: 'user_id'
+      })
+      .select()
+      .single();
+
+    if (error) {
+      console.error("❌ Error saving preferences:", error);
+      return res.status(500).json({ error: "Failed to save preferences", details: error.message });
+    }
+
+    console.log('✅ Preferences saved successfully:', data);
+    return res.status(200).json({ message: "Preferences saved successfully", preferences: data });
+  } catch (err) {
+    console.error("saveNotificationPreferences error:", err);
+    return res.status(500).json({ error: "Internal server error", details: err.message });
+  }
+};
+
+/**
+ * Get notification preferences for a user
+ */
+export const getNotificationPreferences = async (req, res) => {
+  try {
+    const { userId } = req.params;
+    if (!userId) return res.status(400).json({ error: "User ID is required" });
+
+    const { data, error } = await supabase
+      .from("notification_preferences")
+      .select("*")
+      .eq("user_id", userId)
+      .single();
+
+    if (error && error.code !== "PGRST116") {
+      console.error("Error fetching preferences:", error);
+      return res.status(500).json({ error: "Failed to fetch preferences" });
+    }
+
+    // Return default preferences if none exist
+    const preferences = data || {
+      email_enabled: true,
+      push_enabled: true,
+      pledge_notifications: true,
+      comment_notifications: true,
+      update_notifications: true,
+      recommendation_notifications: true,
+      milestone_notifications: true,
+      campaign_ending_notifications: true,
+    };
+
+    return res.status(200).json(preferences);
+  } catch (err) {
+    console.error("getNotificationPreferences error:", err);
+    return res.status(500).json({ error: "Internal server error" });
+  }
+};
