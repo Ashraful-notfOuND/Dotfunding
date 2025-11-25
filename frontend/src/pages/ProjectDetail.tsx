@@ -427,6 +427,7 @@ import Updates from "@/components/Updates";
 import Comments from "@/components/Comments";
 import CreatorTab from "@/components/CreatorTab";
 import StatisticsTab from "@/components/StatisticsTab";
+import ProjectReviews from "@/components/ProjectReviews";
 import { useAuth } from "@/hooks/useAuth";
 import { useToast } from "@/hooks/use-toast";
 
@@ -664,6 +665,7 @@ const ProjectDetail = () => {
                 <TabsTrigger value="creator">Creator</TabsTrigger>
                 <TabsTrigger value="updates">Updates</TabsTrigger>
                 <TabsTrigger value="comments">Comments</TabsTrigger>
+                <TabsTrigger value="reviews">Reviews</TabsTrigger>
                 <TabsTrigger value="statistics">Statistics</TabsTrigger>
               </TabsList>
 
@@ -685,6 +687,10 @@ const ProjectDetail = () => {
 
               <TabsContent value="comments" className="mt-6">
                 <Comments />
+              </TabsContent>
+
+              <TabsContent value="reviews" className="mt-6">
+                <ProjectReviews projectId={project.id} />
               </TabsContent>
 
               <TabsContent value="statistics" className="mt-6">
