@@ -1,5 +1,6 @@
 import { supabase } from "../config/supabaseClient.js";
 import { v4 as uuidv4 } from "uuid";
+import { observerManager } from "../services/ProjectObserver.js";
 
 
 // Multer saves file in req.file
@@ -55,6 +56,15 @@ export const createProject = async (req, res) => {
       .single();
 
     if (error) throw error;
+
+    // OBSERVER PATTERN: Notify interested users about new project
+    try {
+      await observerManager.notifyInterestedUsers(data);
+      console.log(`Notified interested users about new project: ${data.title}`);
+    } catch (notifyError) {
+      console.error("Failed to notify interested users:", notifyError);
+      // Don't fail the request if notifications fail
+    }
 
     res.status(201).json(data);
   } catch (err) {
