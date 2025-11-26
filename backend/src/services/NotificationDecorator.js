@@ -30,15 +30,24 @@ class PriorityDecorator extends NotificationDecorator {
       low: "ℹ️ ",
     };
 
+    const originalMessage = this.notification.message;
+    const originalMetadata = this.notification.metadata;
+    
     this.notification.message = 
-      priorityPrefix[this.priority] + this.notification.message;
+      priorityPrefix[this.priority] + originalMessage;
     
     this.notification.metadata = {
-      ...this.notification.metadata,
+      ...originalMetadata,
       priority: this.priority,
     };
 
-    return await this.notification.send();
+    const result = await this.notification.send();
+    
+    // Restore original values for potential retries
+    this.notification.message = originalMessage;
+    this.notification.metadata = originalMetadata;
+    
+    return result;
   }
 }
 
@@ -50,16 +59,25 @@ class PersonalizationDecorator extends NotificationDecorator {
   }
 
   async send() {
-    // Personalize the message
-    this.notification.message = `Hi ${this.userName}! ${this.notification.message}`;
+    // Personalize message with user's name
+    const originalMessage = this.notification.message;
+    const originalMetadata = this.notification.metadata;
+    
+    this.notification.message = `Hi ${this.userName}! ${originalMessage}`;
     
     this.notification.metadata = {
-      ...this.notification.metadata,
+      ...originalMetadata,
       personalized: true,
       userName: this.userName,
     };
 
-    return await this.notification.send();
+    const result = await this.notification.send();
+    
+    // Restore original values for potential retries
+    this.notification.message = originalMessage;
+    this.notification.metadata = originalMetadata;
+    
+    return result;
   }
 }
 
@@ -78,9 +96,12 @@ class RichFormattingDecorator extends NotificationDecorator {
       message = `${this.formatting.emoji} ${message}`;
     }
 
+    const originalMessage = this.notification.message;
+    const originalMetadata = this.notification.metadata;
+    
     // Add styling metadata for HTML rendering
     this.notification.metadata = {
-      ...this.notification.metadata,
+      ...originalMetadata,
       formatting: {
         bold: this.formatting.bold || false,
         italic: this.formatting.italic || false,
@@ -90,7 +111,13 @@ class RichFormattingDecorator extends NotificationDecorator {
 
     this.notification.message = message;
 
-    return await this.notification.send();
+    const result = await this.notification.send();
+    
+    // Restore original values for potential retries
+    this.notification.message = originalMessage;
+    this.notification.metadata = originalMetadata;
+    
+    return result;
   }
 }
 
@@ -152,11 +179,21 @@ class TrackingDecorator extends NotificationDecorator {
     
     const duration = Date.now() - startTime;
     
+    // Find the base notification to get recipient info
+    let baseNotif = this.notification;
+    while (baseNotif.notification) {
+      baseNotif = baseNotif.notification;
+    }
+    
+    const recipientInfo = baseNotif.recipient ? 
+      (baseNotif.recipient.id || baseNotif.recipient.email) : 
+      'unknown';
+    
     // Log notification metrics
     console.log(`Notification ${this.trackingId} sent in ${duration}ms:`, {
       success: result.success,
       channel: result.channel,
-      recipient: this.notification.recipient.id || this.notification.recipient.email,
+      recipient: recipientInfo,
     });
 
     return {
