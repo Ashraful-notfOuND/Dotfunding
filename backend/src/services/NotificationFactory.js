@@ -34,6 +34,7 @@ class InAppNotification extends Notification {
           message: this.message,
           type: this.metadata.type || "recommendation",
           is_read: false,
+          metadata: this.metadata, // Store full metadata object
         }])
         .select();
 
@@ -42,6 +43,7 @@ class InAppNotification extends Notification {
       return {
         success: true,
         channel: "in-app",
+        notificationId: data[0].id,
         data: data[0],
       };
     } catch (error) {
