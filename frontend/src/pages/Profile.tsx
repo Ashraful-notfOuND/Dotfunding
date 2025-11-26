@@ -274,6 +274,7 @@ import { useNavigate, Link, useSearchParams } from "react-router-dom";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { Badge } from "@/components/ui/badge";
 import Navbar from "@/components/Navbar";
 import Footer from "@/components/Footer";
 import ProjectCard from "@/components/ProjectCard";
@@ -304,6 +305,11 @@ const Profile = () => {
   const [myProjects, setMyProjects] = useState<Project[]>([]);
   const [loadingProjects, setLoadingProjects] = useState<boolean>(false);
   const [errorProjects, setErrorProjects] = useState<string | null>(null);
+
+  // Backed projects state
+  const [backedProjects, setBackedProjects] = useState<any[]>([]);
+  const [loadingBacked, setLoadingBacked] = useState<boolean>(false);
+  const [errorBacked, setErrorBacked] = useState<string | null>(null);
 
   // === added: notifications state ===
   const [notifications, setNotifications] = useState<any[]>([]);
@@ -376,6 +382,41 @@ const Profile = () => {
     };
 
     fetchProjects();
+  }, [isAuthenticated, user]);
+
+  // Fetch backed projects (from payments/donations)
+  useEffect(() => {
+    if (!isAuthenticated || !user) return;
+
+    const fetchBackedProjects = async () => {
+      try {
+        setLoadingBacked(true);
+        setErrorBacked(null);
+
+        const resp = await fetch(`http://localhost:5000/api/payments/user/${user.id}/backed`, {
+          method: "GET",
+          headers: {
+            "Content-Type": "application/json",
+          },
+        });
+
+        if (!resp.ok) {
+          const errBody = await resp.json().catch(() => ({}));
+          const errMsg = errBody.error || resp.statusText;
+          throw new Error(errMsg);
+        }
+
+        const body = await resp.json();
+        setBackedProjects(body.backedProjects || body.payments || []);
+      } catch (err: any) {
+        console.error("Error fetching backed projects:", err);
+        setErrorBacked(err.message || "Error fetching backed projects");
+      } finally {
+        setLoadingBacked(false);
+      }
+    };
+
+    fetchBackedProjects();
   }, [isAuthenticated, user]);
 
   // // === added: fetch notifications ===
@@ -463,8 +504,8 @@ const Profile = () => {
     email: user.email,
     joinedDate: "January 2024",
     projectsCreated: myProjects.length,
-    projectsBacked: 0,
-    totalBacked: 0,
+    projectsBacked: backedProjects.length,
+    totalBacked: backedProjects.reduce((sum, backing) => sum + (backing.amount || 0), 0),
   };
   return (
     <div className="min-h-screen flex flex-col">
@@ -512,7 +553,7 @@ const Profile = () => {
                     </div>
                     <div>
                       <span className="font-semibold text-foreground">
-                        ${profileData.totalBacked}
+                        ${profileData.totalBacked.toLocaleString()}
                       </span>{" "}
                       <span className="text-muted-foreground">total backed</span>
                     </div>
@@ -621,9 +662,121 @@ const Profile = () => {
           </TabsContent>
 
           <TabsContent value="backed">
-            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-              {/* placeholder */}
+            <div className="mb-6">
+              <h2 className="text-2xl font-bold mb-1">Projects I've Backed</h2>
+              <p className="text-muted-foreground">
+                Projects you've supported on DotFunding
+              </p>
             </div>
+
+            {loadingBacked && (
+              <div className="flex justify-center items-center py-12">
+                <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary"></div>
+              </div>
+            )}
+
+            {errorBacked && (
+              <Card className="border-red-200 bg-red-50 dark:bg-red-950 mb-6">
+                <CardContent className="py-4">
+                  <p className="text-red-600 dark:text-red-400">Error: {errorBacked}</p>
+                </CardContent>
+              </Card>
+            )}
+
+            {!loadingBacked && !errorBacked && backedProjects.length > 0 && (
+              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+                {backedProjects.map((backing: any) => (
+                  <Card key={backing.id} className="overflow-hidden hover:shadow-lg transition-shadow">
+                    <div className="relative">
+                      <img
+                        src={backing.project?.image_url || "https://via.placeholder.com/400x250"}
+                        alt={backing.project?.title || "Project"}
+                        className="w-full h-48 object-cover"
+                      />
+                      <div className="absolute top-2 right-2">
+                        <Badge className="bg-green-500 text-white">
+                          Backed
+                        </Badge>
+                      </div>
+                    </div>
+                    
+                    <CardContent className="p-4">
+                      <h3 className="font-semibold text-lg mb-2 line-clamp-2">
+                        {backing.project?.title || "Untitled Project"}
+                      </h3>
+                      
+                      <div className="space-y-3 mb-4">
+                        <div className="flex items-center gap-2 text-sm text-muted-foreground">
+                          <DollarSign className="h-4 w-4" />
+                          <span className="font-medium text-foreground">
+                            ${(backing.amount || 0).toLocaleString()}
+                          </span>
+                          <span>pledged</span>
+                        </div>
+                        
+                        <div className="flex items-center gap-2 text-sm text-muted-foreground">
+                          <Clock className="h-4 w-4" />
+                          <span>
+                            {new Date(backing.created_at || backing.payment_date).toLocaleDateString('en-US', {
+                              year: 'numeric',
+                              month: 'short',
+                              day: 'numeric'
+                            })}
+                          </span>
+                        </div>
+
+                        {backing.backer_message && (
+                          <div className="flex items-start gap-2 text-sm text-muted-foreground">
+                            <MessageSquare className="h-4 w-4 mt-0.5 flex-shrink-0" />
+                            <p className="line-clamp-2 italic">"{backing.backer_message}"</p>
+                          </div>
+                        )}
+
+                        {backing.payment_status && (
+                          <div className="flex items-center gap-2 text-sm">
+                            <CheckCircle className={`h-4 w-4 ${
+                              backing.payment_status === 'paid' 
+                                ? 'text-green-500' 
+                                : backing.payment_status === 'pending'
+                                ? 'text-yellow-500'
+                                : 'text-gray-500'
+                            }`} />
+                            <span className="capitalize">{backing.payment_status}</span>
+                          </div>
+                        )}
+                      </div>
+
+                      <Button
+                        onClick={() => navigate(`/project/${backing.project_id}`)}
+                        className="w-full"
+                        variant="outline"
+                      >
+                        View Project
+                      </Button>
+                    </CardContent>
+                  </Card>
+                ))}
+              </div>
+            )}
+
+            {!loadingBacked && !errorBacked && backedProjects.length === 0 && (
+              <Card className="py-12">
+                <CardContent className="text-center">
+                  <Heart className="h-12 w-12 mx-auto mb-4 text-muted-foreground" />
+                  <h3 className="text-xl font-semibold mb-2">No backed projects yet</h3>
+                  <p className="text-muted-foreground mb-6">
+                    Start supporting creative projects and help bring ideas to life
+                  </p>
+                  
+                  <Button
+                    onClick={() => navigate("/")}
+                    className="bg-accent hover:bg-accent-hover"
+                  >
+                    Explore Projects
+                  </Button>
+                </CardContent>
+              </Card>
+            )}
           </TabsContent>
 
           <TabsContent value="notifications">
@@ -656,10 +809,7 @@ const Profile = () => {
                   <Card
                     key={notif.id}
                     onClick={async () => {
-                      setSelectedNotification(notif);
-                      setIsModalOpen(true);
-                      
-                      // Mark this specific notification as read
+                      // Mark as read first
                       if (!notif.is_read) {
                         try {
                           const response = await fetch(`http://localhost:5000/api/notifications/${notif.id}/read`, {
@@ -676,6 +826,34 @@ const Profile = () => {
                         } catch (err) {
                           console.error("Error marking notification as read:", err);
                         }
+                      }
+                      
+                      // For recommendation/project notifications, navigate directly to project
+                      if (notif.type === 'recommendation' || 
+                          notif.type === 'interest_match' ||
+                          notif.type === 'project_update') {
+                        if (notif.metadata?.projectId) {
+                          navigate(`/project/${notif.metadata.projectId}`);
+                        }
+                        return;
+                      }
+                      
+                      // For payment/donation notifications, show modal
+                      if (notif.type === 'donation' || 
+                          notif.type === 'payment' ||
+                          notif.metadata?.amount) {
+                        setSelectedNotification(notif);
+                        setIsModalOpen(true);
+                        return;
+                      }
+                      
+                      // For other notifications with projectId, go to project
+                      if (notif.metadata?.projectId) {
+                        navigate(`/project/${notif.metadata.projectId}`);
+                      } else {
+                        // Fallback to modal if no projectId
+                        setSelectedNotification(notif);
+                        setIsModalOpen(true);
                       }
                     }}
                     className={`transition-all duration-300 hover:shadow-md cursor-pointer ${
