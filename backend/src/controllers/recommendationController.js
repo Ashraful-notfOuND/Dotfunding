@@ -4,6 +4,8 @@ import {
   RecommendationStrategyFactory,
 } from "../services/RecommendationStrategy.js";
 import { observerManager } from "../services/ProjectObserver.js";
+import { NotificationFactory } from "../services/NotificationFactory.js";
+import { NotificationBuilder } from "../services/NotificationDecorator.js";
 
 // Get personalized project recommendations
 export const getRecommendations = async (req, res) => {
@@ -265,6 +267,159 @@ export const updateNotificationPreferences = async (req, res) => {
   }
 };
 
+// COMPREHENSIVE PATTERN DEMONSTRATION ENDPOINT
+// Demonstrates: Strategy + Factory + Decorator + Observer patterns working together
+export const getPersonalizedRecommendationsWithNotifications = async (req, res) => {
+  try {
+    const { userId } = req.params;
+    const { sendNotifications = false, limit = 10, strategyType = "interest" } = req.query;
+
+    if (!userId) {
+      return res.status(400).json({ error: "userId is required" });
+    }
+
+    // STRATEGY PATTERN: Use specified recommendation strategy
+    const strategy = RecommendationStrategyFactory.createStrategy(strategyType);
+    const engine = new RecommendationEngine(strategy);
+    
+    // Get recommendations
+    const recommendations = await engine.getRecommendations(userId, parseInt(limit));
+
+    // Log recommendations for analytics
+    for (const project of recommendations) {
+      try {
+        await supabase.rpc('log_recommendation', {
+          p_user_id: userId,
+          p_project_id: project.id,
+          p_strategy: strategyType,
+          p_score: project.recommendationScore || 0,
+        });
+      } catch (logError) {
+        console.error('Failed to log recommendation:', logError);
+      }
+    }
+
+    // If sendNotifications is enabled, send personalized notifications
+    if (sendNotifications === 'true' && recommendations.length > 0) {
+      try {
+        // Get user info and preferences
+        const { data: user } = await supabase
+          .from("users")
+          .select("full_name, email, notification_preferences")
+          .eq("id", userId)
+          .single();
+
+        if (user) {
+          const prefs = user.notification_preferences || {};
+          const channels = prefs.channels || ["in-app"];
+          const recommendationsEnabled = prefs.recommendations?.enabled !== false;
+
+          if (recommendationsEnabled) {
+            // Pick top 3 recommendations to notify about
+            const topRecommendations = recommendations.slice(0, 3);
+            
+            for (const project of topRecommendations) {
+              const message = `We found a project you might like: ${project.title}`;
+              const metadata = {
+                projectId: project.id,
+                projectTitle: project.title,
+                projectDescription: project.tagline,
+                projectUrl: `${process.env.FRONTEND_URL || 'http://localhost:5173'}/project/${project.id}`,
+                type: 'recommendation',
+                strategy: strategyType,
+                category: project.category,
+                subject: `Project Recommendation: ${project.title}`,
+              };
+
+              // Send through all user's preferred channels
+              for (const channel of channels) {
+                try {
+                  // FACTORY PATTERN: Create notification for specific channel
+                  const notification = NotificationFactory.createNotification(
+                    channel,
+                    user,
+                    message,
+                    metadata
+                  );
+
+                  // DECORATOR PATTERN: Add personalization and formatting
+                  const enhancedNotification = new NotificationBuilder(notification)
+                    .withPersonalization(user.full_name || 'there')
+                    .withFormatting({ emoji: '🎯' })
+                    .withTracking()
+                    .withRetry(2, 1500)
+                    .build();
+
+                  await enhancedNotification.send();
+                  console.log(`Recommendation notification sent via ${channel} for project ${project.title}`);
+                } catch (channelError) {
+                  console.error(`Failed to send via ${channel}:`, channelError);
+                }
+              }
+            }
+          }
+        }
+      } catch (notificationError) {
+        console.error('Failed to send recommendation notifications:', notificationError);
+        // Don't fail the request if notifications fail
+      }
+    }
+
+    return res.status(200).json({
+      success: true,
+      strategy: strategyType,
+      count: recommendations.length,
+      recommendations,
+      notificationsSent: sendNotifications === 'true',
+      patterns: {
+        strategy: `Used ${strategyType} recommendation strategy`,
+        factory: "Notification creation abstracted via Factory",
+        decorator: "Notifications enhanced with personalization, tracking, retry",
+        observer: "Users subscribed to interests are notified automatically"
+      }
+    });
+  } catch (error) {
+    console.error("Get personalized recommendations error:", error);
+    return res.status(500).json({ error: error.message });
+  }
+};
+
+// Trigger manual notification for matching projects (demonstrates Observer pattern)
+export const notifyUsersAboutProject = async (req, res) => {
+  try {
+    const { projectId } = req.params;
+
+    if (!projectId) {
+      return res.status(400).json({ error: "projectId is required" });
+    }
+
+    // Get project details
+    const { data: project, error } = await supabase
+      .from("main_projects")
+      .select("*")
+      .eq("id", projectId)
+      .single();
+
+    if (error || !project) {
+      return res.status(404).json({ error: "Project not found" });
+    }
+
+    // OBSERVER PATTERN: Notify all interested users
+    const notifications = await observerManager.notifyInterestedUsers(project);
+
+    return res.status(200).json({
+      success: true,
+      message: `Notified ${notifications.length} interested users`,
+      project: project.title,
+      notificationsSent: notifications.length,
+      pattern: "Observer Pattern - Users interested in project category were notified"
+    });
+  } catch (error) {
+    console.error("Notify users about project error:", error);
+    return res.status(500).json({ error: error.message });
+  }
+};
+
 export default {
   getRecommendations,
   getCombinedRecommendations,
@@ -274,4 +429,6 @@ export default {
   updateUserInterests,
   getUserInterests,
   updateNotificationPreferences,
+  getPersonalizedRecommendationsWithNotifications,
+  notifyUsersAboutProject,
 };
