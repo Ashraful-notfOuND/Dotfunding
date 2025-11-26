@@ -96,9 +96,29 @@ const NotificationCenter = () => {
   const handleNotificationClick = (notification: Notification) => {
     markAsRead(notification.id);
     
-    // Open details modal instead of directly navigating
-    setSelectedNotification(notification);
-    setIsModalOpen(true);
+    // For recommendation notifications, navigate directly to project
+    if (notification.type === 'recommendation' || 
+        notification.type === 'interest_match' ||
+        notification.type === 'project_update') {
+      if (notification.metadata?.projectId) {
+        navigate(`/project/${notification.metadata.projectId}`);
+      }
+      return;
+    }
+    
+    // For payment/donation notifications, show details modal
+    if (notification.type === 'donation' || 
+        notification.type === 'payment' ||
+        notification.metadata?.amount) {
+      setSelectedNotification(notification);
+      setIsModalOpen(true);
+      return;
+    }
+    
+    // For other notifications with projectId, go to project
+    if (notification.metadata?.projectId) {
+      navigate(`/project/${notification.metadata.projectId}`);
+    }
   };
 
   const formatTimeAgo = (timestamp: string) => {
