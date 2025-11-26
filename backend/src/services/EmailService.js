@@ -15,7 +15,7 @@ class EmailService {
       secure: false, // true for 465, false for other ports
       auth: {
         user: process.env.EMAIL_USER,
-        pass: process.env.EMAIL_PASSWORD,
+        pass: process.env.EMAIL_PASS,
       },
     });
   }
@@ -26,7 +26,7 @@ class EmailService {
   async sendPledgeNotification({ recipientEmail, recipientName, donorName, amount, projectTitle, donorMessage }) {
     try {
       // Validate email configuration
-      if (!process.env.EMAIL_USER || !process.env.EMAIL_PASSWORD) {
+      if (!process.env.EMAIL_USER || !process.env.EMAIL_PASS) {
         console.warn('Email service not configured. Skipping email notification.');
         return { success: false, error: 'Email not configured' };
       }
