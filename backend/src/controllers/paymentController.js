@@ -5,6 +5,9 @@ import {
   PaymentStrategyFactory,
 } from "../services/PaymentStrategy.js";
 import EmailService from "../services/EmailService.js";
+import { NotificationFactory } from "../services/NotificationFactory.js";
+import { NotificationBuilder } from "../services/NotificationDecorator.js";
+import { observerManager } from "../services/ProjectObserver.js";
 
 dotenv.config();
 
@@ -297,55 +300,85 @@ export const validatePayment = async (req, res) => {
       // Update project backed amount (computed from pledges)
       await updateProjectBackedAmount(project_id);
 
-      // Send notification to project owner
+      // Send notification to project owner using DESIGN PATTERNS
       if (project_id && user_id && amount) {
         try {
           // Get session data for backer_message
-          const { data: sess } = await supabase.from("payment_sessions").select("backer_message").eq("tran_id", tran_id).single();
+          const { data: sess } = await supabase.from("payment_sessions").select("backer_message").eq("tran_id", tran).single();
           const backerMessage = sess?.backer_message || null;
           
           const { data: project } = await supabase.from("main_projects").select("user_id, title").eq("id", project_id).single();
           if (project && project.user_id) {
             // Get backer info
-            const { data: backer } = await supabase.from("users").select("full_name").eq("id", user_id).single();
-            // Get creator email and preferences
-            const { data: creator } = await supabase.from("users").select("email, full_name").eq("id", project.user_id).single();
-            const { data: prefs } = await supabase.from("notification_preferences").select("*").eq("user_id", project.user_id).single();
+            const { data: backer } = await supabase.from("users").select("full_name, email").eq("id", user_id).single();
+            // Get creator info and preferences
+            const { data: creator } = await supabase.from("users").select("email, full_name, notification_preferences").eq("id", project.user_id).single();
             
-            // Check if user wants pledge notifications (default true if no preferences)
-            const wantsPledgeNotif = prefs ? prefs.pledge_notifications : true;
-            const wantsEmail = prefs ? prefs.email_enabled : true;
+            // Parse notification preferences
+            const prefs = creator?.notification_preferences || {};
+            const channels = prefs.channels || ["in-app"];
+            const wantsPledgeNotif = prefs.recommendations?.enabled !== false; // Default true
             
-            // Create in-app notification if enabled
+            // DESIGN PATTERN INTEGRATION: Factory + Decorator + Observer
             if (wantsPledgeNotif) {
-              await supabase.from("notifications").insert([{
-                project_id: project_id,
-                sender_id: user_id,
-                receiver_id: project.user_id,
-                amount: amount,
-                message: `You received a new pledge of $${amount} from a supporter!`,
-                backer_message: backerMessage,
-              }]);
-              console.log(`Notification sent to project owner ${project.user_id}`);
-            }
-            
-            // Send email notification if enabled
-            if (creator?.email && wantsEmail && wantsPledgeNotif) {
-              await EmailService.sendPledgeNotification({
-                recipientEmail: creator.email,
-                recipientName: creator.full_name || 'Creator',
+              const message = `You received a new pledge of $${amount} from ${backer?.full_name || 'a supporter'}!`;
+              const metadata = {
+                projectId: project_id,
+                projectTitle: project.title,
+                donorId: user_id,
                 donorName: backer?.full_name || 'Anonymous',
+                donorEmail: backer?.email,
                 amount: amount,
-                projectTitle: project.title || 'Your Project',
                 donorMessage: backerMessage,
-              });
-              console.log(`Email notification sent to ${creator.email}`);
-            } else if (!wantsEmail) {
-              console.log(`Email notification skipped - user disabled email notifications`);
+                transactionId: tran,
+                type: 'pledge',
+                subject: 'New Pledge Received!',
+              };
+
+              // Send notification through all preferred channels
+              for (const channel of channels) {
+                try {
+                  // FACTORY PATTERN: Create notification for specific channel
+                  const notification = NotificationFactory.createNotification(
+                    channel,
+                    creator,
+                    message,
+                    metadata
+                  );
+
+                  // DECORATOR PATTERN: Add personalization, priority, tracking, and retry
+                  const enhancedNotification = new NotificationBuilder(notification)
+                    .withPersonalization(creator.full_name || 'Creator')
+                    .withPriority('high') // Pledges are high priority
+                    .withFormatting({ emoji: '💰' })
+                    .withTracking()
+                    .withRetry(3, 2000) // Retry 3 times with 2 second delay
+                    .build();
+
+                  const result = await enhancedNotification.send();
+                  console.log(`Notification sent via ${channel}:`, result);
+                } catch (channelError) {
+                  console.error(`Failed to send notification via ${channel}:`, channelError);
+                }
+              }
+
+              // OBSERVER PATTERN: Notify all project subscribers about new donation
+              try {
+                await observerManager.notifyProjectEvent(project_id, 'new_donation', {
+                  projectTitle: project.title,
+                  donorName: backer?.full_name || 'Anonymous',
+                  amount: amount,
+                  rewardTitle: reward_id ? 'Reward Tier' : null,
+                });
+                console.log('Project subscribers notified about new donation');
+              } catch (observerError) {
+                console.error('Failed to notify project subscribers:', observerError);
+              }
             }
           }
         } catch (notifErr) {
-          console.error("Failed to send notification:", notifErr);
+          console.error("Failed to send notifications:", notifErr);
+          // Don't fail the payment validation if notifications fail
         }
       }
 
@@ -678,6 +711,101 @@ export const successHandler = async (req, res) => {
   } catch (err) {
     console.error("successHandler error:", err);
     return res.status(500).send("Server error");
+  }
+};
+
+/**
+ * Get all projects backed by a user
+ */
+export const getBackedProjects = async (req, res) => {
+  try {
+    const { userId } = req.params;
+
+    if (!userId) {
+      return res.status(400).json({ error: "User ID is required" });
+    }
+
+    // Get all successful pledges by this user with project details
+    const { data: pledges, error } = await supabase
+      .from("pledges")
+      .select(`
+        id,
+        amount,
+        created_at,
+        project_id,
+        tran_id,
+        status,
+        main_projects (
+          id,
+          title,
+          tagline,
+          image_url,
+          category,
+          funding_goal,
+          funding_deadline,
+          location,
+          user_id
+        )
+      `)
+      .eq("user_id", userId)
+      .eq("status", "paid")
+      .order("created_at", { ascending: false });
+
+    if (error) {
+      console.error("Error fetching backed projects:", error);
+      return res.status(500).json({ error: "Failed to fetch backed projects" });
+    }
+
+    // Get backer messages from payment_sessions
+    const tranIds = pledges.map(p => p.tran_id).filter(Boolean);
+    let sessions = [];
+    if (tranIds.length > 0) {
+      const { data: sessionData } = await supabase
+        .from("payment_sessions")
+        .select("tran_id, backer_message")
+        .in("tran_id", tranIds);
+      sessions = sessionData || [];
+    }
+
+    // Create a map of tran_id to backer_message
+    const messageMap = sessions.reduce((acc, session) => {
+      acc[session.tran_id] = session.backer_message;
+      return acc;
+    }, {});
+
+    // Format the response
+    const backedProjects = pledges.map(pledge => ({
+      id: pledge.id,
+      amount: pledge.amount,
+      created_at: pledge.created_at,
+      project_id: pledge.project_id,
+      backer_message: messageMap[pledge.tran_id] || null,
+      payment_status: pledge.status,
+      project: pledge.main_projects ? {
+        id: pledge.main_projects.id,
+        title: pledge.main_projects.title,
+        tagline: pledge.main_projects.tagline,
+        image_url: pledge.main_projects.image_url,
+        category: pledge.main_projects.category,
+        fundingGoal: pledge.main_projects.funding_goal,
+        fundingDeadline: pledge.main_projects.funding_deadline,
+        location: pledge.main_projects.location,
+        creator_id: pledge.main_projects.user_id
+      } : null
+    }));
+
+    return res.status(200).json({ 
+      success: true,
+      backedProjects,
+      total: backedProjects.length 
+    });
+
+  } catch (error) {
+    console.error("Error in getBackedProjects:", error);
+    return res.status(500).json({ 
+      error: "Internal server error",
+      message: error.message 
+    });
   }
 };
 
