@@ -1,7 +1,10 @@
 import express from "express";
-import { initPayment, validatePayment, ipnHandler } from "../controllers/paymentController.js";
+import { initPayment, validatePayment, ipnHandler, getBackedProjects } from "../controllers/paymentController.js";
 
 const router = express.Router();
+
+// Get backed projects for a user
+router.get("/user/:userId/backed", getBackedProjects);
 
 // Initialize a transaction (frontend calls this to get GatewayPageURL)
 router.post("/init", initPayment);
