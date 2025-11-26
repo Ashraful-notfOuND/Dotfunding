@@ -16,26 +16,49 @@ class RecommendationStrategy {
 class InterestBasedStrategy extends RecommendationStrategy {
   async recommend(userId, limit = 10) {
     try {
-      // Get user interests
+      // Get user interests with weights
       const { data: userInterests } = await supabase
         .from("user_interests")
-        .select("category")
-        .eq("user_id", userId);
+        .select("category, weight")
+        .eq("user_id", userId)
+        .order("weight", { ascending: false });
 
       if (!userInterests || userInterests.length === 0) {
+        console.log("No user interests found, returning empty array");
         return [];
       }
 
       const categories = userInterests.map(i => i.category);
 
-      // Get projects from categories that similar users liked
-      const { data: projects, error } = await this.supabase
+      // Get projects from user's interested categories
+      const { data: projects, error } = await supabase
         .from("main_projects")
         .select("*")
-        .gte("created_at", oneWeekAgo.toISOString())
-        .in("category", popularCategories)
+        .in("category", categories)
+        .neq("user_id", userId) // Don't recommend user's own projects
+        .order("created_at", { ascending: false })
+        .limit(limit * 2); // Get more to filter
 
-      return projects || [];
+      if (error) {
+        console.error("Query error:", error);
+        return [];
+      }
+
+      if (!projects || projects.length === 0) {
+        return [];
+      }
+
+      // Score projects based on category weight
+      const scoredProjects = projects.map(project => {
+        const interest = userInterests.find(i => i.category === project.category);
+        const score = interest ? interest.weight : 1;
+        return { ...project, recommendationScore: score };
+      });
+
+      // Sort by score and return top results
+      return scoredProjects
+        .sort((a, b) => b.recommendationScore - a.recommendationScore)
+        .slice(0, limit);
     } catch (error) {
       console.error("InterestBasedStrategy error:", error);
       return [];
@@ -47,33 +70,21 @@ class InterestBasedStrategy extends RecommendationStrategy {
 class TrendingStrategy extends RecommendationStrategy {
   async recommend(userId, limit = 10) {
     try {
-      // Get projects with most pledges in last 7 days
-      const sevenDaysAgo = new Date();
-      sevenDaysAgo.setDate(sevenDaysAgo.getDate() - 7);
-
-      const { data: trendingProjects } = await supabase
-        .from("projects")
-        .select(`
-          *,
-          pledges!inner(amount, created_at)
-        `)
-        .gte("pledges.created_at", sevenDaysAgo.toISOString())
-        .order("created_at", { ascending: false })
+      // Get trending projects based on trending_score
+      const { data: trendingProjects, error } = await supabase
+        .from("main_projects")
+        .select("*")
+        .neq("user_id", userId) // Don't recommend user's own projects
+        .order("trending_score", { ascending: false })
+        .order("view_count", { ascending: false })
         .limit(limit);
 
-      // Calculate trending score based on pledge count and recency
-      const projectsWithScore = (trendingProjects || []).map(project => {
-        const pledgeCount = project.pledges?.length || 0;
-        const daysSinceCreated = Math.max(1, 
-          (Date.now() - new Date(project.created_at)) / (1000 * 60 * 60 * 24)
-        );
-        const trendingScore = pledgeCount / daysSinceCreated;
-        return { ...project, trendingScore };
-      });
+      if (error) {
+        console.error("Trending query error:", error);
+        return [];
+      }
 
-      return projectsWithScore
-        .sort((a, b) => b.trendingScore - a.trendingScore)
-        .slice(0, limit);
+      return trendingProjects || [];
     } catch (error) {
       console.error("TrendingStrategy error:", error);
       return [];
@@ -92,6 +103,7 @@ class CollaborativeFilteringStrategy extends RecommendationStrategy {
         .eq("user_id", userId);
 
       if (!userPledges || userPledges.length === 0) {
+        console.log("No user pledges found for collaborative filtering");
         return [];
       }
 
@@ -117,18 +129,44 @@ class CollaborativeFilteringStrategy extends RecommendationStrategy {
       // Get top similar users
       const similarUsers = Object.entries(userSimilarity)
         .sort((a, b) => b[1] - a[1])
-        .slice(0, 5)
+        .slice(0, 10)
         .map(([userId]) => userId);
 
+      if (similarUsers.length === 0) {
+        return [];
+      }
+
       // Get projects backed by similar users that current user hasn't backed
-      const { data: recommendations } = await supabase
+      const { data: similarPledges } = await supabase
         .from("pledges")
-        .select("project_id, projects(*)")
+        .select("project_id")
         .in("user_id", similarUsers)
-        .not("project_id", "in", `(${backedProjectIds.join(",")})`)
+        .not("project_id", "in", `(${backedProjectIds.join(",")})`);
+
+      if (!similarPledges || similarPledges.length === 0) {
+        return [];
+      }
+
+      // Count occurrences (popularity among similar users)
+      const projectCounts = {};
+      similarPledges.forEach(p => {
+        projectCounts[p.project_id] = (projectCounts[p.project_id] || 0) + 1;
+      });
+
+      // Get top recommended project IDs
+      const topProjectIds = Object.entries(projectCounts)
+        .sort((a, b) => b[1] - a[1])
+        .slice(0, limit)
+        .map(([projectId]) => projectId);
+
+      // Fetch full project details
+      const { data: recommendations } = await supabase
+        .from("main_projects")
+        .select("*")
+        .in("id", topProjectIds)
         .limit(limit);
 
-      return recommendations?.map(r => r.projects).filter(Boolean) || [];
+      return recommendations || [];
     } catch (error) {
       console.error("CollaborativeFilteringStrategy error:", error);
       return [];
