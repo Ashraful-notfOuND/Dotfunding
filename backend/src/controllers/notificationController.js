@@ -70,17 +70,21 @@ export const getNotifications = async (req, res) => {
       message: notif.message,
       amount: notif.amount,
       is_read: notif.is_read,
+      read: notif.is_read, // Add both formats for compatibility
       created_at: notif.created_at,
       type: notif.type || 'donation',
       metadata: {
-        projectId: notif.project_id,
-        projectTitle: null, // Will need to fetch separately if needed
+        // Use stored metadata if available, otherwise build from individual fields
+        ...(notif.metadata || {}),
+        projectId: notif.metadata?.projectId || notif.project_id,
+        projectTitle: notif.metadata?.projectTitle || null,
         donorId: notif.sender_id,
-        donorName: null, // Will need to fetch separately if needed
-        donorEmail: null,
-        donorProfilePic: null,
+        donorName: notif.metadata?.donorName || null,
+        donorEmail: notif.metadata?.donorEmail || null,
+        donorProfilePic: notif.metadata?.donorProfilePic || null,
         donationDate: notif.created_at,
         donorMessage: notif.backer_message,
+        amount: notif.amount,
       }
     }));
 
