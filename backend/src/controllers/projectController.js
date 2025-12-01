@@ -755,3 +755,84 @@ export const getAllProjects = async (req, res) => {
 
 
 
+/**
+ * Get recent and top donations for a project
+ * Returns recent 5 donations and top 5 donations with user info
+ */
+export const getProjectDonations = async (req, res) => {
+  try {
+    const { id } = req.params;
+    const projectId = id;
+    
+    if (!projectId) {
+      return res.status(400).json({ error: "Project ID is required" });
+    }
+
+    console.log(`Fetching donations for project ID: ${projectId}`);
+
+    // Fetch recent 5 paid pledges with user information
+    const { data: recentDonations, error: recentError } = await supabase
+      .from("pledges")
+      .select(`
+        id,
+        amount,
+        created_at,
+        user_id,
+        users:user_id (
+          full_name,
+          email
+        )
+      `)
+      .eq("project_id", projectId)
+      .eq("status", "paid")
+      .order("created_at", { ascending: false })
+      .limit(5);
+
+    if (recentError) {
+      console.error("Error fetching recent donations:", recentError);
+      throw recentError;
+    }
+
+    // Fetch top 5 donations (highest amounts) with user information
+    const { data: topDonations, error: topError } = await supabase
+      .from("pledges")
+      .select(`
+        id,
+        amount,
+        created_at,
+        user_id,
+        users:user_id (
+          full_name,
+          email
+        )
+      `)
+      .eq("project_id", projectId)
+      .eq("status", "paid")
+      .order("amount", { ascending: false })
+      .limit(5);
+
+    if (topError) {
+      console.error("Error fetching top donations:", topError);
+      throw topError;
+    }
+
+    console.log(`Found ${recentDonations?.length || 0} recent and ${topDonations?.length || 0} top donations`);
+
+    // Format the response
+    const formatDonation = (pledge) => ({
+      id: pledge.id,
+      amount: Number(pledge.amount) || 0,
+      donorName: pledge.users?.full_name || "Anonymous",
+      donorEmail: pledge.users?.email || null,
+      date: pledge.created_at,
+    });
+
+    return res.status(200).json({
+      recent: (recentDonations || []).map(formatDonation),
+      top: (topDonations || []).map(formatDonation),
+    });
+  } catch (err) {
+    console.error("Error fetching project donations:", err);
+    return res.status(500).json({ error: "Failed to fetch donations" });
+  }
+};
