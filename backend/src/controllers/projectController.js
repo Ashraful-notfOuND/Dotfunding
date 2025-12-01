@@ -559,12 +559,15 @@ export const getAllProjects = async (req, res) => {
     // For each project compute fundingCurrent (sum of pledges) and fetch creator name
     const formatted = await Promise.all(
       projects.map(async (p) => {
-        // sum pledges for this project
+        // sum pledges for this project and count backers
         let fundingCurrent = 0;
+        let backers = 0;
         try {
-          const { data: pledges } = await supabase.from("pledges").select("amount").eq("project_id", p.id);
+          const { data: pledges } = await supabase.from("pledges").select("amount, user_id").eq("project_id", p.id);
           if (Array.isArray(pledges)) {
             fundingCurrent = pledges.reduce((acc, r) => acc + Number(r.amount || 0), 0);
+            // Count unique backers
+            backers = new Set(pledges.map(p => p.user_id)).size;
           }
         } catch (e) {
           // ignore
@@ -597,9 +600,7 @@ export const getAllProjects = async (req, res) => {
           image: p.image_url,
           fundingGoal: Number(p.funding_goal) || 0,
           fundingCurrent,
-          // display a non-zero amount to avoid showing $0 in the UI; frontend can use
-          // `fundingCurrentDisplay` when rendering if preferred.
-          fundingCurrentDisplay: fundingCurrent > 0 ? fundingCurrent : 1,
+          backers,
           daysLeft,
           category: p.category || "General",
           tagline: p.tagline || "",

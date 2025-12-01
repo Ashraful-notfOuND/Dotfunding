@@ -23,17 +23,19 @@ import FeaturesLanding from "@/components/landing/FeaturesLanding";
 import CTALanding from "@/components/landing/CTALanding";
 //import { allProjects } from "@/data/mockProjects";
 
-// (We'll derive these from fetched projects inside the component)
-
-
-const categories = [
-  { name: "Technology", icon: Sparkles, count: 234 },
-  { name: "Art", icon: Users, count: 567 },
-  { name: "Games", icon: Target, count: 189 },
-  { name: "Design", icon: TrendingUp, count: 345 },
-  { name: "Film", icon: Sparkles, count: 156 },
-  { name: "Music", icon: Users, count: 423 },
-];
+// Category icon mapping
+const categoryIconMap: { [key: string]: any } = {
+  "Technology": Sparkles,
+  "Art": Users,
+  "Games": Target,
+  "Design": TrendingUp,
+  "Film": Sparkles,
+  "Music": Users,
+  "Fashion": Target,
+  "Food": Users,
+  "Craft": Sparkles,
+  "Food & Craft": Users,
+};
 
 const AnimatedSection = ({ children }: { children: React.ReactNode }) => {
   const ref = useRef(null);
@@ -57,6 +59,7 @@ const AnimatedSection = ({ children }: { children: React.ReactNode }) => {
 const Index = () => {
   const [isLoading, setIsLoading] = useState(true);
   const [projects, setProjects] = useState<any[] | null>(null);
+  const [categories, setCategories] = useState<{ name: string; icon: any; count: number }[]>([]);
 
   useEffect(() => {
     let mounted = true;
@@ -74,7 +77,28 @@ const Index = () => {
           return;
         }
         const body = await res.json();
-        if (mounted) setProjects(body.projects || staticProjects as any);
+        if (mounted) {
+          const fetchedProjects = body.projects || staticProjects as any;
+          setProjects(fetchedProjects);
+          
+          // Calculate real category counts from fetched projects
+          const categoryCounts: { [key: string]: number } = {};
+          fetchedProjects.forEach((project: any) => {
+            const category = project.category || "General";
+            categoryCounts[category] = (categoryCounts[category] || 0) + 1;
+          });
+          
+          // Create categories array with real counts
+          const categoriesWithCounts = Object.entries(categoryCounts)
+            .map(([name, count]) => ({
+              name,
+              icon: categoryIconMap[name] || Target,
+              count: count as number,
+            }))
+            .sort((a, b) => b.count - a.count); // Sort by count descending
+          
+          setCategories(categoriesWithCounts);
+        }
       } catch (e) {
         console.warn("Error fetching projects, using static fallback", e);
         setProjects(staticProjects as any);
@@ -156,11 +180,12 @@ const Index = () => {
               <h2 className="text-3xl font-bold mb-2">Browse by Category</h2>
               <p className="text-muted-foreground">Explore projects across different domains</p>
             </div>
-            <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-4">
-              {categories.map((category) => (
+            {categories.length > 0 ? (
+              <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 gap-4">
+                {categories.map((category) => (
                 <Link
                   key={category.name}
-                  to={`/category/${category.name.toLowerCase()}`}
+                  to={`/projects/category/${category.name}`}
                   className="group"
                 >
                   <motion.div
@@ -177,6 +202,11 @@ const Index = () => {
                 </Link>
               ))}
             </div>
+            ) : (
+              <div className="text-center text-muted-foreground">
+                Loading categories...
+              </div>
+            )}
           </div>
         </section>
       </AnimatedSection>

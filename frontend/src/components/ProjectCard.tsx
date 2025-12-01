@@ -11,6 +11,7 @@ interface ProjectCardProps {
   image: string;
   fundingGoal: number;
   fundingCurrent: number;
+  backers?: number;
   daysLeft: number;
   category: string;
   isTrending?: boolean;
@@ -23,13 +24,14 @@ const ProjectCard = ({
   image,
   fundingGoal,
   fundingCurrent,
+  backers,
   daysLeft,
   category,
   isTrending = false,
 }: ProjectCardProps) => {
-  fundingCurrent = 500;
   const fundingPercentage = fundingGoal > 0 ? Math.min((fundingCurrent / fundingGoal) * 100, 100) : 0;
-  const backers = Math.floor(fundingCurrent / 50); // Simulated backers count
+  // Use real backers from API, or estimate if not provided
+  const backersCount = backers !== undefined ? backers : Math.floor(fundingCurrent / 50);
   const { isInWishlist, toggleWishlist } = useWishlist();
 
   const handleShare = (e: React.MouseEvent) => {
@@ -111,7 +113,7 @@ const ProjectCard = ({
               </div>
             </div>
             <div className="mt-1 text-muted-foreground text-sm">
-              <div>{backers} backers</div>
+              <div>{backersCount} backers</div>
               <div className="flex items-center gap-1 mt-1">
                 <Clock className="h-4 w-4" />
                 <span>{daysLeft}d</span>
