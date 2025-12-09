@@ -327,7 +327,8 @@ import {
 } from "@/components/ui/form";
 import { useToast } from "@/hooks/use-toast";
 import { Check } from "lucide-react";
-import { useNavigate } from "react-router-dom";
+import { useNavigate, Link } from "react-router-dom";
+import { Checkbox } from "@/components/ui/checkbox";
 
 // Stripe Imports - not needed for this full frontend mock
 // import { loadStripe } from "@stripe/stripe-js";
@@ -340,6 +341,9 @@ import { useNavigate } from "react-router-dom";
 const pledgeSchema = z.object({
   amount: z.string().min(1, "Please enter a pledge amount"),
   donorMessage: z.string().optional(),
+  acceptedTerms: z.boolean().refine((val) => val === true, {
+    message: "You must accept the terms and conditions",
+  }),
 });
 
 type PledgeFormValues = z.infer<typeof pledgeSchema>;
@@ -384,6 +388,7 @@ const PledgeModal = ({
     defaultValues: {
       amount: defaultAmount,
       donorMessage: "",
+      acceptedTerms: false,
     },
   });
 
@@ -585,6 +590,37 @@ const PledgeModal = ({
               )}
             />
 
+            {/* Terms and Conditions Checkbox */}
+            <FormField
+              control={form.control}
+              name="acceptedTerms"
+              render={({ field }) => (
+                <FormItem className="flex flex-row items-start space-x-3 space-y-0 rounded-md border p-4">
+                  <FormControl>
+                    <Checkbox
+                      checked={field.value}
+                      onCheckedChange={field.onChange}
+                    />
+                  </FormControl>
+                  <div className="space-y-1 leading-none">
+                    <FormLabel className="text-sm font-normal">
+                      I agree to the{" "}
+                      <Link 
+                        to="/terms" 
+                        target="_blank" 
+                        className="text-primary hover:underline font-medium"
+                        onClick={(e) => e.stopPropagation()}
+                      >
+                        Terms and Conditions
+                      </Link>
+                      {" "}for backing this project
+                    </FormLabel>
+                    <FormMessage />
+                  </div>
+                </FormItem>
+              )}
+            />
+
             {/* Action Buttons */}
             <div className="flex gap-3 pt-4">
               <Button
@@ -599,7 +635,7 @@ const PledgeModal = ({
               <Button
                 type="submit"
                 className="flex-1 bg-accent hover:bg-accent-hover"
-                disabled={isProcessing}
+                disabled={isProcessing || !form.watch("acceptedTerms")}
               >
                 {isProcessing ? "Processing..." : `Pledge $${form.watch("amount") || "0"}`}
               </Button>

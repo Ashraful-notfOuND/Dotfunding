@@ -12,6 +12,8 @@ import CreateProject from "./pages/CreateProject";
 import CategoryPage from "./pages/Categorypage";
 import Login from "./pages/Login";
 import SignUp from "./pages/SignUp";
+import ForgotPassword from "./pages/ForgotPassword";
+import ResetPassword from "./pages/ResetPassword";
 import Profile from "./pages/Profile";
 import EditProfile from "./pages/EditProfile";
 import EditProject from "./pages/EditProject";
@@ -19,6 +21,8 @@ import PaymentSuccess from "./pages/PaymentSuccess";
 import NotFound from "./pages/NotFound";
 import CreatorProfile from "./pages/CreatorProfile";
 import AuthCallback from "./pages/AuthCallback";
+import TermsAndConditions from "./pages/TermsAndConditions";
+
 
 const queryClient = new QueryClient();
 
@@ -54,6 +58,9 @@ const App = () => {
             <Route path="/projects/category/:category" element={<CategoryPage />} />
             <Route path="/login" element={<PageWrapper><Login /></PageWrapper>} />
             <Route path="/signup" element={<PageWrapper><SignUp /></PageWrapper>} />
+            <Route path="/forgot-password" element={<PageWrapper><ForgotPassword /></PageWrapper>} />
+            <Route path="/reset-password" element={<ResetPassword />} />
+            <Route path="/terms" element={<PageWrapper><TermsAndConditions /></PageWrapper>} />
             <Route path="/auth/callback" element={<AuthCallback />} />
             <Route path="/profile" element={<PageWrapper><Profile /></PageWrapper>} />
             <Route path="/profile/edit" element={<PageWrapper><EditProfile /></PageWrapper>} />

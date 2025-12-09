@@ -116,12 +116,8 @@ const SignUp = () => {
                 className="text-sm text-muted-foreground leading-none peer-disabled:cursor-not-allowed peer-disabled:opacity-70"
               >
                 I agree to the{" "}
-                <Link to="/terms" className="text-primary hover:underline">
-                  Terms of Service
-                </Link>{" "}
-                and{" "}
-                <Link to="/privacy" className="text-primary hover:underline">
-                  Privacy Policy
+                <Link to="/terms" className="text-primary hover:underline" target="_blank">
+                  Terms and Conditions
                 </Link>
               </label>
             </div>

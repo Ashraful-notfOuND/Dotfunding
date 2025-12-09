@@ -2,6 +2,7 @@ import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import { Checkbox } from "@/components/ui/checkbox";
 import { Mail, Lock } from "lucide-react";
 import { Link, useNavigate, useLocation } from "react-router-dom";
 import { toast } from "@/hooks/use-toast";
@@ -16,6 +17,7 @@ const Login = () => {
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [isLoading, setIsLoading] = useState(false);
+  const [acceptedTerms, setAcceptedTerms] = useState(false);
 
   const location = useLocation();
   const from = (location.state as any)?.from?.pathname || "/";
@@ -30,6 +32,16 @@ const Login = () => {
 
 const handleSubmit = async (e: React.FormEvent) => {
   e.preventDefault();
+
+  if (!acceptedTerms) {
+    toast({
+      title: "Terms Required",
+      description: "Please accept the terms and conditions to continue.",
+      variant: "destructive",
+    });
+    return;
+  }
+
   setIsLoading(true);
 
   try {
@@ -172,7 +184,24 @@ const handleOAuthLogin = async (provider: 'google' | 'github') => {
               </div>
             </div>
 
-            <Button type="submit" className="w-full" disabled={isLoading}>
+            <div className="flex items-center space-x-2">
+              <Checkbox 
+                id="terms" 
+                checked={acceptedTerms}
+                onCheckedChange={(checked) => setAcceptedTerms(checked as boolean)}
+              />
+              <label
+                htmlFor="terms"
+                className="text-sm text-muted-foreground leading-none peer-disabled:cursor-not-allowed peer-disabled:opacity-70"
+              >
+                I agree to the{" "}
+                <Link to="/terms" className="text-primary hover:underline" target="_blank">
+                  Terms and Conditions
+                </Link>
+              </label>
+            </div>
+
+            <Button type="submit" className="w-full" disabled={isLoading || !acceptedTerms}>
               {isLoading ? "Signing in..." : "Sign In"}
             </Button>
           </form>
