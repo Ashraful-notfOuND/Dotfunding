@@ -100,6 +100,77 @@ export const loginUser = async (req, res) => {
   }
 };
 
+/**
+ * Handle OAuth login (Google/Facebook)
+ * Creates user if doesn't exist, or returns existing user
+ */
+export const oauthLogin = async (req, res) => {
+  const { email, full_name, profile_pic, provider } = req.body;
+
+  if (!email) {
+    return res.status(400).json({ error: "Email is required for OAuth login." });
+  }
+
+  try {
+    // Check if user already exists
+    const { data: existingUser, error: fetchError } = await supabase
+      .from("users")
+      .select("*")
+      .eq("email", email)
+      .single();
+
+    // If user exists, return their data
+    if (existingUser) {
+      return res.status(200).json({
+        message: "Login successful!",
+        user: {
+          id: existingUser.id,
+          full_name: existingUser.full_name,
+          email: existingUser.email,
+          phone: existingUser.phone,
+          bio: existingUser.bio,
+          location: existingUser.location,
+          profile_pic: existingUser.profile_pic,
+        },
+      });
+    }
+
+    // User doesn't exist, create new user
+    // For OAuth users, we don't need a password
+    const { data, error } = await supabase
+      .from("users")
+      .insert([{
+        full_name: full_name || "User",
+        email,
+        profile_pic: profile_pic || null,
+        password: null, // OAuth users don't have passwords
+      }])
+      .select();
+
+    if (error) {
+      console.error("Supabase insert error:", error);
+      return res.status(400).json({ error: error.message });
+    }
+
+    return res.status(201).json({
+      message: "User created successfully!",
+      user: {
+        id: data[0].id,
+        full_name: data[0].full_name,
+        email: data[0].email,
+        phone: data[0].phone,
+        bio: data[0].bio,
+        location: data[0].location,
+        profile_pic: data[0].profile_pic,
+      },
+    });
+
+  } catch (err) {
+    console.error("OAuth login error:", err);
+    return res.status(500).json({ error: "Server error during OAuth login." });
+  }
+};
+
 export const updateProfile = async (req, res) => {
   try {
     const { id, full_name, email, password, phone, bio, location } = req.body;

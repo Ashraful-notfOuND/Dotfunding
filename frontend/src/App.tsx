@@ -18,6 +18,7 @@ import EditProject from "./pages/EditProject";
 import PaymentSuccess from "./pages/PaymentSuccess";
 import NotFound from "./pages/NotFound";
 import CreatorProfile from "./pages/CreatorProfile";
+import AuthCallback from "./pages/AuthCallback";
 
 const queryClient = new QueryClient();
 
@@ -53,6 +54,7 @@ const App = () => {
             <Route path="/projects/category/:category" element={<CategoryPage />} />
             <Route path="/login" element={<PageWrapper><Login /></PageWrapper>} />
             <Route path="/signup" element={<PageWrapper><SignUp /></PageWrapper>} />
+            <Route path="/auth/callback" element={<AuthCallback />} />
             <Route path="/profile" element={<PageWrapper><Profile /></PageWrapper>} />
             <Route path="/profile/edit" element={<PageWrapper><EditProfile /></PageWrapper>} />
                       <Route path="/project/:id/edit" element={<PageWrapper><EditProject /></PageWrapper>} />

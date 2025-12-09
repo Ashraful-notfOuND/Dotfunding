@@ -428,6 +428,7 @@ import Comments from "@/components/Comments";
 import CreatorTab from "@/components/CreatorTab";
 import StatisticsTab from "@/components/StatisticsTab";
 import ProjectReviews from "@/components/ProjectReviews";
+import ProjectDonations from "@/components/ProjectDonations";
 import { useAuth } from "@/hooks/useAuth";
 import { useToast } from "@/hooks/use-toast";
 
@@ -732,6 +733,9 @@ const ProjectDetail = () => {
             </Button>
 
             <ShareButtons projectTitle={project.title} />
+
+            {/* Donations Section */}
+            <ProjectDonations projectId={project.id} />
 
             {/* Pledge without rewards */}
             <Card className="border-2 border-primary/20 animate-fade-in">
