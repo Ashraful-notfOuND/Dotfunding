@@ -39,6 +39,164 @@ const getGatewayConfig = (gatewayType) => {
 };
 
 /**
+ * Helper function to check if funding goal was just reached and send notifications
+ */
+const checkAndNotifyFundingGoalReached = async (project_id, previousTotal, newTotal) => {
+  try {
+    // Get project details including funding goal
+    const { data: project, error: projectError } = await supabase
+      .from("main_projects")
+      .select("id, user_id, title, funding_goal")
+      .eq("id", project_id)
+      .single();
+
+    if (projectError || !project) {
+      console.error("Error fetching project:", projectError);
+      return;
+    }
+
+    const fundingGoal = Number(project.funding_goal || 0);
+    
+    // Check if the funding goal was just reached with this payment
+    if (previousTotal < fundingGoal && newTotal >= fundingGoal) {
+      console.log(`🎉 Project ${project_id} just reached its funding goal of $${fundingGoal}!`);
+      
+      // Get creator information
+      const { data: creator } = await supabase
+        .from("users")
+        .select("id, full_name, email, notification_preferences")
+        .eq("id", project.user_id)
+        .single();
+
+      if (creator) {
+        // Get creator's notification preferences
+        const creatorPrefs = creator.notification_preferences || {};
+        const creatorChannels = creatorPrefs.channels || ["in-app"];
+
+        // Send notification to creator
+        const creatorMessage = `🎉 Congratulations! Your project "${project.title}" has reached its funding goal of $${fundingGoal}!`;
+        const creatorMetadata = {
+          projectId: project_id,
+          projectTitle: project.title,
+          fundingGoal: fundingGoal,
+          totalBacked: newTotal,
+          type: 'funding_goal_reached',
+          subject: 'Funding Goal Reached! 🎉',
+        };
+
+        for (const channel of creatorChannels) {
+          try {
+            const notification = NotificationFactory.createNotification(
+              channel,
+              creator,
+              creatorMessage,
+              creatorMetadata
+            );
+
+            const enhancedNotification = new NotificationBuilder(notification)
+              .withPersonalization(creator.full_name || 'Creator')
+              .withPriority('high')
+              .withFormatting({ emoji: '🎉' })
+              .withTracking()
+              .withRetry(3, 2000)
+              .build();
+
+            await enhancedNotification.send();
+            console.log(`Funding goal notification sent to creator via ${channel}`);
+          } catch (channelError) {
+            console.error(`Failed to send notification to creator via ${channel}:`, channelError);
+          }
+        }
+      }
+
+      // Get all backers for this project
+      const { data: backers, error: backersError } = await supabase
+        .from("pledges")
+        .select(`
+          user_id,
+          amount,
+          users (
+            id,
+            full_name,
+            email,
+            notification_preferences
+          )
+        `)
+        .eq("project_id", project_id)
+        .eq("status", "paid");
+
+      if (!backersError && backers && backers.length > 0) {
+        // Send notifications to all backers
+        const uniqueBackers = new Map();
+        backers.forEach(pledge => {
+          if (pledge.users && !uniqueBackers.has(pledge.user_id)) {
+            uniqueBackers.set(pledge.user_id, pledge.users);
+          }
+        });
+
+        for (const [userId, backer] of uniqueBackers) {
+          try {
+            const backerPrefs = backer.notification_preferences || {};
+            const backerChannels = backerPrefs.channels || ["in-app"];
+
+            const backerMessage = `🎉 Great news! The project "${project.title}" you backed has reached its funding goal of $${fundingGoal}!`;
+            const backerMetadata = {
+              projectId: project_id,
+              projectTitle: project.title,
+              fundingGoal: fundingGoal,
+              totalBacked: newTotal,
+              type: 'funding_goal_reached_backer',
+              subject: 'Project Funded Successfully! 🎉',
+            };
+
+            for (const channel of backerChannels) {
+              try {
+                const notification = NotificationFactory.createNotification(
+                  channel,
+                  backer,
+                  backerMessage,
+                  backerMetadata
+                );
+
+                const enhancedNotification = new NotificationBuilder(notification)
+                  .withPersonalization(backer.full_name || 'Backer')
+                  .withPriority('normal')
+                  .withFormatting({ emoji: '🎉' })
+                  .withTracking()
+                  .withRetry(2, 1500)
+                  .build();
+
+                await enhancedNotification.send();
+              } catch (channelError) {
+                console.error(`Failed to send notification to backer via ${channel}:`, channelError);
+              }
+            }
+            console.log(`Funding goal notification sent to backer ${backer.full_name || userId}`);
+          } catch (backerError) {
+            console.error(`Error sending notification to backer ${userId}:`, backerError);
+          }
+        }
+        console.log(`Sent funding goal notifications to ${uniqueBackers.size} backers`);
+      }
+
+      // Notify all project subscribers via Observer pattern
+      try {
+        await observerManager.notifyProjectEvent(project_id, 'funding_goal_reached', {
+          projectTitle: project.title,
+          fundingGoal: fundingGoal,
+          totalBacked: newTotal,
+        });
+        console.log('Project subscribers notified about funding goal reached');
+      } catch (observerError) {
+        console.error('Failed to notify project subscribers:', observerError);
+      }
+    }
+  } catch (err) {
+    console.error("Error checking funding goal completion:", err);
+  }
+};
+
+/**
  * Helper function to update project backed amount
  * Calculates total from all paid pledges for the project
  */
@@ -46,7 +204,18 @@ const updateProjectBackedAmount = async (project_id) => {
   try {
     if (!project_id) return;
 
-    // Get all paid pledges for this project
+    // Get previous total before the new pledge
+    const { data: previousPledges } = await supabase
+      .from("pledges")
+      .select("amount")
+      .eq("project_id", project_id)
+      .eq("status", "paid");
+
+    const previousTotal = previousPledges 
+      ? previousPledges.slice(0, -1).reduce((sum, pledge) => sum + Number(pledge.amount || 0), 0)
+      : 0;
+
+    // Get all paid pledges for this project (including the new one)
     const { data: pledges, error } = await supabase
       .from("pledges")
       .select("amount")
@@ -62,6 +231,9 @@ const updateProjectBackedAmount = async (project_id) => {
     const totalBacked = pledges.reduce((sum, pledge) => sum + Number(pledge.amount || 0), 0);
     
     console.log(`Project ${project_id}: Total backed amount = ${totalBacked} (from ${pledges.length} pledges)`);
+    
+    // Check if funding goal was just reached
+    await checkAndNotifyFundingGoalReached(project_id, previousTotal, totalBacked);
     
     // Note: We don't store this in the projects table as it's computed dynamically
     // This function is for logging and potential future use
