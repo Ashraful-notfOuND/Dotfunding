@@ -496,6 +496,17 @@ const Profile = () => {
     return diffDays > 0 ? diffDays : 0;
   };
 
+  // Helper function to check if a project is live (deadline hasn't passed)
+  const isProjectLive = (deadline: string): boolean => {
+    const now = new Date();
+    const d = new Date(deadline);
+    return d.getTime() > now.getTime();
+  };
+
+  // Separate projects into live and past categories
+  const liveProjects = myProjects.filter(project => isProjectLive(project.fundingDeadline));
+  const pastProjects = myProjects.filter(project => !isProjectLive(project.fundingDeadline));
+
   if (!isAuthenticated || !user) {
     return null;
   }
@@ -619,28 +630,71 @@ const Profile = () => {
             {loadingProjects && <p>Loading projects...</p>}
             {errorProjects && <p className="text-red-500">Error: {errorProjects}</p>}
 
-            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-              {myProjects.map((project) => (
-                <div key={project.id} className="flex flex-col gap-2">
-                  <ProjectCard
-                    id={project.id}
-                    title={project.title}
-                    creator={user.name ?? ""}
-                    image={project.image_urls}
-                    fundingGoal={project.fundingGoal}
-                    fundingCurrent={0}
-                    daysLeft={getDaysLeft(project.fundingDeadline)}
-                    category={project.category}
-                  />
-                  <Link to={`/project/${project.id}/edit`}>
-                    <Button variant="outline" className="w-full">
-                      Edit Project
-                    </Button>
-                  </Link>
+            {/* Live Projects Section */}
+            {!loadingProjects && liveProjects.length > 0 && (
+              <div className="mb-10">
+                <div className="mb-4 flex items-center gap-2">
+                  <div className="h-2 w-2 bg-green-500 rounded-full animate-pulse"></div>
+                  <h3 className="text-xl font-semibold">Live Projects ({liveProjects.length})</h3>
+                  <Badge variant="default" className="bg-green-500 text-white">Collecting Funds</Badge>
                 </div>
-              ))}
-            </div>
+                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+                  {liveProjects.map((project) => (
+                    <div key={project.id} className="flex flex-col gap-2">
+                      <ProjectCard
+                        id={project.id}
+                        title={project.title}
+                        creator={user.name ?? ""}
+                        image={project.image_urls}
+                        fundingGoal={project.fundingGoal}
+                        fundingCurrent={0}
+                        daysLeft={getDaysLeft(project.fundingDeadline)}
+                        category={project.category}
+                      />
+                      <Link to={`/project/${project.id}/edit`}>
+                        <Button variant="outline" className="w-full">
+                          Edit Project
+                        </Button>
+                      </Link>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            )}
 
+            {/* Past Projects Section */}
+            {!loadingProjects && pastProjects.length > 0 && (
+              <div className="mb-6">
+                <div className="mb-4 flex items-center gap-2">
+                  <Clock className="h-5 w-5 text-muted-foreground" />
+                  <h3 className="text-xl font-semibold">Past Projects ({pastProjects.length})</h3>
+                  <Badge variant="secondary">Funding Ended</Badge>
+                </div>
+                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+                  {pastProjects.map((project) => (
+                    <div key={project.id} className="flex flex-col gap-2 opacity-75">
+                      <ProjectCard
+                        id={project.id}
+                        title={project.title}
+                        creator={user.name ?? ""}
+                        image={project.image_urls}
+                        fundingGoal={project.fundingGoal}
+                        fundingCurrent={0}
+                        daysLeft={getDaysLeft(project.fundingDeadline)}
+                        category={project.category}
+                      />
+                      <Link to={`/project/${project.id}/edit`}>
+                        <Button variant="outline" className="w-full">
+                          Edit Project
+                        </Button>
+                      </Link>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            )}
+
+            {/* Empty State */}
             {myProjects.length === 0 && !loadingProjects && (
               <Card className="py-12">
                 <CardContent className="text-center">
