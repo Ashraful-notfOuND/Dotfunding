@@ -9,6 +9,7 @@ import commentRoutes from "./routes/commentRoutes.js";
 import updatesRoutes from "./routes/updatesRoutes.js";
 import reviewRoutes from "./routes/reviewRoutes.js";
 import recommendationRoutes from "./routes/recommendationRoutes.js";
+import communityRoutes from "./routes/communityRoutes.js";
 
 const app = express();
 
@@ -26,6 +27,7 @@ app.use("/api/comments", commentRoutes);
 app.use("/api/updates", updatesRoutes);
 app.use("/api/reviews", reviewRoutes);
 app.use("/api/recommendations", recommendationRoutes);
+app.use("/api/community", communityRoutes);
 // Test route
 app.get("/", (req, res) => {
   res.send("✅ Backend is running!");

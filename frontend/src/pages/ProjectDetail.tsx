@@ -429,6 +429,8 @@ import CreatorTab from "@/components/CreatorTab";
 import StatisticsTab from "@/components/StatisticsTab";
 import ProjectReviews from "@/components/ProjectReviews";
 import ProjectDonations from "@/components/ProjectDonations";
+import { Community } from "@/components/Community";
+import { BackerOnboarding } from "@/components/BackerOnboarding";
 import { useAuth } from "@/hooks/useAuth";
 import { useToast } from "@/hooks/use-toast";
 
@@ -483,6 +485,8 @@ const ProjectDetail = () => {
     description: string;
   } | null>(null);
   const [ownerId, setOwnerId] = useState<string | null>(null);
+  const [showOnboarding, setShowOnboarding] = useState(false);
+  const [activeTab, setActiveTab] = useState('campaign');
 
   const fetchProject = useCallback(async (signal?: AbortSignal) => {
     setLoading(true);
@@ -556,6 +560,8 @@ const ProjectDetail = () => {
         toast({ title: "Payment successful", description: `Transaction ${tran} completed.` });
         // refetch project to update funding and progress
         fetchProject();
+        // Show onboarding for new backers
+        setTimeout(() => setShowOnboarding(true), 1000);
       } else if (status === "failed") {
         toast({ title: "Payment failed", description: "Your payment did not complete." });
       }
@@ -661,12 +667,13 @@ const ProjectDetail = () => {
             />
 
             {/* Tabs */}
-            <Tabs defaultValue="campaign" className="w-full">
+            <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full">
               <TabsList className="w-full justify-start">
                 <TabsTrigger value="campaign">Campaign</TabsTrigger>
                 <TabsTrigger value="faq">FAQ</TabsTrigger>
                 <TabsTrigger value="creator">Creator</TabsTrigger>
                 <TabsTrigger value="updates">Updates</TabsTrigger>
+                <TabsTrigger value="community">Community</TabsTrigger>
                 <TabsTrigger value="comments">Comments</TabsTrigger>
                 <TabsTrigger value="reviews">Reviews</TabsTrigger>
                 <TabsTrigger value="statistics">Statistics</TabsTrigger>
@@ -689,6 +696,13 @@ const ProjectDetail = () => {
                   currentUser={user} 
                   ownerEmail={project.creatorEmail} 
                   projectId={project.id} 
+                />
+              </TabsContent>
+
+              <TabsContent value="community" className="mt-6">
+                <Community 
+                  projectId={project.id}
+                  projectCreatorId={ownerId || ''}
                 />
               </TabsContent>
 
@@ -850,6 +864,7 @@ const ProjectDetail = () => {
       </div>
 
       <Footer />
+      
       <PledgeModal
         open={isPledgeModalOpen}
         onOpenChange={setIsPledgeModalOpen}
@@ -862,6 +877,14 @@ const ProjectDetail = () => {
         userEmail={user?.email}
         userName={user?.name}
         userPhone={user?.phone}
+      />
+
+      <BackerOnboarding
+        open={showOnboarding}
+        onClose={() => setShowOnboarding(false)}
+        projectTitle={project?.title || ""}
+        onGoToCommunity={() => setActiveTab('community')}
+        onGoToReviews={() => setActiveTab('reviews')}
       />
     </div>
   );
