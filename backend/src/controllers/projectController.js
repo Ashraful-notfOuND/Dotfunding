@@ -1,6 +1,7 @@
 import { supabase } from "../config/supabaseClient.js";
 import { v4 as uuidv4 } from "uuid";
 import { observerManager } from "../services/ProjectObserver.js";
+import { projectStateMachine, ProjectStatus } from "../services/ProjectStateMachine.js";
 
 
 // Multer saves file in req.file
@@ -325,9 +326,12 @@ export const getProjectById = async (req, res) => {
     const { id } = req.params;
     if (!id) return res.status(400).json({ error: "Project id is required" });
 
+    // Evaluate and update project status (lazy evaluation)
+    const projectStatus = await projectStateMachine.evaluateAndUpdateStatus(id);
+
     const { data: project, error } = await supabase
       .from("main_projects")
-      .select(`id, user_id, title, tagline, image_url, funding_goal, funding_deadline, video_url, location, category`)
+      .select(`id, user_id, title, tagline, image_url, funding_goal, funding_deadline, video_url, location, category, status`)
       .eq("id", id)
       .single();
 
@@ -434,6 +438,8 @@ export const getProjectById = async (req, res) => {
       description: campaignDescription,
       // rewards fetched from reward_table
       rewards,
+      // Project lifecycle status
+      status: project.status || ProjectStatus.LIVE,
     };
 
     // Compute fundingCurrent (sum of paid pledges) and backers (distinct users)
@@ -834,5 +840,62 @@ export const getProjectDonations = async (req, res) => {
   } catch (err) {
     console.error("Error fetching project donations:", err);
     return res.status(500).json({ error: "Failed to fetch donations" });
+  }
+};
+
+/**
+ * Get project status and check if it can accept pledges
+ * GET /api/projects/:id/status
+ */
+export const getProjectStatus = async (req, res) => {
+  try {
+    const { id } = req.params;
+    if (!id) return res.status(400).json({ error: "Project id is required" });
+
+    // Evaluate and get current status
+    const status = await projectStateMachine.getProjectStatus(id);
+    
+    if (!status) {
+      return res.status(404).json({ error: "Project not found" });
+    }
+
+    const canAcceptPledges = status === ProjectStatus.LIVE;
+
+    return res.status(200).json({
+      projectId: id,
+      status,
+      canAcceptPledges,
+      statusInfo: {
+        isLive: status === ProjectStatus.LIVE,
+        isSuccess: status === ProjectStatus.ENDED_SUCCESS,
+        isFailed: status === ProjectStatus.ENDED_FAILED,
+      }
+    });
+  } catch (err) {
+    console.error("Error getting project status:", err);
+    return res.status(500).json({ error: "Failed to get project status" });
+  }
+};
+
+/**
+ * Batch update project statuses (admin/cron endpoint)
+ * POST /api/projects/batch-update-status
+ */
+export const batchUpdateProjectStatuses = async (req, res) => {
+  try {
+    console.log("Starting batch project status update...");
+    const result = await projectStateMachine.batchUpdateProjectStatuses();
+    
+    if (!result) {
+      return res.status(500).json({ error: "Batch update failed" });
+    }
+
+    return res.status(200).json({
+      message: "Batch update completed successfully",
+      ...result
+    });
+  } catch (err) {
+    console.error("Error in batch update:", err);
+    return res.status(500).json({ error: "Batch update failed" });
   }
 };

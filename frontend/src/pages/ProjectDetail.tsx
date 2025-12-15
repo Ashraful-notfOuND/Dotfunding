@@ -441,6 +441,8 @@ type Reward = {
   available?: number;
 };
 
+type ProjectStatus = 'LIVE' | 'ENDED_SUCCESS' | 'ENDED_FAILED';
+
 type Project = {
   id: string;
   title: string;
@@ -449,7 +451,7 @@ type Project = {
   creatorEmail?: string;
   images?: string[];
   videoUrl?: string | null;
-  status?: string;
+  status?: ProjectStatus;
   image_urls?: string;
   fundingGoal?: number;
   fundingCurrent?: number;
@@ -714,6 +716,30 @@ const ProjectDetail = () => {
               daysLeft={project?.daysLeft ?? 0}
             />
 
+            {/* Project Status Badge */}
+            {project.status && project.status !== 'LIVE' && (
+              <Card className="border-2 animate-fade-in" style={{
+                borderColor: project.status === 'ENDED_SUCCESS' ? 'rgb(34 197 94)' : 'rgb(239 68 68)'
+              }}>
+                <CardContent className="pt-6">
+                  <div className="text-center">
+                    <div className="text-2xl mb-2">
+                      {project.status === 'ENDED_SUCCESS' ? '🎉' : '⏰'}
+                    </div>
+                    <h3 className="font-bold text-lg mb-1">
+                      {project.status === 'ENDED_SUCCESS' ? 'Successfully Funded!' : 'Campaign Ended'}
+                    </h3>
+                    <p className="text-sm text-muted-foreground">
+                      {project.status === 'ENDED_SUCCESS' 
+                        ? `This project reached its funding goal of $${project.fundingGoal?.toLocaleString() || 0}` 
+                        : `This project did not reach its funding goal and is no longer accepting pledges.`
+                      }
+                    </p>
+                  </div>
+                </CardContent>
+              </Card>
+            )}
+
             {user && user.email === project.creatorEmail && (
               <div className="animate-fade-in mb-2">
                 <Link to={`/project/${project.id}/edit`}>
@@ -724,17 +750,29 @@ const ProjectDetail = () => {
               </div>
             )}
 
-            <Button
-              className="w-full bg-accent hover:bg-accent-hover animate-fade-in"
-              size="lg"
-              onClick={() => {
-                // open pledge modal
-                setSelectedReward(null);
-                setIsPledgeModalOpen(true);
-              }}
-            >
-              Back this project
-            </Button>
+            {/* Pledge Button - Status Aware */}
+            {project.status === 'LIVE' ? (
+              <Button
+                className="w-full bg-accent hover:bg-accent-hover animate-fade-in"
+                size="lg"
+                onClick={() => {
+                  // open pledge modal
+                  setSelectedReward(null);
+                  setIsPledgeModalOpen(true);
+                }}
+              >
+                Back this project
+              </Button>
+            ) : (
+              <Button
+                className="w-full animate-fade-in"
+                size="lg"
+                disabled
+                variant="secondary"
+              >
+                {project.status === 'ENDED_SUCCESS' ? '✓ Funding Successful' : project.status === 'ENDED_FAILED' ? '✗ Funding Closed' : 'Funding Closed'}
+              </Button>
+            )}
 
             <ShareButtons projectTitle={project.title} />
 

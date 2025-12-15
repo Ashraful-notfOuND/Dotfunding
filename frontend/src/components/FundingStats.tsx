@@ -70,27 +70,34 @@ const FundingStats = ({ fundingCurrent, fundingGoal, backers, daysLeft }: Fundin
           </div>
         </div>
 
-        <div className="bg-muted/50 rounded-lg p-4">
-          <div className="text-xs text-muted-foreground mb-2 text-center">Time Remaining</div>
-          <div className="grid grid-cols-4 gap-2 text-center">
-            <div>
-              <div className="text-2xl font-bold">{timeLeft.days}</div>
-              <div className="text-xs text-muted-foreground">days</div>
-            </div>
-            <div>
-              <div className="text-2xl font-bold">{timeLeft.hours}</div>
-              <div className="text-xs text-muted-foreground">hours</div>
-            </div>
-            <div>
-              <div className="text-2xl font-bold">{timeLeft.minutes}</div>
-              <div className="text-xs text-muted-foreground">mins</div>
-            </div>
-            <div>
-              <div className="text-2xl font-bold">{timeLeft.seconds}</div>
-              <div className="text-xs text-muted-foreground">secs</div>
+        {daysLeft > 0 ? (
+          <div className="bg-muted/50 rounded-lg p-4">
+            <div className="text-xs text-muted-foreground mb-2 text-center">Time Remaining</div>
+            <div className="grid grid-cols-4 gap-2 text-center">
+              <div>
+                <div className="text-2xl font-bold">{timeLeft.days}</div>
+                <div className="text-xs text-muted-foreground">days</div>
+              </div>
+              <div>
+                <div className="text-2xl font-bold">{timeLeft.hours}</div>
+                <div className="text-xs text-muted-foreground">hours</div>
+              </div>
+              <div>
+                <div className="text-2xl font-bold">{timeLeft.minutes}</div>
+                <div className="text-xs text-muted-foreground">mins</div>
+              </div>
+              <div>
+                <div className="text-2xl font-bold">{timeLeft.seconds}</div>
+                <div className="text-xs text-muted-foreground">secs</div>
+              </div>
             </div>
           </div>
-        </div>
+        ) : (
+          <div className="bg-destructive/10 rounded-lg p-4 text-center">
+            <div className="text-sm font-semibold text-destructive">Campaign Ended</div>
+            <div className="text-xs text-muted-foreground mt-1">Funding period is over</div>
+          </div>
+        )}
       </CardContent>
     </Card>
   );

@@ -8,6 +8,7 @@ import EmailService from "../services/EmailService.js";
 import { NotificationFactory } from "../services/NotificationFactory.js";
 import { NotificationBuilder } from "../services/NotificationDecorator.js";
 import { observerManager } from "../services/ProjectObserver.js";
+import { projectStateMachine, ProjectStatus } from "../services/ProjectStateMachine.js";
 
 dotenv.config();
 
@@ -277,33 +278,58 @@ export const initPayment = async (req, res) => {
       cus_phone: body.cus_phone || "",
     };
 
-    // Validate that user is not trying to back their own project
-    if (body.project_id && body.user_id) {
+    // Validate project status and ownership before accepting pledge
+    if (body.project_id) {
       try {
-        const { data: project, error: projectError } = await supabase
-          .from("main_projects")
-          .select("user_id")
-          .eq("id", body.project_id)
-          .single();
+        // First, evaluate and update project status if needed
+        const projectStatus = await projectStateMachine.evaluateAndUpdateStatus(body.project_id);
         
-        if (projectError) {
-          console.error("initPayment: Failed to fetch project:", projectError);
-          return res.status(400).json({ error: "Invalid project ID" });
-        }
-        
-        if (project && project.user_id === body.user_id) {
-          console.warn("initPayment: User attempting to back their own project:", {
-            user_id: body.user_id,
-            project_id: body.project_id
+        // Check if project can accept pledges
+        if (projectStatus !== ProjectStatus.LIVE) {
+          const statusMessages = {
+            [ProjectStatus.ENDED_SUCCESS]: "This project has successfully ended and is no longer accepting pledges.",
+            [ProjectStatus.ENDED_FAILED]: "This project has ended without reaching its funding goal and is no longer accepting pledges."
+          };
+          
+          console.warn("initPayment: Attempted to pledge to non-LIVE project:", {
+            project_id: body.project_id,
+            status: projectStatus
           });
+          
           return res.status(403).json({ 
-            error: "You cannot pledge to your own project",
-            message: "Project creators cannot back their own projects. Please share your project with others to get support!" 
+            error: "Funding closed",
+            message: statusMessages[projectStatus] || "This project is no longer accepting pledges.",
+            projectStatus
           });
+        }
+
+        // Validate that user is not trying to back their own project
+        if (body.user_id) {
+          const { data: project, error: projectError } = await supabase
+            .from("main_projects")
+            .select("user_id")
+            .eq("id", body.project_id)
+            .single();
+          
+          if (projectError) {
+            console.error("initPayment: Failed to fetch project:", projectError);
+            return res.status(400).json({ error: "Invalid project ID" });
+          }
+          
+          if (project && project.user_id === body.user_id) {
+            console.warn("initPayment: User attempting to back their own project:", {
+              user_id: body.user_id,
+              project_id: body.project_id
+            });
+            return res.status(403).json({ 
+              error: "You cannot pledge to your own project",
+              message: "Project creators cannot back their own projects. Please share your project with others to get support!" 
+            });
+          }
         }
       } catch (err) {
-        console.error("initPayment: Error checking project ownership:", err);
-        return res.status(500).json({ error: "Failed to validate project ownership" });
+        console.error("initPayment: Error validating project:", err);
+        return res.status(500).json({ error: "Failed to validate project" });
       }
     }
 
