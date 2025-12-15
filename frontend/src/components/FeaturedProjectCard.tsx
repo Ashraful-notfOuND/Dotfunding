@@ -18,10 +18,8 @@ interface FeaturedProjectCardProps {
 }
 
 const FeaturedProjectCard = ({ project }: FeaturedProjectCardProps) => {
-  const fundingPercentage = Math.min(
-    (project.fundingCurrent / project.fundingGoal) * 100,
-    100
-  );
+  // Calculate actual percentage - can exceed 100% for overfunded projects
+  const fundingPercentage = (project.fundingCurrent / project.fundingGoal) * 100;
 
   return (
     <div className="bg-card rounded-lg border border-border overflow-hidden shadow-smooth">
@@ -58,7 +56,7 @@ const FeaturedProjectCard = ({ project }: FeaturedProjectCardProps) => {
 
         {/* Funding Progress */}
         <div className="space-y-2">
-          <Progress value={fundingPercentage} className="h-2" />
+          <Progress value={Math.min(fundingPercentage, 100)} className="h-2" />
           <div className="flex items-center justify-between text-sm">
             <div>
               <span className="font-bold text-foreground">
@@ -66,7 +64,10 @@ const FeaturedProjectCard = ({ project }: FeaturedProjectCardProps) => {
               </span>
               <span className="text-muted-foreground"> raised</span>
             </div>
-            <div className="text-muted-foreground">{Math.round(fundingPercentage)}%</div>
+            <div className={fundingPercentage > 100 ? "font-bold text-green-600" : "text-muted-foreground"}>
+              {Math.round(fundingPercentage)}%
+              {fundingPercentage > 100 && <span className="ml-1">🎉</span>}
+            </div>
           </div>
         </div>
 

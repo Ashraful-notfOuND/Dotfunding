@@ -29,7 +29,8 @@ const ProjectCard = ({
   category,
   isTrending = false,
 }: ProjectCardProps) => {
-  const fundingPercentage = fundingGoal > 0 ? Math.min((fundingCurrent / fundingGoal) * 100, 100) : 0;
+  // Calculate actual percentage - can exceed 100% for overfunded projects
+  const fundingPercentage = fundingGoal > 0 ? (fundingCurrent / fundingGoal) * 100 : 0;
   // Use real backers from API, or estimate if not provided
   const backersCount = backers !== undefined ? backers : Math.floor(fundingCurrent / 50);
   const { isInWishlist, toggleWishlist } = useWishlist();
@@ -105,10 +106,10 @@ const ProjectCard = ({
               </div>
               <div>
                 <span
-                  className="text-sm font-medium text-emerald-600"
+                  className={`text-sm font-medium ${fundingPercentage > 100 ? 'text-green-600 font-bold' : 'text-emerald-600'}`}
                   aria-label={`${Math.round(fundingPercentage)} percent funded`}
                 >
-                  {Math.round(fundingPercentage)}% funded
+                  {Math.round(fundingPercentage)}% {fundingPercentage > 100 && '🎉'}
                 </span>
               </div>
             </div>

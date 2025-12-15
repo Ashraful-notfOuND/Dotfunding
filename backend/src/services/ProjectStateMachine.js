@@ -35,21 +35,43 @@ class ProjectStateMachine {
         return null;
       }
 
-      // If already ended, no need to re-evaluate
-      if (project.status === ProjectStatus.ENDED_SUCCESS || project.status === ProjectStatus.ENDED_FAILED) {
-        return project.status;
-      }
-
-      // Check if deadline has passed
+      // Always re-evaluate status based on deadline and funding
+      // Don't trust stored status - recalculate from deadline
+      
+      // IMPORTANT: Projects remain LIVE until deadline passes
+      // Even if funding goal is exceeded, project stays open until deadline
+      // This allows backers to continue supporting and projects to be overfunded
       const now = new Date();
       const deadline = project.funding_deadline ? new Date(project.funding_deadline) : null;
       
+      // Debug logging
+      console.log(`📊 Evaluating project ${projectId}:`, {
+        currentStatus: project.status,
+        deadline: deadline?.toISOString(),
+        now: now.toISOString(),
+        deadlineInFuture: deadline && deadline > now
+      });
+      
       if (!deadline || deadline > now) {
         // Still LIVE - no deadline or deadline hasn't passed yet
+        // Project can accept pledges even if goal is already met
+        
+        // Update status to LIVE if it was incorrectly set to ENDED
+        const currentStatus = project.status || ProjectStatus.LIVE;
+        if (currentStatus !== ProjectStatus.LIVE) {
+          console.log(`⚠️  Correcting project ${projectId} status from ${currentStatus} to LIVE (deadline not passed yet)`);
+          await supabase
+            .from('main_projects')
+            .update({ status: ProjectStatus.LIVE })
+            .eq('id', projectId);
+        }
+        
         return ProjectStatus.LIVE;
       }
 
-      // Deadline has passed - calculate total funding
+      // Deadline has passed - now determine if project succeeded or failed
+      // SUCCESS: Reached or exceeded funding goal
+      // FAILED: Did not reach funding goal
       const { data: pledges, error: pledgesError } = await supabase
         .from('pledges')
         .select('amount')
@@ -64,7 +86,8 @@ class ProjectStateMachine {
       const totalFunding = pledges.reduce((sum, pledge) => sum + Number(pledge.amount || 0), 0);
       const fundingGoal = Number(project.funding_goal || 0);
 
-      // Determine new status
+      // Determine new status based on whether goal was met
+      // Note: totalFunding can exceed fundingGoal (overfunding)
       const newStatus = totalFunding >= fundingGoal 
         ? ProjectStatus.ENDED_SUCCESS 
         : ProjectStatus.ENDED_FAILED;

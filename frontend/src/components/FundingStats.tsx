@@ -13,7 +13,8 @@ interface FundingStatsProps {
 const FundingStats = ({ fundingCurrent, fundingGoal, backers, daysLeft }: FundingStatsProps) => {
   fundingCurrent
   const [animatedProgress, setAnimatedProgress] = useState(0);
-  const fundingPercentage = Math.min((fundingCurrent / fundingGoal) * 100, 100);
+  // Calculate actual percentage - can exceed 100% for overfunded projects
+  const fundingPercentage = (fundingCurrent / fundingGoal) * 100;
 
   useEffect(() => {
     const timer = setTimeout(() => setAnimatedProgress(fundingPercentage), 100);
@@ -52,8 +53,15 @@ const FundingStats = ({ fundingCurrent, fundingGoal, backers, daysLeft }: Fundin
           <div className="text-sm text-muted-foreground mb-4">
             pledged of ${fundingGoal.toLocaleString()} goal
           </div>
-          <Progress value={animatedProgress} className="h-2 mb-2" />
-          <div className="text-sm text-muted-foreground">{Math.round(fundingPercentage)}% funded</div>
+          <Progress value={Math.min(animatedProgress, 100)} className="h-2 mb-2" />
+          <div className="text-sm text-muted-foreground">
+            <span className={fundingPercentage > 100 ? "font-bold text-green-600" : ""}>
+              {Math.round(fundingPercentage)}% funded
+            </span>
+            {fundingPercentage > 100 && (
+              <span className="ml-2 text-xs">(🎉 Overfunded!)</span>
+            )}
+          </div>
         </div>
 
         <div className="space-y-2">

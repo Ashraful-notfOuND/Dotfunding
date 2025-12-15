@@ -475,8 +475,21 @@ const PledgeModal = ({
         const err = await res.json().catch(() => ({}));
         // Use the detailed message if available, otherwise fallback to error
         const errorMessage = err?.message || err?.error || "Could not initialize payment.";
+        
+        // Determine title based on error type
+        let errorTitle = "Payment init failed";
+        if (res.status === 403) {
+          if (err?.error === "Funding closed") {
+            errorTitle = "Funding Closed";
+          } else if (err?.error?.includes("own project")) {
+            errorTitle = "Cannot Back Own Project";
+          } else {
+            errorTitle = "Cannot Back This Project";
+          }
+        }
+        
         toast({ 
-          title: res.status === 403 ? "Cannot back own project" : "Payment init failed", 
+          title: errorTitle, 
           description: errorMessage,
           variant: res.status === 403 ? "destructive" : "default"
         });
