@@ -54,9 +54,13 @@ const handleSubmit = async (e: React.FormEvent) => {
     const data = await res.json();
 
     if (res.ok) {
+      // Store admin status in localStorage for quick access
+      localStorage.setItem("is_admin", data.user.is_admin ? "true" : "false");
+      localStorage.setItem("user_id", data.user.id);
+      
       toast({
         title: "Login successful!",
-        description: `Welcome back, ${data.user.full_name}`,
+        description: `Welcome back, ${data.user.full_name}${data.user.is_admin ? " (Admin)" : ""}`,
       });
       // set auth state in client
       // data.user should contain at least { email, full_name }
@@ -67,10 +71,11 @@ const handleSubmit = async (e: React.FormEvent) => {
           bio: data.user.bio || "",
           profilePic: data.user.profile_pic || defaultAvatar,
           location: data.user.location || "Not specified",
+          isAdmin: data.user.is_admin || false,
         });
         console.log("User logged in: ", data.user.id);
-      // Redirect to original page or home
-      navigate(from);
+      // Redirect to admin dashboard if admin, otherwise to original page or home
+      navigate(data.user.is_admin ? "/admin" : from);
     } else {
       toast({
         title: "Login failed",

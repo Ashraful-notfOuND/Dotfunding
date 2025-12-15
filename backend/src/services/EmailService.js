@@ -119,3 +119,31 @@ class EmailService {
 }
 
 export default new EmailService();
+
+/**
+ * Helper function to send generic emails
+ */
+export async function sendEmail({ to, subject, html }) {
+  const emailService = new EmailService();
+  
+  // Validate email configuration
+  if (!process.env.EMAIL_USER || !process.env.EMAIL_PASS) {
+    console.warn('Email service not configured. Skipping email notification.');
+    return { success: false, error: 'Email not configured' };
+  }
+
+  try {
+    const info = await emailService.transporter.sendMail({
+      from: `"DotFunding" <${process.env.EMAIL_USER}>`,
+      to,
+      subject,
+      html,
+    });
+
+    console.log(`✅ Email sent to ${to}:`, info.messageId);
+    return { success: true, messageId: info.messageId };
+  } catch (error) {
+    console.error('❌ Error sending email:', error.message);
+    return { success: false, error: error.message };
+  }
+}

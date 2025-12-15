@@ -3,8 +3,10 @@ import ParticleBackground from '@/components/ParticleBackground';
 import { Link } from 'react-router-dom';
 import { motion } from 'framer-motion';
 import TypewriterText from '@/components/TypewriterText';
+import { useAuth } from '@/hooks/useAuth';
 
 const HeroLanding: React.FC = () => {
+    const { user } = useAuth();
     const rootRef = useRef<HTMLElement | null>(null);
     const titleRef = useRef<HTMLHeadingElement | null>(null);
     const descRef = useRef<HTMLParagraphElement | null>(null);
@@ -83,9 +85,11 @@ const HeroLanding: React.FC = () => {
                     <p ref={descRef} className="mt-4 text-lg text-black-200">Create, fund, and share creative projects with an audience that cares. Fast setup, flexible rewards, and transparent funding.</p>
 
                     <div ref={ctaRef} className="mt-8 flex justify-center gap-4">
-                        <motion.div whileHover={{ scale: 1.03 }} whileTap={{ scale: 0.98 }}>
-                            <Link to="/create-project" className="inline-block bg-accent text-white font-semibold px-8 py-4 rounded-lg shadow text-lg transition">Start a Project</Link>
-                        </motion.div>
+                        {!user?.isAdmin && (
+                            <motion.div whileHover={{ scale: 1.03 }} whileTap={{ scale: 0.98 }}>
+                                <Link to="/create-project" className="inline-block bg-accent text-white font-semibold px-8 py-4 rounded-lg shadow text-lg transition">Start a Project</Link>
+                            </motion.div>
+                        )}
                         <motion.div whileHover={{ scale: 1.02 }}>
                             <Link to="/explore" className="inline-block border border-white/30 px-5 py-3 rounded-lg hover:bg-white/5 transition">Explore Projects</Link>
                         </motion.div>

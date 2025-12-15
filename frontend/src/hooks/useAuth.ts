@@ -8,7 +8,8 @@ interface User {
   phone?: string;
   profilePic?: string; 
   bio?: string;        
-  location?: string;   
+  location?: string;
+  isAdmin?: boolean;
 }
 
 interface AuthState {

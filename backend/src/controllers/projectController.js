@@ -37,7 +37,7 @@ export const createProject = async (req, res) => {
 
     const imageUrl = urlData.publicUrl;
 
-    // Insert project into database
+    // Insert project into database with pending status
     const { data, error } = await supabase
       .from("main_projects")
       .insert([
@@ -51,6 +51,7 @@ export const createProject = async (req, res) => {
           video_url,
           location,
           category,
+          approval_status: "pending", // New projects start as pending
         },
       ])
       .select()
@@ -58,16 +59,13 @@ export const createProject = async (req, res) => {
 
     if (error) throw error;
 
-    // OBSERVER PATTERN: Notify interested users about new project
-    try {
-      await observerManager.notifyInterestedUsers(data);
-      console.log(`Notified interested users about new project: ${data.title}`);
-    } catch (notifyError) {
-      console.error("Failed to notify interested users:", notifyError);
-      // Don't fail the request if notifications fail
-    }
-
-    res.status(201).json(data);
+    // Don't notify interested users yet - wait for admin approval
+    // The notification will be sent when admin approves the project
+    
+    res.status(201).json({
+      ...data,
+      message: "Project submitted successfully and is pending admin review"
+    });
   } catch (err) {
     console.error(err);
     res.status(400).json({ error: err.message });
@@ -282,6 +280,7 @@ export const getUserProjects = async (req, res) => {
     }
 
     // fetch the projects for that userId
+    // Show all projects for the user (including pending ones in their dashboard)
     const { data: projects, error } = await supabase
       .from("main_projects")
       .select(`
@@ -291,7 +290,9 @@ export const getUserProjects = async (req, res) => {
         image_url,
         funding_goal,
         funding_deadline,
-        category
+        category,
+        approval_status,
+        admin_message
       `)
       .eq("user_id", userId);
 
@@ -308,6 +309,8 @@ export const getUserProjects = async (req, res) => {
       fundingGoal: prj.funding_goal,
       fundingDeadline: prj.funding_deadline,
       category: prj.category,
+      approval_status: prj.approval_status,
+      admin_message: prj.admin_message,
     }));
 
     return res.status(200).json({ projects: result });
@@ -331,7 +334,7 @@ export const getProjectById = async (req, res) => {
 
     const { data: project, error } = await supabase
       .from("main_projects")
-      .select(`id, user_id, title, tagline, image_url, funding_goal, funding_deadline, video_url, location, category, status`)
+      .select(`id, user_id, title, tagline, image_url, funding_goal, funding_deadline, video_url, location, category, status, approval_status, admin_message`)
       .eq("id", id)
       .single();
 
@@ -558,6 +561,7 @@ export const getAllProjects = async (req, res) => {
     const { data: projects, error } = await supabase
       .from("main_projects")
       .select("id, user_id, title, tagline, image_url, funding_goal, funding_deadline, category, created_at")
+      .eq("approval_status", "approved") // Only show approved projects
       .order("created_at", { ascending: false });
 
     if (error) throw error;

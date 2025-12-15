@@ -764,8 +764,13 @@ const ProjectDetail = () => {
               </div>
             )}
 
-            {/* Pledge Button - Status Aware */}
-            {project.status === 'LIVE' ? (
+            {/* Pledge Button - Status Aware & Admin Check */}
+            {user?.isAdmin ? (
+              <div className="bg-gray-100 border border-gray-300 rounded-lg p-4 text-center animate-fade-in">
+                <p className="text-gray-700 font-medium">Admins cannot back projects</p>
+                <p className="text-gray-500 text-sm mt-1">You can only moderate and manage projects</p>
+              </div>
+            ) : project.status === 'LIVE' ? (
               <Button
                 className="w-full bg-accent hover:bg-accent-hover animate-fade-in"
                 size="lg"
@@ -832,27 +837,29 @@ const ProjectDetail = () => {
 
             {/* Rewards */}
             {/* Rewards */}
-            <div className="space-y-4 animate-fade-in">
-              <h3 className="font-bold text-xl">Rewards</h3>
-              {rewards.length > 0 ? rewards.map((reward, index) => (
-                <RewardTierCard
-                  key={index}
-                  amount={reward.amount}
-                  title={reward.title}
-                  description={reward.description}
-                  delivery={reward.delivery}
-                  backers={reward.backers ?? 0}
-                  available={reward.available ?? 999}
-                  onSelect={() => {
-                    setSelectedReward(reward as any);
-                    setPledgeAmount(String(reward.amount));
-                    setIsPledgeModalOpen(true);
-                  }}
-                />
-              )) : (
-                <p className="text-muted-foreground">No rewards available yet.</p>
-              )}
-            </div>
+            {!user?.isAdmin && (
+              <div className="space-y-4 animate-fade-in">
+                <h3 className="font-bold text-xl">Rewards</h3>
+                {rewards.length > 0 ? rewards.map((reward, index) => (
+                  <RewardTierCard
+                    key={index}
+                    amount={reward.amount}
+                    title={reward.title}
+                    description={reward.description}
+                    delivery={reward.delivery}
+                    backers={reward.backers ?? 0}
+                    available={reward.available ?? 999}
+                    onSelect={() => {
+                      setSelectedReward(reward as any);
+                      setPledgeAmount(String(reward.amount));
+                      setIsPledgeModalOpen(true);
+                    }}
+                  />
+                )) : (
+                  <p className="text-muted-foreground">No rewards available yet.</p>
+                )}
+              </div>
+            )}
           </div>
         </div>
 

@@ -49,6 +49,11 @@ const CreateProject = () => {
   useEffect(() => {
     if (!isAuthenticated || !user?.id) {
       navigate("/login", { replace: true });
+      return;
+    }
+    // Block admins from creating projects
+    if (user?.isAdmin) {
+      navigate("/", { replace: true });
     }
   }, [isAuthenticated, user, navigate]);
   console.log("current user:", user?.id, user?.email);
@@ -404,9 +409,11 @@ const handleSubmit = async (e: React.FormEvent) => {
     // }
     console.log("Project created successfully:", data);
     toast({
-           description: "Project created successfully!"
-         });
-    navigate("/");
+      title: "🎉 Project Submitted Successfully!",
+      description: "Your project is currently pending review. It will go live as soon as an admin verifies it. You'll be notified via email and on-site notification.",
+      duration: 8000,
+    });
+    navigate("/profile");
   } catch (err) {
     console.error("Network error:", err);
   }

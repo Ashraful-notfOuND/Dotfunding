@@ -10,6 +10,7 @@ import updatesRoutes from "./routes/updatesRoutes.js";
 import reviewRoutes from "./routes/reviewRoutes.js";
 import recommendationRoutes from "./routes/recommendationRoutes.js";
 import communityRoutes from "./routes/communityRoutes.js";
+import adminRoutes from "./routes/adminRoutes.js";
 
 const app = express();
 
@@ -28,6 +29,7 @@ app.use("/api/updates", updatesRoutes);
 app.use("/api/reviews", reviewRoutes);
 app.use("/api/recommendations", recommendationRoutes);
 app.use("/api/community", communityRoutes);
+app.use("/api/admin", adminRoutes);
 // Test route
 app.get("/", (req, res) => {
   res.send("✅ Backend is running!");

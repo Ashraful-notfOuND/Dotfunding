@@ -36,7 +36,12 @@ export const signUpUser = async (req, res) => {
     // 4. Insert new user
     const { data, error } = await supabase
       .from("users")
-      .insert([{ full_name, email, password: hashedPassword }])
+      .insert([{ 
+        full_name, 
+        email, 
+        password: hashedPassword,
+        is_admin: false // New users are not admins by default
+      }])
       .select(); // select() returns inserted row
 
     if (error) {
@@ -46,7 +51,12 @@ export const signUpUser = async (req, res) => {
 
     return res.status(201).json({
       message: "User created successfully!",
-      user: { id: data[0].id, full_name: data[0].full_name, email: data[0].email },
+      user: { 
+        id: data[0].id, 
+        full_name: data[0].full_name, 
+        email: data[0].email,
+        is_admin: data[0].is_admin || false
+      },
     });
 
   } catch (err) {
@@ -91,7 +101,16 @@ export const loginUser = async (req, res) => {
     // Login successful
     return res.status(200).json({
       message: "Login successful!",
-      user: { id: user.id, full_name: user.full_name, email: user.email, phone: user.phone, bio: user.bio, location: user.location, profile_pic: user.profile_pic },
+      user: { 
+        id: user.id, 
+        full_name: user.full_name, 
+        email: user.email, 
+        phone: user.phone, 
+        bio: user.bio, 
+        location: user.location, 
+        profile_pic: user.profile_pic,
+        is_admin: user.is_admin || false
+      },
     });
 
   } catch (err) {

@@ -21,6 +21,7 @@ import { allProjects as staticProjects } from "@/data/allProjects";
 import HeroLanding from "@/components/landing/HeroLanding";
 import FeaturesLanding from "@/components/landing/FeaturesLanding";
 import CTALanding from "@/components/landing/CTALanding";
+import { useAuth } from "@/hooks/useAuth";
 //import { allProjects } from "@/data/mockProjects";
 
 // Category icon mapping
@@ -57,6 +58,7 @@ const AnimatedSection = ({ children }: { children: React.ReactNode }) => {
 };
 
 const Index = () => {
+  const { user } = useAuth();
   const [isLoading, setIsLoading] = useState(true);
   const [projects, setProjects] = useState<any[] | null>(null);
   const [categories, setCategories] = useState<{ name: string; icon: any; count: number }[]>([]);
@@ -304,26 +306,28 @@ const Index = () => {
         <Newsletter />
       </AnimatedSection>
 
-      {/* CTA Section */}
-      <AnimatedSection>
-        <section className="gradient-hero text-primary-foreground py-20">
-          <div className="container mx-auto px-4 text-center">
-            <h2 className="text-4xl font-bold mb-4">Ready to Bring Your Idea to Life?</h2>
-            <p className="text-xl mb-8 opacity-90 max-w-2xl mx-auto">
-              Join thousands of creators who have successfully funded their projects with community
-              support.
-            </p>
-            <Button
-              size="lg"
-              variant="secondary"
-              className="bg-white text-primary hover:bg-white/90"
-              asChild
-            >
-              <Link to="/create-project">Start Your Project Today</Link>
-            </Button>
-          </div>
-        </section>
-      </AnimatedSection>
+      {/* CTA Section - Hidden for admins */}
+      {!user?.isAdmin && (
+        <AnimatedSection>
+          <section className="gradient-hero text-primary-foreground py-20">
+            <div className="container mx-auto px-4 text-center">
+              <h2 className="text-4xl font-bold mb-4">Ready to Bring Your Idea to Life?</h2>
+              <p className="text-xl mb-8 opacity-90 max-w-2xl mx-auto">
+                Join thousands of creators who have successfully funded their projects with community
+                support.
+              </p>
+              <Button
+                size="lg"
+                variant="secondary"
+                className="bg-white text-primary hover:bg-white/90"
+                asChild
+              >
+                <Link to="/create-project">Start Your Project Today</Link>
+              </Button>
+            </div>
+          </section>
+        </AnimatedSection>
+      )}
 
       <Footer />
     </div>

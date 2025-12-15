@@ -22,6 +22,7 @@ import NotFound from "./pages/NotFound";
 import CreatorProfile from "./pages/CreatorProfile";
 import AuthCallback from "./pages/AuthCallback";
 import TermsAndConditions from "./pages/TermsAndConditions";
+import AdminDashboard from "./pages/AdminDashboard";
 
 
 const queryClient = new QueryClient();
@@ -67,6 +68,7 @@ const App = () => {
                       <Route path="/project/:id/edit" element={<PageWrapper><EditProject /></PageWrapper>} />
                       <Route path="/payment-success" element={<PageWrapper><PaymentSuccess /></PageWrapper>} />
                       <Route path="/creator/:id" element={<PageWrapper><CreatorProfile /></PageWrapper>} />
+                      <Route path="/admin" element={<PageWrapper><AdminDashboard /></PageWrapper>} />
                       {/* ADD ALL CUSTOM ROUTES ABOVE THE CATCH-ALL "*" ROUTE */}            <Route path="*" element={<PageWrapper><NotFound /></PageWrapper>} />
           </Routes>
         </AnimatePresence>

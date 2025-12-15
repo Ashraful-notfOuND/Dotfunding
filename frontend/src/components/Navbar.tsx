@@ -91,11 +91,18 @@ const Navbar = ({ hideSearch }: NavbarProps) => {
             <Button variant="ghost" asChild>
               <Link to="/explore">Explore</Link>
             </Button>
-            <Button variant="default" asChild className="bg-primary hover:bg-primary-hover">
-              <Link to="/create-project">Start a Project</Link>
-            </Button>
+            {!user?.isAdmin && (
+              <Button variant="default" asChild className="bg-primary hover:bg-primary-hover">
+                <Link to="/create-project">Start a Project</Link>
+              </Button>
+            )}
             {isAuthenticated ? (
               <>
+                {user?.isAdmin && (
+                  <Button variant="ghost" asChild className="bg-gradient-to-r from-purple-600 to-blue-600 text-white hover:from-purple-700 hover:to-blue-700">
+                    <Link to="/admin">Admin Dashboard</Link>
+                  </Button>
+                )}
                 <Button variant="ghost" size="icon" asChild className="relative">
                   <Link to="/profile?tab=notifications">
                     <Bell className="h-5 w-5" />
@@ -154,11 +161,18 @@ const Navbar = ({ hideSearch }: NavbarProps) => {
             <Button variant="ghost" asChild className="justify-start">
               <Link to="/explore">Explore</Link>
             </Button>
-            <Button variant="default" asChild className="justify-start bg-primary hover:bg-primary-hover">
-              <Link to="/create-project">Start a Project</Link>
-            </Button>
+            {!user?.isAdmin && (
+              <Button variant="default" asChild className="justify-start bg-primary hover:bg-primary-hover">
+                <Link to="/create-project">Start a Project</Link>
+              </Button>
+            )}
             {isAuthenticated ? (
               <>
+                {user?.isAdmin && (
+                  <Button variant="ghost" asChild className="justify-start bg-gradient-to-r from-purple-600 to-blue-600 text-white hover:from-purple-700 hover:to-blue-700">
+                    <Link to="/admin">Admin Dashboard</Link>
+                  </Button>
+                )}
                 <Button variant="ghost" asChild className="justify-start relative">
                   <Link to="/profile?tab=notifications" className="flex items-center gap-2">
                     <Bell className="h-5 w-5" />

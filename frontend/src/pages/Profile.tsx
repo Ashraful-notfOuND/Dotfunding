@@ -295,6 +295,8 @@ interface Project {
   location?: string;
   category: string;
   creatorName: string | null;
+  approval_status?: string;
+  admin_message?: string;
 }
 
 const Profile = () => {
@@ -317,7 +319,7 @@ const Profile = () => {
   const [errorNotifications, setErrorNotifications] = useState<string | null>(null);
   const [selectedNotification, setSelectedNotification] = useState<any>(null);
   const [isModalOpen, setIsModalOpen] = useState(false);
-  const [activeTab, setActiveTab] = useState("created");
+  const [activeTab, setActiveTab] = useState(user?.isAdmin ? "notifications" : "created");
   // === end added ===
 
   useEffect(() => {
@@ -370,6 +372,8 @@ const Profile = () => {
           location: p.location,
           category: p.category,
           creatorName: p.creator || null,
+          approval_status: p.approval_status,
+          admin_message: p.admin_message,
         }));
 
         setMyProjects(projects);
@@ -503,9 +507,22 @@ const Profile = () => {
     return d.getTime() > now.getTime();
   };
 
-  // Separate projects into live and past categories
-  const liveProjects = myProjects.filter(project => isProjectLive(project.fundingDeadline));
-  const pastProjects = myProjects.filter(project => !isProjectLive(project.fundingDeadline));
+  // Separate projects into pending, paused, live, and past categories
+  const pendingProjects = myProjects.filter(project => 
+    project.approval_status === 'pending' || 
+    project.approval_status === 'rejected'
+  );
+  const pausedProjects = myProjects.filter(project => 
+    project.approval_status === 'paused'
+  );
+  const liveProjects = myProjects.filter(project => 
+    project.approval_status === 'approved' && 
+    isProjectLive(project.fundingDeadline)
+  );
+  const pastProjects = myProjects.filter(project => 
+    project.approval_status === 'approved' && 
+    !isProjectLive(project.fundingDeadline)
+  );
 
   if (!isAuthenticated || !user) {
     return null;
@@ -588,14 +605,18 @@ const Profile = () => {
 
         <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full">
           <TabsList className="mb-8">
-            <TabsTrigger value="created" className="flex items-center gap-2">
-              <User className="h-4 w-4" />
-              My Projects
-            </TabsTrigger>
-            <TabsTrigger value="backed" className="flex items-center gap-2">
-              <Heart className="h-4 w-4" />
-              Backed Projects
-            </TabsTrigger>
+            {!user?.isAdmin && (
+              <>
+                <TabsTrigger value="created" className="flex items-center gap-2">
+                  <User className="h-4 w-4" />
+                  My Projects
+                </TabsTrigger>
+                <TabsTrigger value="backed" className="flex items-center gap-2">
+                  <Heart className="h-4 w-4" />
+                  Backed Projects
+                </TabsTrigger>
+              </>
+            )}
 
             {/* === added notifications tab === */}
             <TabsTrigger value="notifications" className="flex items-center gap-2">
@@ -617,18 +638,98 @@ const Profile = () => {
             {/* === end added === */}
           </TabsList>
 
-          <TabsContent value="created">
-            <div className="mb-6 flex items-center justify-between">
-              <div>
-                <h2 className="text-2xl font-bold mb-1">Projects I've Created</h2>
-                <p className="text-muted-foreground">
-                  Campaigns you've launched on DotFunding
-                </p>
-              </div>
-            </div>
+          {!user?.isAdmin && (
+            <>
+              <TabsContent value="created">
+                <div className="mb-6 flex items-center justify-between">
+                  <div>
+                    <h2 className="text-2xl font-bold mb-1">Projects I've Created</h2>
+                    <p className="text-muted-foreground">
+                      Campaigns you've launched on DotFunding
+                    </p>
+                  </div>
+                </div>
 
             {loadingProjects && <p>Loading projects...</p>}
             {errorProjects && <p className="text-red-500">Error: {errorProjects}</p>}
+
+            {/* Pending Projects Section */}
+            {!loadingProjects && pendingProjects.length > 0 && (
+              <div className="mb-6">
+                <div className="mb-4 flex items-center gap-2">
+                  <Clock className="h-5 w-5 text-yellow-600" />
+                  <h3 className="text-xl font-semibold">Pending Review ({pendingProjects.length})</h3>
+                  <Badge variant="secondary" className="bg-yellow-100 text-yellow-800">Awaiting Approval</Badge>
+                </div>
+                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+                  {pendingProjects.map((project) => (
+                    <div key={project.id} className="flex flex-col gap-2">
+                      <div className="relative">
+                        <ProjectCard
+                          id={project.id}
+                          title={project.title}
+                          creator={user.name ?? ""}
+                          image={project.image_urls}
+                          fundingGoal={project.fundingGoal}
+                          fundingCurrent={0}
+                          daysLeft={getDaysLeft(project.fundingDeadline)}
+                          category={project.category}
+                        />
+                        <div className="absolute top-2 right-2">
+                          {project.approval_status === 'pending' ? (
+                            <Badge className="bg-yellow-500">Pending</Badge>
+                          ) : project.approval_status === 'rejected' ? (
+                            <Badge variant="destructive">Rejected</Badge>
+                          ) : null}
+                        </div>
+                      </div>
+                      <Link to={`/project/${project.id}/edit`}>
+                        <Button variant="outline" className="w-full">
+                          Edit Project
+                        </Button>
+                      </Link>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            )}
+
+            {/* Paused Projects Section */}
+            {!loadingProjects && pausedProjects.length > 0 && (
+              <div className="mb-6">
+                <div className="mb-4 flex items-center gap-2">
+                  <Clock className="h-5 w-5 text-orange-600" />
+                  <h3 className="text-xl font-semibold">Paused Projects ({pausedProjects.length})</h3>
+                  <Badge variant="secondary" className="bg-orange-100 text-orange-800">Temporarily Paused</Badge>
+                </div>
+                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+                  {pausedProjects.map((project) => (
+                    <div key={project.id} className="flex flex-col gap-2">
+                      <div className="relative opacity-75">
+                        <ProjectCard
+                          id={project.id}
+                          title={project.title}
+                          creator={user.name ?? ""}
+                          image={project.image_urls}
+                          fundingGoal={project.fundingGoal}
+                          fundingCurrent={0}
+                          daysLeft={getDaysLeft(project.fundingDeadline)}
+                          category={project.category}
+                        />
+                        <div className="absolute top-2 right-2">
+                          <Badge className="bg-orange-500">Paused</Badge>
+                        </div>
+                      </div>
+                      <Link to={`/project/${project.id}/edit`}>
+                        <Button variant="outline" className="w-full">
+                          View Project
+                        </Button>
+                      </Link>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            )}
 
             {/* Live Projects Section */}
             {!loadingProjects && liveProjects.length > 0 && (
@@ -832,6 +933,8 @@ const Profile = () => {
               </Card>
             )}
           </TabsContent>
+            </>
+          )}
 
           <TabsContent value="notifications">
             <div className="mb-6">
