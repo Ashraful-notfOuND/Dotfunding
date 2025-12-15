@@ -683,7 +683,11 @@ const ProjectDetail = () => {
               </TabsContent>
 
               <TabsContent value="updates" className="mt-6">
-                <Updates />
+                <Updates 
+                  currentUser={user} 
+                  ownerEmail={project.creatorEmail} 
+                  projectId={project.id} 
+                />
               </TabsContent>
 
               <TabsContent value="comments" className="mt-6">

@@ -6,6 +6,7 @@ import projectRoutes from "./routes/projectRoutes.js";
 import paymentRoutes from "./routes/paymentRoutes.js";
 import notificationRoutes from "./routes/notificationRoutes.js";
 import commentRoutes from "./routes/commentRoutes.js";
+import updatesRoutes from "./routes/updatesRoutes.js";
 import reviewRoutes from "./routes/reviewRoutes.js";
 import recommendationRoutes from "./routes/recommendationRoutes.js";
 
@@ -22,6 +23,7 @@ app.use("/api/projects", projectRoutes);
 app.use("/api/payments", paymentRoutes);
 app.use("/api/notifications", notificationRoutes);
 app.use("/api/comments", commentRoutes);
+app.use("/api/updates", updatesRoutes);
 app.use("/api/reviews", reviewRoutes);
 app.use("/api/recommendations", recommendationRoutes);
 // Test route
