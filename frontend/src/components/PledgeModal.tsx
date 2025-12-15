@@ -401,6 +401,17 @@ const PledgeModal = ({
   const onSubmit = async (data: PledgeFormValues) => {
     setIsProcessing(true);
 
+    // Prevent project creators from backing their own projects
+    if (userId && ownerId && userId === ownerId) {
+      toast({
+        title: "Cannot back your own project",
+        description: "You cannot pledge to a project you created. Please share your project with others to get support!",
+        variant: "destructive",
+      });
+      setIsProcessing(false);
+      return;
+    }
+
     // Show warning if user doesn't have phone number in profile
     if (!userPhone) {
       toast({
@@ -462,7 +473,13 @@ const PledgeModal = ({
 
       if (!res.ok) {
         const err = await res.json().catch(() => ({}));
-        toast({ title: "Payment init failed", description: err?.error || "Could not initialize payment." });
+        // Use the detailed message if available, otherwise fallback to error
+        const errorMessage = err?.message || err?.error || "Could not initialize payment.";
+        toast({ 
+          title: res.status === 403 ? "Cannot back own project" : "Payment init failed", 
+          description: errorMessage,
+          variant: res.status === 403 ? "destructive" : "default"
+        });
         setIsProcessing(false);
         return;
       }

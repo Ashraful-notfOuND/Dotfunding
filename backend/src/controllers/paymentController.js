@@ -277,6 +277,36 @@ export const initPayment = async (req, res) => {
       cus_phone: body.cus_phone || "",
     };
 
+    // Validate that user is not trying to back their own project
+    if (body.project_id && body.user_id) {
+      try {
+        const { data: project, error: projectError } = await supabase
+          .from("main_projects")
+          .select("user_id")
+          .eq("id", body.project_id)
+          .single();
+        
+        if (projectError) {
+          console.error("initPayment: Failed to fetch project:", projectError);
+          return res.status(400).json({ error: "Invalid project ID" });
+        }
+        
+        if (project && project.user_id === body.user_id) {
+          console.warn("initPayment: User attempting to back their own project:", {
+            user_id: body.user_id,
+            project_id: body.project_id
+          });
+          return res.status(403).json({ 
+            error: "You cannot pledge to your own project",
+            message: "Project creators cannot back their own projects. Please share your project with others to get support!" 
+          });
+        }
+      } catch (err) {
+        console.error("initPayment: Error checking project ownership:", err);
+        return res.status(500).json({ error: "Failed to validate project ownership" });
+      }
+    }
+
     // Basic validation to surface clear errors to the frontend instead of ambiguous gateway replies
     const missing = [];
     if (!data.total_amount || Number(data.total_amount) <= 0) missing.push("total_amount");
