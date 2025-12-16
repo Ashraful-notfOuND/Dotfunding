@@ -34,7 +34,7 @@ const Explore = () => {
     const fetchProjects = async () => {
       setLoading(true);
       try {
-        const res = await fetch("http://localhost:5000/api/projects");
+        const res = await fetch("http://localhost:3002/api/projects");
         if (!res.ok) throw new Error(`Failed to fetch projects (${res.status})`);
         const data = await res.json();
         setProjects(data.projects || data);
@@ -48,17 +48,31 @@ const Explore = () => {
     fetchProjects();
   }, []);
 
+  // Helper function to check if a project is live (deadline hasn't passed)
+  const isProjectLive = (deadline: string): boolean => {
+    if (!deadline) return true; // If no deadline, consider it live
+    const now = new Date();
+    const d = new Date(deadline);
+    return d.getTime() > now.getTime();
+  };
+
   const normalizedProjects = useMemo(() => {
-    return projects.map((p) => ({
-      ...p,
-      image: p.image || p.image_urls || "",
-      images: p.images || (p.image_urls ? [p.image_urls] : []),
-      status: p.status || "active",
-      fundingCurrent: p.fundingCurrent || 0,
-      fundingGoal: p.fundingGoal || 0,
-      backers: p.backers || 0,
-      daysLeft: p.daysLeft || 0,
-    }));
+    return projects
+      .filter((p) => {
+        // Filter out past projects - only show live/running projects
+        const deadline = p.fundingDeadline || p.funding_deadline;
+        return isProjectLive(deadline);
+      })
+      .map((p) => ({
+        ...p,
+        image: p.image || p.image_urls || "",
+        images: p.images || (p.image_urls ? [p.image_urls] : []),
+        status: p.status || "active",
+        fundingCurrent: p.fundingCurrent || 0,
+        fundingGoal: p.fundingGoal || 0,
+        backers: p.backers || 0,
+        daysLeft: p.daysLeft || 0,
+      }));
   }, [projects]);
 
   const filteredProjects = useMemo(() => {
