@@ -1,298 +1,338 @@
-import React, { useState, useEffect } from "react";
+import React, { useEffect, useState } from "react";
 import { useNavigate, useParams } from "react-router-dom";
-import { toast } from "sonner";
-import { Button } from "@/components/ui/button";
+import { Card, CardContent } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
+import { Button } from "@/components/ui/button";
 import { Label } from "@/components/ui/label";
-import { Card, CardContent } from "@/components/ui/card";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import Navbar from "@/components/Navbar";
-import Footer from "@/components/Footer";
+import { Calendar } from "@/components/ui/calendar";
+import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
+import { CalendarIcon } from "lucide-react";
 import { useAuth } from "@/hooks/useAuth";
+import { toast } from "@/hooks/use-toast";
 
 interface Reward {
-  amount: string | number;
+  amount: string;
   title: string;
   description: string;
-  delivery?: string;
+  delivery: Date | null;
+  backers: number;
+  available: number;
 }
 
-interface FAQ {
-  question: string;
-  answer: string;
-}
-
-interface Update {
-  title: string;
-  description: string;
-  date: string;
-}
-
-// Mock project data
-const mockProject = {
-  title: "Revolutionary Smart Watch with Health Monitoring",
-  tagline: "Track your health in real-time with AI-powered analytics",
-  description: "Our device combines technology with elegant design to help you track health metrics.",
-  category: "technology",
-  location: "San Francisco, CA",
-  fundingGoal: 50000,
-  image: "https://example.com/image.jpg",
-  videoUrl: "https://youtube.com/example",
-  images: ["https://img1.jpg", "https://img2.jpg"],
-  rewards: [
-    { amount: 50, title: "Early Bird Special", description: "Get 40% off the retail price." },
-    { amount: 99, title: "Super Early Bird", description: "Get 30% off the retail price." },
-  ],
-  faqs: [{ question: "Shipping?", answer: "Ships worldwide." }],
-  updates: [{ title: "Prototype Ready", description: "Our prototype is ready for testing.", date: "2025-10-10" }],
+const formatDate_dd_mm_yyyy = (date: Date) => {
+  const d = date.getDate();
+  const m = date.getMonth() + 1;
+  const y = date.getFullYear();
+  return `${d < 10 ? "0" + d : d}/${m < 10 ? "0" + m : m}/${y}`;
 };
 
 const EditProject = () => {
-  const { id } = useParams();
-  const { isAuthenticated } = useAuth();
+  const { id } = useParams<{ id: string }>();
   const navigate = useNavigate();
+  const { user, isAuthenticated } = useAuth();
 
-  const [form, setForm] = useState({
+  const [form, setForm] = useState<any>({
     title: "",
     tagline: "",
-    description: "",
+    image: "",
+    images: [] as string[],
+    fundingGoal: "",
+    fundingDeadline: null as Date | null,
     category: "",
     location: "",
-    fundingGoal: 0,
-    image: "",
-    videoUrl: "",
-    images: [] as string[],
+    description: "",
     rewards: [] as Reward[],
-    faqs: [] as FAQ[],
-    updates: [] as Update[],
   });
 
-  const [errors, setErrors] = useState<{ [key: string]: string }>({});
+  const [existingImages, setExistingImages] = useState<string[]>([]); // backend images
+  const [newGalleryFiles, setNewGalleryFiles] = useState<File[]>([]); // new images
+  const [loading, setLoading] = useState(true);
+  const [submitting, setSubmitting] = useState(false);
 
   useEffect(() => {
-    if (!isAuthenticated) {
-      toast.error("Please login to edit a project");
-      navigate("/login");
+    if (!isAuthenticated || !user?.id) {
+      navigate("/login", { replace: true });
       return;
     }
-    // Load mock data
-    setForm({
-      title: mockProject.title,
-      tagline: mockProject.tagline,
-      description: mockProject.description,
-      category: mockProject.category,
-      location: mockProject.location,
-      fundingGoal: mockProject.fundingGoal,
-      image: mockProject.image,
-      videoUrl: mockProject.videoUrl,
-      images: mockProject.images,
-      rewards: mockProject.rewards.map(r => ({ ...r, amount: r.amount.toString() })),
-      faqs: mockProject.faqs,
-      updates: mockProject.updates,
-    });
-  }, [isAuthenticated, navigate]);
 
-  if (!isAuthenticated) return null;
+    fetch(`http://localhost:5000/api/projects/getEditProjectInfo/${id}`)
+      .then(res => res.json())
+      .then(data => {
+        setForm({
+          title: data.project.title,
+          tagline: data.project.tagline,
+          category: data.project.category,
+          location: data.project.location,
+          fundingGoal: data.project.funding_goal,
+          fundingDeadline: data.project.funding_deadline ? new Date(data.project.funding_deadline) : null,
+          image: data.project.image_url,
+          images: data.campaignImages || [],
+          description: data.campaignDescription || "",
+          rewards: data.rewards || [],
+        });
+        setExistingImages(data.campaignImages || []);
+        setLoading(false);
+      })
+      .catch(err => {
+        console.error(err);
+        setLoading(false);
+      });
+  }, [id, isAuthenticated, user, navigate]);
 
-  const validateForm = () => {
-    const newErrors: { [key: string]: string } = {};
-    if (!form.title.trim()) newErrors.title = "Title is required.";
-    if (!form.tagline.trim()) newErrors.tagline = "Tagline is required.";
-    if (!form.category) newErrors.category = "Category is required.";
-    if (!form.location.trim()) newErrors.location = "Location is required.";
-    if (form.fundingGoal <= 0) newErrors.fundingGoal = "Funding goal must be greater than 0.";
-    setErrors(newErrors);
-    return Object.keys(newErrors).length === 0;
+  if (loading) return <p>Loading...</p>;
+
+  const handleChange = (field: string, value: any) => {
+    setForm({ ...form, [field]: value });
   };
 
-  // Reward handlers
-  const addReward = () => setForm(prev => ({ ...prev, rewards: [...prev.rewards, { amount: "", title: "", description: "" }] }));
-  const removeReward = (index: number) => setForm(prev => ({ ...prev, rewards: prev.rewards.filter((_, i) => i !== index) }));
-  const handleRewardChange = (index: number, field: keyof Reward, value: string | number) => {
-    const updated = [...form.rewards];
-    (updated[index] as any)[field] = value;
+  const handleRewardChange = (index: number, field: keyof Reward, value: any) => {
+    const updated = [...(form.rewards || [])];
+    updated[index][field] = value;
     setForm({ ...form, rewards: updated });
   };
 
-  // FAQ handlers
-  const addFAQ = () => setForm(prev => ({ ...prev, faqs: [...prev.faqs, { question: "", answer: "" }] }));
-  const removeFAQ = (index: number) => setForm(prev => ({ ...prev, faqs: prev.faqs.filter((_, i) => i !== index) }));
-  const handleFAQChange = (index: number, field: keyof FAQ, value: string) => {
-    const updated = [...form.faqs];
-    updated[index][field] = value;
-    setForm({ ...form, faqs: updated });
+  const handleAddReward = () => {
+    setForm({
+      ...form,
+      rewards: [...(form.rewards || []), { amount: "", title: "", description: "", delivery: null, backers: 0, available: 0 }],
+    });
   };
 
-  // Update handlers
-  const addUpdate = () => setForm(prev => ({ ...prev, updates: [...prev.updates, { title: "", description: "", date: new Date().toISOString() }] }));
-  const removeUpdate = (index: number) => setForm(prev => ({ ...prev, updates: prev.updates.filter((_, i) => i !== index) }));
-  const handleUpdateChange = (index: number, field: keyof Update, value: string) => {
-    const updated = [...form.updates];
-    updated[index][field] = value;
-    setForm({ ...form, updates: updated });
+  const handleRemoveReward = (index: number) => {
+    setForm({
+      ...form,
+      rewards: form.rewards.filter((_: any, i: number) => i !== index),
+    });
   };
 
-  const handleSubmit = (e: React.FormEvent) => {
+  const handleImageRemove = (index: number) => {
+    const totalImages = [...existingImages, ...newGalleryFiles.map(f => URL.createObjectURL(f))];
+    const removedImage = totalImages[index];
+
+    // Remove from existingImages if present
+    setExistingImages(prev => prev.filter(img => img !== removedImage));
+
+    // Remove from newGalleryFiles if present
+    setNewGalleryFiles(prev => prev.filter(f => URL.createObjectURL(f) !== removedImage));
+
+    // Update form images
+    handleChange("images", totalImages.filter((_, i) => i !== index));
+  };
+
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!validateForm()) return;
-    toast.success(`Project ${id} updated successfully!`);
-    navigate(`/projects/${id}`);
+    if (submitting) return;
+    setSubmitting(true);
+
+    if (!form.title.trim()) {
+      toast({ description: "Title is required" });
+      setSubmitting(false);
+      return;
+    }
+
+    try {
+      const formData = new FormData();
+      formData.append("title", form.title);
+      formData.append("tagline", form.tagline);
+      formData.append("category", form.category);
+      formData.append("location", form.location);
+      formData.append("campaignDescription", form.description);
+      formData.append("funding_deadline", form.fundingDeadline?.toISOString() || "");
+
+      // Add newly uploaded files
+      if (newGalleryFiles.length > 0) {
+        newGalleryFiles.forEach(file => formData.append("gallery", file));
+      }
+
+      // Send existing images so backend preserves them
+      formData.append("existingImages", JSON.stringify(existingImages));
+
+      // Add rewards as JSON
+      formData.append("rewards", JSON.stringify(form.rewards));
+
+      const response = await fetch(`http://localhost:5000/api/projects/edit/${id}`, {
+        method: "POST",
+        body: formData,
+      });
+
+      if (!response.ok) {
+        const err = await response.json();
+        console.error(err);
+        toast({ description: "Failed to update project" });
+      } else {
+        toast({ description: "Project updated successfully!" });
+        navigate("/profile");
+      }
+    } catch (err) {
+      console.error(err);
+      toast({ description: "Network error" });
+    }
+
+    setSubmitting(false);
   };
 
   return (
-    <div className="min-h-screen flex flex-col">
-      <Navbar />
-      <div className="container mx-auto px-4 py-12 max-w-4xl">
-        <h1 className="text-4xl font-bold mb-2">Edit Your Project</h1>
-        <p className="text-muted-foreground mb-8">Update your campaign details, rewards, FAQs, and updates.</p>
+    <Card className="max-w-4xl mx-auto my-10">
+      <CardContent className="pt-6 space-y-6">
+        <h2 className="text-3xl font-bold mb-4">Edit Project</h2>
+        <form onSubmit={handleSubmit} className="space-y-6">
 
-        <form onSubmit={handleSubmit}>
-          <Card className="space-y-6">
-            <CardContent className="space-y-6">
-              {/* Basic Info */}
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                <div>
-                  <Label>Title</Label>
-                  <Input placeholder="Enter project title" value={form.title} onChange={e => setForm({ ...form, title: e.target.value })} />
-                  {errors.title && <p className="text-red-600 text-sm">{errors.title}</p>}
-                </div>
-                <div>
-                  <Label>Tagline</Label>
-                  <Input placeholder="Short project tagline" value={form.tagline} onChange={e => setForm({ ...form, tagline: e.target.value })} />
-                  {errors.tagline && <p className="text-red-600 text-sm">{errors.tagline}</p>}
-                </div>
-              </div>
+          {/* Title & Tagline */}
+          <div className="space-y-4">
+            <div>
+              <Label>Title</Label>
+              <Input 
+                value={form.title} 
+                onChange={(e) => handleChange("title", e.target.value)} 
+                disabled
+              />
+            </div>
 
+            <div>
+              <Label>Tagline</Label>
+              <Input value={form.tagline} onChange={(e) => handleChange("tagline", e.target.value)} />
+            </div>
+          </div>
 
-              {/* Media */}
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                <div>
-                  <Label>Main Image URL</Label>
-                  <Input placeholder="https://example.com/image.jpg" value={form.image} onChange={e => setForm({ ...form, image: e.target.value })} />
-                </div>
-                <div>
-                  <Label>Video URL</Label>
-                  <Input placeholder="YouTube or Vimeo URL" value={form.videoUrl} onChange={e => setForm({ ...form, videoUrl: e.target.value })} />
-                </div>
-              </div>
-              <div>
-                <Label>Gallery Images (comma-separated URLs)</Label>
-                <Input placeholder="https://img1.jpg, https://img2.jpg" value={form.images.join(", ")} onChange={e => setForm({ ...form, images: e.target.value.split(",").map(s => s.trim()) })} />
-              </div>
+          {/* Main Image */}
+          <div>
+            <Label>Main Image</Label>
+            <Input
+              type="file"
+              accept="image/*"
+              onChange={(e) => {
+                if (e.target.files && e.target.files[0]) {
+                  const file = e.target.files[0];
+                  const reader = new FileReader();
+                  reader.onloadend = () => handleChange("image", reader.result);
+                  reader.readAsDataURL(file);
+                }
+              }}
+            />
+            {form.image && <img src={form.image} alt="Main" className="w-full h-32 object-cover mt-2 rounded-md" />}
+          </div>
 
-              {/* Category & Location */}
-              <div className="grid md:grid-cols-2 gap-4">
-                <div>
-                  <Label>Category</Label>
-                  <Select value={form.category} onValueChange={v => setForm({ ...form, category: v })} required>
-                    <SelectTrigger>
-                      <SelectValue placeholder="Select Category" />
-                    </SelectTrigger>
-                      <SelectContent>
-                        <SelectItem value="Technology">Technology</SelectItem>
-                        <SelectItem value="Art">Art</SelectItem>
-                        <SelectItem value="Games">Games</SelectItem>
-                        <SelectItem value="Design">Design</SelectItem>
-                        <SelectItem value="Film & Video">Film & Video</SelectItem>
-                        <SelectItem value="Music">Music</SelectItem>
-                        <SelectItem value="Publishing">Publishing</SelectItem>
-                        <SelectItem value="Food & Craft">Food & Craft</SelectItem>
-                      </SelectContent>
-                  </Select>
-                  {errors.category && <p className="text-red-600 text-sm">{errors.category}</p>}
-                </div>
-
-                <div>
-                  <Label>Location</Label>
-                  <Input placeholder="City, Country" value={form.location} onChange={e => setForm({ ...form, location: e.target.value })} />
-                  {errors.location && <p className="text-red-600 text-sm">{errors.location}</p>}
-                </div>
-              </div>
-
-              {/* Funding */}
-              <div>
-                <Label>Funding Goal ($)</Label>
-                <Input type="number" placeholder="1000" value={form.fundingGoal} onChange={e => setForm({ ...form, fundingGoal: Number(e.target.value) })} />
-                {errors.fundingGoal && <p className="text-red-600 text-sm">{errors.fundingGoal}</p>}
-              </div>
-              
-              {/*Description*/}
-              <div>
-                <Label>Description</Label>
-                <Textarea placeholder="Describe your project" rows={4} value={form.description} onChange={e => setForm({ ...form, description: e.target.value })} />
-              </div>
-
-               {/* Rewards */}
-            <div className="space-y-2">
-              <div className="flex justify-between items-center">
-                <h3 className="text-lg font-semibold">Rewards</h3>
-                <Button type="button" variant="outline" onClick={addReward}>Add Reward</Button>
-              </div>
-              {errors.rewards && <p className="text-red-600 text-sm">{errors.rewards}</p>}
-              {form.rewards.map((reward, i) => (
-                <div key={i} className="border p-3 rounded-md space-y-2">
-                  <div className="flex justify-between items-center">
-                    <strong>Reward #{i + 1}</strong>
-                    <Button type="button" variant="destructive" onClick={() => removeReward(i)}>Remove</Button>
-                  </div>
-                  <Input placeholder="Reward Title" value={reward.title} onChange={(e) => handleRewardChange(i, "title", e.target.value)} />
-                  <Input placeholder="Amount" type="number" value={reward.amount} onChange={(e) => handleRewardChange(i, "amount", Number(e.target.value))} />
-                  <Input placeholder="Delivery Date" value={reward.delivery} onChange={(e) => handleRewardChange(i, "delivery", e.target.value)} />
-                  <Textarea placeholder="Reward Description" value={reward.description} onChange={(e) => handleRewardChange(i, "description", e.target.value)} />
+          {/* Gallery */}
+          <div>
+            <Label>Gallery</Label>
+            <Input
+              type="file"
+              multiple
+              accept="image/*"
+              onChange={(e) => {
+                if (e.target.files) {
+                  const files = Array.from(e.target.files);
+                  setNewGalleryFiles(prev => [...prev, ...files]);
+                  const urls = files.map(f => URL.createObjectURL(f));
+                  handleChange("images", [...form.images, ...urls]);
+                }
+              }}
+            />
+            <div className="grid grid-cols-3 gap-2 mt-2">
+              {form.images.map((img: string, i: number) => (
+                <div key={i} className="relative">
+                  <img src={img} alt={`preview ${i}`} className="w-full h-32 object-cover rounded-md" />
+                  <button type="button" onClick={() => handleImageRemove(i)} className="absolute top-0 right-0 bg-red-500 text-white rounded-full px-1">&times;</button>
                 </div>
               ))}
             </div>
+          </div>
 
+          {/* Category & Location */}
+          <div className="grid md:grid-cols-2 gap-4">
+            <div>
+              <Label>Category</Label>
+              <Select value={form.category} onValueChange={(v) => handleChange("category", v)}>
+                <SelectTrigger><SelectValue placeholder="Select Category" /></SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="Technology">Technology</SelectItem>
+                  <SelectItem value="Art">Art</SelectItem>
+                  <SelectItem value="Games">Games</SelectItem>
+                  <SelectItem value="Design">Design</SelectItem>
+                  <SelectItem value="Film & Video">Film & Video</SelectItem>
+                  <SelectItem value="Music">Music</SelectItem>
+                  <SelectItem value="Publishing">Publishing</SelectItem>
+                  <SelectItem value="Food & Craft">Food & Craft</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
+            <div>
+              <Label>Location</Label>
+              <Input value={form.location} onChange={(e) => handleChange("location", e.target.value)} />
+            </div>
+          </div>
 
-               {/* FAQs */}
-              <div className="space-y-2">
-                <div className="flex justify-between items-center">
-                  <h3 className="text-lg font-semibold">FAQs</h3>
-                  <Button type="button" variant="outline" onClick={addFAQ}>Add FAQ</Button>
+          {/* Funding Goal */}
+          <div>
+            <Label>Funding Goal</Label>
+            <Input
+              value={form.fundingGoal}
+              onChange={(e) => handleChange("fundingGoal", e.target.value)}
+              disabled
+            />
+          </div>
+
+          {/* Funding Deadline */}
+          <div>
+            <Label>Funding Deadline</Label>
+            <Popover>
+              <PopoverTrigger asChild>
+                <Button 
+                  variant="outline" 
+                  className="w-full justify-start text-left font-normal"
+                  disabled
+                >
+                  <CalendarIcon className="mr-2 h-4 w-4" />
+                  {form.fundingDeadline ? formatDate_dd_mm_yyyy(form.fundingDeadline) : "Pick a date"}
+                </Button>
+              </PopoverTrigger>
+              <PopoverContent className="w-auto p-0">
+                <Calendar
+                  mode="single"
+                  selected={form.fundingDeadline ?? undefined}
+                  onSelect={(date) => handleChange("fundingDeadline", date ?? null)}
+                  initialFocus
+                  disabled
+                />
+              </PopoverContent>
+            </Popover>
+          </div>
+
+          {/* Description */}
+          <div>
+            <Label>Description / Story</Label>
+            <Textarea rows={4} value={form.description} onChange={(e) => handleChange("description", e.target.value)} />
+          </div>
+
+          {/* Rewards */}
+          <div className="space-y-3">
+            <div className="flex justify-between items-center">
+              <Label>Rewards</Label>
+              <Button type="button" variant="outline" size="sm" onClick={handleAddReward}>Add Reward</Button>
+            </div>
+            {(form.rewards || []).map((reward: Reward, i: number) => (
+              <div key={i} className="border p-3 rounded-md space-y-2">
+                <div className="flex gap-2">
+                  <Input placeholder="Title" value={reward.title} onChange={(e) => handleRewardChange(i, "title", e.target.value)} />
+                  <Input placeholder="Amount" type="number" value={reward.amount} onChange={(e) => handleRewardChange(i, "amount", e.target.value)} />
                 </div>
-                {form.faqs.map((faq, i) => (
-                  <div key={i} className="border p-3 rounded-md space-y-2">
-                    <div className="flex justify-between items-center">
-                      <strong>FAQ #{i + 1}</strong>
-                      <Button type="button" variant="destructive" onClick={() => removeFAQ(i)}>Remove</Button>
-                    </div>
-                    <Input placeholder="Question" value={faq.question} onChange={(e) => handleFAQChange(i, "question", e.target.value)} />
-                    <Textarea placeholder="Answer" value={faq.answer} onChange={(e) => handleFAQChange(i, "answer", e.target.value)} />
-                  </div>
-                ))}
-              </div>
-    
-              {/* Updates */}
-              <div className="space-y-2">
+                <Textarea placeholder="Description" value={reward.description} onChange={(e) => handleRewardChange(i, "description", e.target.value)} />
                 <div className="flex justify-between items-center">
-                  <h3 className="text-lg font-semibold">Updates</h3>
-                  <Button type="button" variant="outline" onClick={addUpdate}>Add Update</Button>
+                  <Button type="button" variant="destructive" size="sm" onClick={() => handleRemoveReward(i)}>Remove</Button>
                 </div>
-                {form.updates.map((update, i) => (
-                  <div key={i} className="border p-3 rounded-md space-y-2">
-                    <div className="flex justify-between items-center">
-                      <strong>Update #{i + 1}</strong>
-                      <Button type="button" variant="destructive" onClick={() => removeUpdate(i)}>Remove</Button>
-                    </div>
-                    <Input placeholder="Update Title" value={update.title} onChange={(e) => handleUpdateChange(i, "title", e.target.value)} />
-                    <Textarea placeholder="Update Description" value={update.description} onChange={(e) => handleUpdateChange(i, "description", e.target.value)} />
-                    <Input type="date" value={update.date.split("T")[0]} onChange={(e) => handleUpdateChange(i, "date", e.target.value)} />
-                  </div>
-                ))}
               </div>
+            ))}
+          </div>
 
-              {/* Submit & Cancel */}
-              <div className="flex gap-3 justify-end">
-                <Button type="button" variant="outline" onClick={() => navigate(`/projects/${id}`)}>Cancel</Button>
-                <Button type="submit" className="bg-accent hover:bg-accent-hover">Update Project</Button>
-              </div>
-            </CardContent>
-          </Card>
+          <div className="flex gap-3">
+            <Button type="submit" className="w-full bg-primary" disabled={submitting}>{submitting ? "Saving..." : "Save Changes"}</Button>
+            <Button type="button" variant="outline" className="w-full" onClick={() => navigate("/profile")}>Cancel</Button>
+          </div>
         </form>
-      </div>
-      <Footer />
-    </div>
+      </CardContent>
+    </Card>
   );
 };
 

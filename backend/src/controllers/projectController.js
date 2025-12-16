@@ -2,6 +2,9 @@ import { supabase } from "../config/supabaseClient.js";
 import { v4 as uuidv4 } from "uuid";
 import { observerManager } from "../services/ProjectObserver.js";
 import { projectStateMachine, ProjectStatus } from "../services/ProjectStateMachine.js";
+import multer from "multer";
+
+const upload = multer({ storage: multer.memoryStorage() });
 
 
 // Multer saves file in req.file
@@ -385,7 +388,7 @@ export const getProjectById = async (req, res) => {
     let rewards = [];
     try {
       const { data: rewardsData } = await supabase
-        .from("reward_table")
+        .from("rewards")
         .select("id, title, description, amount, backers, available, delivery")
         .eq("project_id", id);
       if (Array.isArray(rewardsData)) {
@@ -624,6 +627,261 @@ export const getAllProjects = async (req, res) => {
     return res.status(500).json({ error: "Failed to fetch projects" });
   }
 };
+
+
+/**
+ * GET project for editing
+ * Fetch project, campaign, and rewards only (no FAQs)
+ */
+export const getProjectForEdit = async (req, res) => {
+  try {
+    const { id } = req.params;
+    if (!id) return res.status(400).json({ error: "Project id is required" });
+
+    // Fetch main project info
+    const { data: project, error: projectError } = await supabase
+      .from("main_projects")
+      .select("*")
+      .eq("id", id)
+      .single();
+
+    if (projectError || !project)
+      return res.status(404).json({ error: "Project not found" });
+
+    // Fetch campaign description/images
+    const { data: campaignData } = await supabase
+      .from("project_campaigns")
+      .select("description, image_urls")
+      .eq("project_id", id);
+
+    const campaignDescription = campaignData?.[0]?.description || "";
+    const campaignImages = campaignData?.[0]?.image_urls || [];
+
+    // Fetch rewards properly
+    const { data: rewardsData } = await supabase
+      .from("rewards")
+      .select("*")
+      .eq("project_id", id)
+      .order("amount", { ascending: true }); // optional: order by amount
+
+    res.status(200).json({
+      project,
+      campaignDescription,
+      campaignImages,
+      rewards: rewardsData || [],
+    });
+  } catch (err) {
+    console.error("getProjectForEdit error:", err);
+    res.status(500).json({ error: "Failed to fetch project data" });
+  }
+};
+
+/**
+ * POST edit project
+ * Accepts multipart/form-data for images
+ */
+
+export const editProject = [
+  // Multer middleware for handling files
+  upload.fields([
+    { name: "image", maxCount: 1 },
+    { name: "gallery", maxCount: 10 },
+  ]),
+
+  async (req, res) => {
+    console.log("===== editProject request received =====");
+    console.log("Request params:", req.params);
+    console.log("Request body:", req.body);
+    console.log("Request files:", req.files);
+
+    try {
+      const { id } = req.params;
+      if (!id) return res.status(400).json({ error: "Project id is required" });
+
+      const {
+        title,
+        tagline,
+        category,
+        location,
+        funding_deadline,
+        campaignDescription,
+        rewards,
+        existingImages: existingImagesJSON,
+      } = req.body;
+
+      const existingImagesFrontend = existingImagesJSON ? JSON.parse(existingImagesJSON) : [];
+
+      console.log("Parsed fields:", { title, tagline, category, location, funding_deadline, campaignDescription, rewards, existingImagesFrontend });
+
+      const updates = {};
+      if (title) updates.title = title;
+      if (tagline) updates.tagline = tagline;
+      if (category) updates.category = category;
+      if (location) updates.location = location;
+      if (funding_deadline) updates.funding_deadline = funding_deadline;
+
+      // Handle main image upload
+      if (req.files?.image?.[0]) {
+        const file = req.files.image[0];
+        const ext = file.originalname.split(".").pop();
+        const fileName = `${uuidv4()}.${ext}`;
+
+        console.log("Uploading main image:", file.originalname);
+
+        const { error: uploadError } = await supabase.storage
+          .from("project-pictures")
+          .upload(fileName, file.buffer, {
+            contentType: file.mimetype,
+            cacheControl: "3600",
+          });
+
+        if (uploadError) {
+          console.error("Main image upload error:", uploadError);
+          throw uploadError;
+        }
+
+        const { data: urlData } = supabase.storage
+          .from("project-pictures")
+          .getPublicUrl(fileName);
+
+        console.log("Main image uploaded, URL:", urlData.publicUrl);
+        updates.image_url = urlData.publicUrl;
+      }
+
+      // Update main project row
+      console.log("Updating main project in Supabase with:", updates);
+
+      const { data: updatedProject, error: updateError } = await supabase
+        .from("main_projects")
+        .update(updates)
+        .eq("id", id)
+        .select();
+
+      if (updateError) {
+        console.error("Supabase update error:", updateError);
+        throw updateError;
+      }
+
+      if (!updatedProject || updatedProject.length === 0) {
+        console.warn("No project found with id:", id);
+        return res.status(404).json({ error: "Project not found" });
+      }
+
+      console.log("Main project updated:", updatedProject[0]);
+
+      // Handle campaign description & gallery
+      if (campaignDescription || req.files?.gallery?.length) {
+        let newImageUrls = [];
+
+        // Upload new gallery files
+        if (req.files?.gallery?.length) {
+          for (const file of req.files.gallery) {
+            const ext = file.originalname.split(".").pop();
+            const fileName = `${uuidv4()}.${ext}`;
+            console.log("Uploading gallery image:", file.originalname);
+
+            const { error: uploadError } = await supabase.storage
+              .from("project-pictures")
+              .upload(fileName, file.buffer, {
+                contentType: file.mimetype,
+                cacheControl: "3600",
+              });
+
+            if (uploadError) {
+              console.error("Gallery image upload error:", uploadError);
+              throw uploadError;
+            }
+
+            const { data: urlData } = supabase.storage
+              .from("project-pictures")
+              .getPublicUrl(fileName);
+
+            newImageUrls.push(urlData.publicUrl);
+          }
+        }
+
+        // Fetch existing images from project_campaigns
+        const { data: existingCampaignData, error: fetchError } = await supabase
+          .from("project_campaigns")
+          .select("image_urls")
+          .eq("project_id", id)
+          .single();
+
+        if (fetchError && fetchError.code !== "PGRST116") { // ignore "row not found"
+          console.error("Failed to fetch existing campaign:", fetchError);
+          throw fetchError;
+        }
+
+        const existingImagesBackend = existingCampaignData?.image_urls || [];
+
+        // Delete images that were removed on frontend
+        const imagesToDelete = existingImagesBackend.filter(img => !existingImagesFrontend.includes(img));
+        for (const imgUrl of imagesToDelete) {
+          const parts = imgUrl.split("/");
+          const fileName = parts[parts.length - 1];
+          console.log("Deleting removed image from storage:", fileName);
+          await supabase.storage.from("project-pictures").remove([fileName]);
+        }
+
+        // Merge remaining existing + new images
+        const mergedImages = [...existingImagesFrontend, ...newImageUrls];
+        console.log("Final gallery images to save:", mergedImages);
+
+        const { error: campaignError } = await supabase
+          .from("project_campaigns")
+          .upsert(
+            [
+              {
+                project_id: id,
+                description: campaignDescription,
+                image_urls: mergedImages.length ? mergedImages : undefined,
+              },
+            ],
+            { onConflict: ["project_id"] }
+          );
+
+        if (campaignError) {
+          console.error("Campaign upsert error:", campaignError);
+          throw campaignError;
+        }
+      }
+
+      // Handle rewards update
+      if (rewards) {
+        const rewardsArray = typeof rewards === "string" ? JSON.parse(rewards) : rewards;
+        console.log("Parsed rewards:", rewardsArray);
+
+        if (Array.isArray(rewardsArray)) {
+          console.log("Deleting old rewards for project:", id);
+          await supabase.from("rewards").delete().eq("project_id", id);
+
+          const rewardRows = rewardsArray.map((r) => ({
+            id: uuidv4(),
+            project_id: id,
+            title: r.title || "",
+            description: r.description || "",
+            amount: Number(r.amount) || 0,
+            backers: Number(r.backers) || 0,
+            available: Number(r.available) || 0,
+            delivery: r.delivery || null,
+          }));
+
+          console.log("Inserting new rewards:", rewardRows);
+          await supabase.from("rewards").insert(rewardRows);
+        }
+      }
+
+      res.status(200).json({ message: "Project updated successfully", project: updatedProject[0] });
+    } catch (err) {
+      console.error("editProject error:", err);
+      res.status(500).json({ error: "Failed to update project" });
+    }
+  },
+];
+
+
+
+
 // /**
 //  * Create a new project
 //  */

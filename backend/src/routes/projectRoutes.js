@@ -1,5 +1,5 @@
 import express from "express";
-import { createProject, createCampaign, getUserProjects, getProjectById, createRewards, getRewards, getCampaignByProjectId, createFAQs, getFAQsByProjectId, getAllProjects, getProjectCreator, getProjectDonations, getProjectStatus, batchUpdateProjectStatuses } from "../controllers/projectController.js";
+import { createProject, createCampaign, getUserProjects, getProjectById, createRewards, getRewards, getCampaignByProjectId, createFAQs, getFAQsByProjectId, getAllProjects, getProjectCreator, getProjectDonations, getProjectStatus, batchUpdateProjectStatuses, getProjectForEdit, editProject } from "../controllers/projectController.js";
 import multer from "multer";
 
 const upload = multer({ storage: multer.memoryStorage() });
@@ -23,6 +23,10 @@ router.get("/:id", getProjectById);
 router.get("/campaign/:projectId", getCampaignByProjectId);
 router.get("/faqs/:projectId", getFAQsByProjectId);
 router.get("/creator/:projectId", getProjectCreator);
+// fetch data to prefill edit page
+router.get("/getEditProjectInfo/:id", getProjectForEdit);       
+router.post("/edit/:id", ...editProject);
+
 export default router;
 
 
