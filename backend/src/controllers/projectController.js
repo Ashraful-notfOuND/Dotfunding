@@ -612,6 +612,7 @@ export const getAllProjects = async (req, res) => {
           fundingCurrent,
           backers,
           daysLeft,
+          fundingDeadline: p.funding_deadline, // Include deadline for filtering past projects
           category: p.category || "General",
           tagline: p.tagline || "",
         };
