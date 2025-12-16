@@ -1,6 +1,7 @@
 import { useState, useEffect } from "react";
-import { useToast } from "@/hooks/use-toast";
+import { Button } from "@/components/ui/button";
 import UpdateCard from "@/components/UpdateCard";
+import { useToast } from "@/hooks/use-toast";
 
 type Update = {
   id: string;
@@ -15,17 +16,16 @@ type Update = {
 type UpdatesProps = {
   projectId: string;
   currentUser: { id?: string; email?: string } | null;
-  ownerEmail?: string;
-  ownerId?: string;
+  ownerEmail?: string;  // Project owner's email
 };
 
-const Updates = ({ projectId, currentUser, ownerEmail, ownerId }: UpdatesProps) => {
+const Updates = ({ projectId, currentUser, ownerEmail }: UpdatesProps) => {
   const { toast } = useToast();
   const [updates, setUpdates] = useState<Update[]>([]);
   const [showForm, setShowForm] = useState(false);
   const [newUpdate, setNewUpdate] = useState({ title: "", body: "" });
 
-  const isOwner = currentUser?.email === ownerEmail;
+  const canPostUpdate = currentUser?.email === ownerEmail;
 
   // Fetch updates
   const fetchUpdates = async () => {
@@ -42,7 +42,6 @@ const Updates = ({ projectId, currentUser, ownerEmail, ownerId }: UpdatesProps) 
     fetchUpdates();
   }, [projectId]);
 
-  // Add new update
   const handleAddUpdate = async () => {
     if (!newUpdate.title || !newUpdate.body) return;
 
@@ -80,109 +79,73 @@ const Updates = ({ projectId, currentUser, ownerEmail, ownerId }: UpdatesProps) 
     }
   };
 
-  // Upvote
-  const handleUpvote = async (updateId: string) => {
-    if (!currentUser?.id) return;
-
-    try {
-      const res = await fetch(`http://localhost:5000/api/updates/upvote`, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ update_id: updateId, user_id: currentUser.id }),
-      });
-
-      const data = await res.json();
-
-      if (!res.ok) {
-        toast({
-          title: "Upvote failed",
-          description: data.error || "Something went wrong",
-          variant: "destructive",
-        });
-        return;
-      }
-
-      toast({
-        title: "Upvoted!",
-        description: "Your upvote has been counted",
-        variant: "default",
-      });
-
-      setUpdates((prev) =>
-        prev.map((u) => (u.id === updateId ? { ...u, upvotes: data.upvotes } : u))
-      );
-    } catch (err) {
-      console.error(err);
-      toast({
-        title: "Upvote failed",
-        description: "Failed to upvote. Please try again.",
-        variant: "destructive",
-      });
-    }
-  };
-
   return (
-    <div className="space-y-6">
-      {/* Post Update Button */}
-      {isOwner && !showForm && (
-        <button
-          className="bg-blue-600 text-white px-6 py-3 rounded-lg hover:bg-blue-700 transition font-medium"
-          onClick={() => setShowForm(true)}
-        >
-          Post Update
-        </button>
-      )}
+    <section className="pt-4 pb-8">
+      <div className="w-full space-y-6">
+        {/* Header */}
+        <div className="flex items-center justify-between mb-4">
+          <h2 className="text-2xl font-bold text-left">
+            <span className="bg-gradient-to-r from-primary to-accent bg-clip-text text-transparent">
+              Updates
+            </span>
+            {" "} of the Project
+          </h2>
 
-      {/* Update Form */}
-      {isOwner && showForm && (
-        <div className="border border-gray-200 rounded-lg p-6 space-y-4 shadow-sm bg-white">
-          <input
-            className="w-full border border-gray-300 p-3 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-400 text-base"
-            placeholder="Title"
-            value={newUpdate.title}
-            onChange={(e) => setNewUpdate({ ...newUpdate, title: e.target.value })}
-          />
-          <textarea
-            className="w-full border border-gray-300 p-3 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-400 text-base"
-            placeholder="Update details"
-            value={newUpdate.body}
-            onChange={(e) => setNewUpdate({ ...newUpdate, body: e.target.value })}
-            rows={5}
-          />
-          <div className="flex gap-3">
-            <button
-              className="bg-blue-600 text-white px-6 py-2 rounded-lg hover:bg-blue-700 transition font-medium"
-              onClick={handleAddUpdate}
-            >
-              Post
-            </button>
-            <button
-              className="bg-gray-200 text-gray-700 px-6 py-2 rounded-lg hover:bg-gray-300 transition font-medium"
-              onClick={() => setShowForm(false)}
-            >
-              Cancel
-            </button>
-          </div>
+          {/* Post Update Button */}
+          {canPostUpdate && !showForm && (
+            <Button onClick={() => setShowForm(true)} size="sm">
+              Add Update
+            </Button>
+          )}
         </div>
-      )}
 
-      {/* Updates List */}
-      <div className="space-y-4">
-        {updates.length > 0 ? (
-          updates.map((update, index) => (
-            <UpdateCard 
-              key={update.id} 
-              {...update} 
-              onUpvote={handleUpvote}
-              isOwner={update.user_id === ownerId}
-              updateNumber={updates.length - index}
+        {/* Update Form */}
+        {canPostUpdate && showForm && (
+          <div className="bg-white border border-gray-200 rounded-lg shadow-sm p-6 space-y-4">
+            <h3 className="text-lg font-semibold">Add a Project Update</h3>
+            <input
+              className="w-full border border-gray-300 p-3 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-400 text-base"
+              placeholder="Title"
+              value={newUpdate.title}
+              onChange={(e) => setNewUpdate({ ...newUpdate, title: e.target.value })}
             />
-          ))
-        ) : (
-          <p className="text-gray-500 text-base">No updates yet.</p>
+            <textarea
+              className="w-full border border-gray-300 p-3 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-400 text-base"
+              placeholder="Update details"
+              value={newUpdate.body}
+              onChange={(e) => setNewUpdate({ ...newUpdate, body: e.target.value })}
+              rows={5}
+            />
+            <div className="flex gap-3">
+              <Button onClick={handleAddUpdate}>
+                Post Update
+              </Button>
+              <Button variant="outline" onClick={() => setShowForm(false)}>
+                Cancel
+              </Button>
+            </div>
+          </div>
         )}
+
+        {/* Updates List */}
+        <div className="space-y-4">
+          {updates.length > 0 ? (
+            updates.map((update, index) => (
+              <UpdateCard
+                key={update.id}
+                {...update}
+                onUpvote={() => {}}
+                onDelete={currentUser?.id === update.user_id ? () => {} : undefined}
+                isOwner={currentUser?.id === update.user_id}
+                updateNumber={updates.length - index}
+              />
+            ))
+          ) : (
+            <p className="text-gray-500 text-base">No updates yet.</p>
+          )}
+        </div>
       </div>
-    </div>
+    </section>
   );
 };
 

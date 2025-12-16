@@ -1,33 +1,36 @@
 import { useEffect, useState } from "react";
-import {
-  Accordion,
-  AccordionContent,
-  AccordionItem,
-  AccordionTrigger,
-} from "@/components/ui/accordion";
+import { Button } from "@/components/ui/button";
+import { Textarea } from "@/components/ui/textarea";
+import { Input } from "@/components/ui/input";
+import ConfirmModal from "./ConfirmModal"; // ✅ import the modal
 
 type FAQItem = {
+  id: string;
   question: string;
   answer: string;
 };
 
 interface FAQProps {
   projectId?: string;
+  isOwner?: boolean;
 }
 
-const FAQ = ({ projectId }: FAQProps) => {
+const FAQ = ({ projectId, isOwner = false }: FAQProps) => {
   const [faqs, setFaqs] = useState<FAQItem[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
+  const [question, setQuestion] = useState("");
+  const [answer, setAnswer] = useState("");
+  const [posting, setPosting] = useState(false);
+  const [showForm, setShowForm] = useState(false);
+
+  // modal state
+  const [showConfirm, setShowConfirm] = useState(false);
+  const [selectedFAQ, setSelectedFAQ] = useState<string | null>(null);
+
   useEffect(() => {
     if (!projectId) {
-      // No projectId provided: show a small set of generic FAQs for the landing page
-      setFaqs([
-        { question: "How does funding work?", answer: "Back a project with any amount. Funds are collected and transferred to creators when goals are met." },
-        { question: "When will I get my reward?", answer: "Reward delivery times are listed on each project page and depend on the creator." },
-        { question: "Is my payment secure?", answer: "We use industry-standard gateways for payments. You will be redirected to a secure checkout." },
-      ]);
       setLoading(false);
       return;
     }
@@ -38,24 +41,20 @@ const FAQ = ({ projectId }: FAQProps) => {
       try {
         setLoading(true);
         setError(null);
-        console.log("Fetching FAQs for projectId:", projectId);
 
-        const res = await fetch(`http://localhost:5000/api/projects/faqs/${projectId}`, {
+        const res = await fetch(`http://localhost:5000/api/faqs/${projectId}`, {
           signal: controller.signal,
         });
 
         if (!res.ok) {
-          const body = await res.json().catch(() => ({}));
-          throw new Error(body.error || "Failed to fetch FAQs");
+          setFaqs([]);
+          return;
         }
 
         const data = await res.json();
-        setFaqs(data);
+        setFaqs(Array.isArray(data) ? data : []);
       } catch (err: any) {
-        if (err.name !== "AbortError") {
-          setError(err.message || "Failed to load FAQs");
-          console.error("Error fetching FAQs:", err);
-        }
+        if (err.name !== "AbortError") setError("Failed to load FAQs");
       } finally {
         setLoading(false);
       }
@@ -65,57 +64,137 @@ const FAQ = ({ projectId }: FAQProps) => {
     return () => controller.abort();
   }, [projectId]);
 
-  if (loading) {
-    return <div className="text-center py-10">Loading FAQs...</div>;
-  }
+  const handleAddFAQ = async () => {
+    if (!question.trim() || !answer.trim() || !projectId) return;
 
-  if (error) {
-    return <div className="text-center text-red-600 py-10">{error}</div>;
-  }
+    try {
+      setPosting(true);
 
-  if (!faqs || faqs.length === 0) {
-    return (
-      <div className="text-center text-muted-foreground py-10">
-        No FAQs have been added for this project yet.
-      </div>
-    );
-  }
+      const res = await fetch("http://localhost:5000/api/faqs", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ project_id: projectId, question, answer }),
+      });
+
+      if (!res.ok) throw new Error("Failed to add FAQ");
+
+      const newFaq = await res.json();
+      setFaqs((prev) => [...prev, newFaq]);
+
+      setQuestion("");
+      setAnswer("");
+      setShowForm(false);
+    } catch (err) {
+      console.error("Add FAQ error:", err);
+    } finally {
+      setPosting(false);
+    }
+  };
+
+  const handleDeleteFAQ = async () => {
+    if (!selectedFAQ) return;
+
+    try {
+      await fetch(`http://localhost:5000/api/faqs/item/${selectedFAQ}`, {
+        method: "DELETE",
+      });
+      setFaqs((prev) => prev.filter((f) => f.id !== selectedFAQ));
+    } catch (err) {
+      console.error("Delete FAQ error:", err);
+    } finally {
+      setShowConfirm(false);
+      setSelectedFAQ(null);
+    }
+  };
+
+  if (loading) return <div className="text-center py-10">Loading FAQs...</div>;
+  if (error) return <div className="text-center text-red-600 py-10">{error}</div>;
 
   return (
-    <section className="py-20">
-      <div className="container mx-auto px-4 max-w-3xl">
-        <div className="text-center mb-12 animate-fade-in">
-          <h2 className="text-3xl md:text-4xl font-bold mb-4">
+    <section className="pt-4 pb-8">
+     <div className="w-full space-y-6">
+        {/* Header */}
+        <div className="flex items-center justify-between mb-4">
+          <h2 className="text-2xl font-bold text-left">
             Frequently Asked{" "}
             <span className="bg-gradient-to-r from-primary to-accent bg-clip-text text-transparent">
               Questions
             </span>
           </h2>
-          <p className="text-muted-foreground text-lg">
-            Everything you need to know about this project
-          </p>
+          {isOwner && !showForm && (
+            <Button onClick={() => setShowForm(true)} size="sm">
+              Add FAQ
+            </Button>
+          )}
         </div>
 
-<Accordion type="single" collapsible className="w-full animate-fade-in space-y-4">
-  {faqs.map((faq, index) => (
-    <AccordionItem
-      key={index}
-      value={`item-${index}`}
-      className="border border-border rounded-xl shadow-sm hover:shadow-md transition-shadow duration-300 bg-card"
-    >
-      <AccordionTrigger className="text-left flex items-start gap-3 px-6 py-4 text-lg md:text-xl font-semibold hover:text-primary transition-colors">
-        <span className="text-primary font-bold">{index + 1}.</span>
-        <span className="flex-1">{faq.question}</span>
-      </AccordionTrigger>
-      <AccordionContent className="px-6 py-4 text-muted-foreground text-base md:text-lg bg-background/50 rounded-b-xl">
-        {faq.answer}
-      </AccordionContent>
-    </AccordionItem>
-  ))}
-</Accordion>
+        {/* Add FAQ Form */}
+        {isOwner && showForm && (
+          <div className="bg-white border border-gray-200 rounded-lg shadow-sm p-6 space-y-4">
+            <h3 className="text-lg font-semibold">Add a FAQ</h3>
+            <Input
+              placeholder="Question"
+              value={question}
+              onChange={(e) => setQuestion(e.target.value)}
+            />
+            <Textarea
+              placeholder="Answer"
+              value={answer}
+              onChange={(e) => setAnswer(e.target.value)}
+            />
+            <div className="flex gap-2">
+              <Button onClick={handleAddFAQ} disabled={posting}>
+                {posting ? "Posting..." : "Post FAQ"}
+              </Button>
+              <Button variant="outline" onClick={() => setShowForm(false)}>
+                Cancel
+              </Button>
+            </div>
+          </div>
+        )}
 
+        {/* FAQ List */}
+        {faqs.length === 0 ? (
+          <div className="text-left text-muted-foreground py-10">
+            No FAQs posted by the creator
+          </div>
+        ) : (
+          faqs.map((faq, index) => (
+            <div
+              key={faq.id}
+              className="bg-white border border-gray-200 rounded-lg shadow-sm p-6 relative"
+            >
+              <div className="mb-2 font-semibold text-gray-900">
+                {index + 1}. {faq.question}
+              </div>
+              <div className="text-gray-700">{faq.answer}</div>
 
+              {isOwner && (
+                <div className="absolute bottom-4 right-4">
+                  <Button
+                    variant="destructive"
+                    size="sm"
+                    onClick={() => {
+                      setSelectedFAQ(faq.id);
+                      setShowConfirm(true);
+                    }}
+                  >
+                    Delete
+                  </Button>
+                </div>
+              )}
+            </div>
+          ))
+        )}
 
+        {/* ✅ Confirm Modal */}
+        <ConfirmModal
+          open={showConfirm}
+          title="Confirm Delete"
+          message="Are you sure you want to delete this FAQ?"
+          onConfirm={handleDeleteFAQ}
+          onCancel={() => setShowConfirm(false)}
+        />
       </div>
     </section>
   );

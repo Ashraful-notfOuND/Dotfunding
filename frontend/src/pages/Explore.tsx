@@ -34,7 +34,7 @@ const Explore = () => {
     const fetchProjects = async () => {
       setLoading(true);
       try {
-        const res = await fetch("http://localhost:3002/api/projects");
+        const res = await fetch("http://localhost:5000/api/projects");
         if (!res.ok) throw new Error(`Failed to fetch projects (${res.status})`);
         const data = await res.json();
         setProjects(data.projects || data);

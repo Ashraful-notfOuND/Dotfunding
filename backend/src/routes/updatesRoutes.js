@@ -1,5 +1,5 @@
 import express from "express";
-import { getUpdates, addUpdate, upvoteUpdate } from "../controllers/updatesController.js";
+import { getUpdates, addUpdate, upvoteUpdate, deleteUpdate } from "../controllers/updatesController.js";
 
 const router = express.Router();
 
@@ -11,5 +11,8 @@ router.post("/", addUpdate);
 
 // Upvote an update
 router.post("/upvote", upvoteUpdate);
+
+// Delete a single update (project owner only)
+router.delete("/item/:updateId", deleteUpdate);
 
 export default router;

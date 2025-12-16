@@ -99,3 +99,24 @@ export const upvoteUpdate = async (req, res) => {
   }
 };
 
+/**
+ * Delete an update
+ */
+export const deleteUpdate = async (req, res) => {
+  const { updateId } = req.params;
+  try {
+    console.log("Deleting update with ID:", updateId);
+    const { error } = await supabase
+      .from("updates")
+      .delete()
+      .eq("id", updateId);
+
+    if (error) throw error;
+
+    res.status(200).json({ message: "Update deleted" });
+  } catch (err) {
+    console.error("Delete update error:", err);
+    res.status(500).json({ error: "Failed to delete update" });
+  }
+};
+

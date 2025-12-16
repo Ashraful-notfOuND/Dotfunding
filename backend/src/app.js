@@ -11,6 +11,8 @@ import reviewRoutes from "./routes/reviewRoutes.js";
 import recommendationRoutes from "./routes/recommendationRoutes.js";
 import communityRoutes from "./routes/communityRoutes.js";
 import adminRoutes from "./routes/adminRoutes.js";
+import faqRoutes from "./routes/faqRoutes.js";
+
 
 const app = express();
 
@@ -26,6 +28,7 @@ app.use("/api/payments", paymentRoutes);
 app.use("/api/notifications", notificationRoutes);
 app.use("/api/comments", commentRoutes);
 app.use("/api/updates", updatesRoutes);
+app.use("/api/faqs", faqRoutes);
 app.use("/api/reviews", reviewRoutes);
 app.use("/api/recommendations", recommendationRoutes);
 app.use("/api/community", communityRoutes);
