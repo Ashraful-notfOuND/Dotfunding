@@ -365,7 +365,7 @@ const handleSubmit = async (e: React.FormEvent) => {
       })),
     };
 
-  const responseFaqs = await fetch("http://localhost:5000/api/projects/faqs", {
+  const responseFaqs = await fetch("http://localhost:5000/api/faqs", {
     method: "POST",
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify(faqsPayload),
