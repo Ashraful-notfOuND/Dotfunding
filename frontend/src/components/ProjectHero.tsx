@@ -12,7 +12,7 @@ interface ProjectHeroProps {
   tagline: string;
   images: string[];
   videoUrl?: string; // Added videoUrl prop
-  status: "just-launched" | "trending" | "funded" | "nearly-funded" | "active"; // Updated type
+  status: "just-launched" | "trending" | "funded" | "nearly-funded" | "active" | "ended-success" | "ended-failed";
 }
 
 const ProjectHero = ({ title, creator, tagline, images, videoUrl, status }: ProjectHeroProps) => {
@@ -61,15 +61,17 @@ const ProjectHero = ({ title, creator, tagline, images, videoUrl, status }: Proj
     "just-launched": { label: "Just Launched", variant: "default" as const },
     "trending": { label: "Trending", variant: "secondary" as const },
     "funded": { label: "Funded", variant: "default" as const },
-    "nearly-funded": { label: "Nearly Funded", variant: "warning" as const }, // Added
-    "active": { label: "Active", variant: "outline" as const }, // Added
+    "nearly-funded": { label: "Nearly Funded", variant: "warning" as const },
+    "active": { label: "Active", variant: "outline" as const },
+    "ended-success": { label: "Successfully Funded", variant: "default" as const, className: "bg-green-600 hover:bg-green-700" },
+    "ended-failed": { label: "Campaign Ended", variant: "secondary" as const },
   };
 
   return (
     <div className="space-y-4 animate-fade-in">
       <div className="flex items-start justify-between gap-4">
         <div className="flex-1">
-          <Badge className="mb-3">
+          <Badge className={`mb-3 ${statusConfig[status].className || ''}`}>
             {statusConfig[status].label}
           </Badge>
           <h1 className="text-4xl font-bold mb-2">{title}</h1>

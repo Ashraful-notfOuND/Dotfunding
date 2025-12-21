@@ -1,14 +1,25 @@
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
-import { useNavigate } from "react-router-dom";
+import { useNavigate, useLocation } from "react-router-dom";
+import { useState, useEffect } from "react";
 import { 
   Heart,
   Users, 
   DollarSign, 
   Target,
   ArrowRight,
-  Lightbulb
+  Lightbulb,
+  Loader2
 } from "lucide-react";
+
+interface ProjectData {
+  id: string;
+  title: string;
+  fundingCurrent: number;
+  fundingGoal: number;
+  backers: number;
+  fundingDeadline: string;
+}
 
 /**
  * PAGE 1: Unsuccessful Campaign Outcome
@@ -17,6 +28,53 @@ import {
  */
 export default function CampaignUnsuccessful() {
   const navigate = useNavigate();
+  const location = useLocation();
+  const [project, setProject] = useState<ProjectData | null>(location.state?.project || null);
+  const [loading, setLoading] = useState(!location.state?.project);
+
+  useEffect(() => {
+    // If project data wasn't passed via navigation state, fetch it
+    if (!project && location.state?.projectId) {
+      fetchProjectData(location.state.projectId);
+    } else if (!project) {
+      // No project data and no ID, redirect to home
+      navigate('/', { replace: true });
+    }
+  }, []);
+
+  const fetchProjectData = async (projectId: string) => {
+    try {
+      const res = await fetch(`http://localhost:5000/api/projects/${projectId}`);
+      if (!res.ok) throw new Error('Failed to fetch project');
+      const data = await res.json();
+      setProject(data.project || data);
+    } catch (error) {
+      console.error('Error fetching project:', error);
+      navigate('/', { replace: true });
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  if (loading) {
+    return (
+      <div className="min-h-screen bg-background flex items-center justify-center">
+        <Loader2 className="h-12 w-12 animate-spin text-primary" />
+      </div>
+    );
+  }
+
+  if (!project) return null;
+
+  const raisedAmount = project.fundingCurrent || 0;
+  const goalAmount = project.fundingGoal || 1;
+  const backersCount = project.backers || 0;
+  const percentage = Math.round((raisedAmount / goalAmount) * 100);
+  const endDate = new Date(project.fundingDeadline).toLocaleDateString('en-US', { 
+    year: 'numeric', 
+    month: 'short', 
+    day: 'numeric' 
+  });
 
   return (
     <div className="min-h-screen bg-background flex items-center justify-center p-8">
@@ -54,7 +112,7 @@ export default function CampaignUnsuccessful() {
                   <DollarSign className="h-4 w-4 text-muted-foreground" />
                   <p className="text-xs font-medium text-muted-foreground">Raised</p>
                 </div>
-                <p className="text-2xl font-bold text-foreground">৳2,847</p>
+                <p className="text-2xl font-bold text-foreground">৳{raisedAmount.toLocaleString()}</p>
               </div>
 
               {/* Goal */}
@@ -63,7 +121,7 @@ export default function CampaignUnsuccessful() {
                   <Target className="h-4 w-4 text-muted-foreground" />
                   <p className="text-xs font-medium text-muted-foreground">Goal</p>
                 </div>
-                <p className="text-2xl font-bold text-foreground">৳10,000</p>
+                <p className="text-2xl font-bold text-foreground">৳{goalAmount.toLocaleString()}</p>
               </div>
 
               {/* Backers */}
@@ -72,7 +130,7 @@ export default function CampaignUnsuccessful() {
                   <Users className="h-4 w-4 text-muted-foreground" />
                   <p className="text-xs font-medium text-muted-foreground">Backers</p>
                 </div>
-                <p className="text-2xl font-bold text-foreground">7</p>
+                <p className="text-2xl font-bold text-foreground">{backersCount}</p>
               </div>
 
               {/* Percentage */}
@@ -81,7 +139,7 @@ export default function CampaignUnsuccessful() {
                   <Lightbulb className="h-4 w-4 text-muted-foreground" />
                   <p className="text-xs font-medium text-muted-foreground">Reached</p>
                 </div>
-                <p className="text-2xl font-bold text-foreground">28%</p>
+                <p className="text-2xl font-bold text-foreground">{percentage}%</p>
               </div>
             </div>
 
@@ -90,11 +148,11 @@ export default function CampaignUnsuccessful() {
               <div className="w-full bg-muted rounded-full h-3 overflow-hidden">
                 <div 
                   className="bg-gradient-to-r from-primary to-accent h-full rounded-full transition-all"
-                  style={{ width: '28%' }}
+                  style={{ width: `${Math.min(percentage, 100)}%` }}
                 />
               </div>
               <p className="text-xs text-muted-foreground mt-2">
-                28% of your ৳10,000 goal
+                {percentage}% of your ৳{goalAmount.toLocaleString()} goal
               </p>
             </div>
 
@@ -118,8 +176,8 @@ export default function CampaignUnsuccessful() {
         {/* Footer Note */}
         <div className="text-center mt-6">
           <p className="text-sm text-muted-foreground">
-            Project: <span className="font-semibold">EcoSmart Water Bottle</span> • 
-            Campaign ended: Dec 20, 2025
+            Project: <span className="font-semibold">{project.title}</span> • 
+            Campaign ended: {endDate}
           </p>
         </div>
       </div>

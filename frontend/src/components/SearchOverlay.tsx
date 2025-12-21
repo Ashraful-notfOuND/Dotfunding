@@ -67,21 +67,32 @@ const SearchOverlay = ({ isOpen, onClose }: SearchOverlayProps) => {
   const filteredResults = useMemo(() => {
     if (!debouncedSearchTerm) return [];
     const lowerCaseSearchTerm = debouncedSearchTerm.toLowerCase();
-    return projects
+    
+    const results = projects
       .filter((project) => {
         const title = (project.title || "").toString().toLowerCase();
         const creator = (project.creator || project.creatorName || "").toString().toLowerCase();
         const category = (project.category || "").toString().toLowerCase();
         const subCategory = (project.subCategory || project.sub_category || "").toString().toLowerCase();
+        const tagline = (project.tagline || "").toString().toLowerCase();
+        
         return (
           title.includes(lowerCaseSearchTerm) ||
           creator.includes(lowerCaseSearchTerm) ||
           category.includes(lowerCaseSearchTerm) ||
-          subCategory.includes(lowerCaseSearchTerm)
+          subCategory.includes(lowerCaseSearchTerm) ||
+          tagline.includes(lowerCaseSearchTerm)
         );
       })
-      .slice(0, 5);
-  }, [debouncedSearchTerm]);
+      .slice(0, 10); // Show more results
+    
+    console.log('Search term:', debouncedSearchTerm);
+    console.log('Total projects:', projects.length);
+    console.log('Filtered results:', results.length);
+    console.log('Results:', results.map(p => ({ id: p.id, title: p.title, creator: p.creator })));
+    
+    return results;
+  }, [debouncedSearchTerm, projects]);
 
   const overlayVariants = {
     hidden: { opacity: 0, y: -50 },
@@ -173,10 +184,15 @@ const SearchOverlay = ({ isOpen, onClose }: SearchOverlayProps) => {
                     {filteredResults.map(project => (
                       <Link key={project.id} to={`/project/${project.id}`} onClick={onClose}>
                         <div className="flex items-center gap-3 p-2 rounded-lg hover:bg-muted transition-colors">
-                          <img src={project.image} alt={project.title} className="w-10 h-10 object-cover rounded-md" />
+                          <img 
+                            src={project.image || project.image_url || '/placeholder.jpg'} 
+                            alt={project.title} 
+                            className="w-10 h-10 object-cover rounded-md" 
+                            onError={(e) => e.currentTarget.src = '/placeholder.jpg'}
+                          />
                           <div>
                             <p className="font-medium">{project.title}</p>
-                            <p className="text-sm text-muted-foreground">by {project.creator} in {project.category}</p>
+                            <p className="text-sm text-muted-foreground">by {project.creator || 'Unknown'} in {project.category}</p>
                           </div>
                         </div>
                       </Link>

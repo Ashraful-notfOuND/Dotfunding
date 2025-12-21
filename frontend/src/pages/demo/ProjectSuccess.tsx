@@ -1,14 +1,25 @@
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import { Confetti } from "@/components/ui/confetti";
-import { useNavigate } from "react-router-dom";
+import { useNavigate, useLocation } from "react-router-dom";
+import { useState, useEffect } from "react";
 import { 
   CheckCircle2, 
   Users, 
   DollarSign, 
   TrendingUp,
-  ArrowRight
+  ArrowRight,
+  Loader2
 } from "lucide-react";
+
+interface ProjectData {
+  id: string;
+  title: string;
+  fundingCurrent: number;
+  fundingGoal: number;
+  backers: number;
+  fundingDeadline: string;
+}
 
 /**
  * DEMO PAGE 1: Full-Page Success Outcome
@@ -17,6 +28,79 @@ import {
  */
 export default function ProjectSuccess() {
   const navigate = useNavigate();
+  const location = useLocation();
+  const [project, setProject] = useState<ProjectData | null>(location.state?.project || null);
+  const [loading, setLoading] = useState(!location.state?.project);
+
+  useEffect(() => {
+    console.log('ProjectSuccess - location.state:', location.state);
+    console.log('ProjectSuccess - project:', project);
+    
+    // If project data wasn't passed via navigation state, fetch it
+    if (!project && location.state?.projectId) {
+      fetchProjectData(location.state.projectId);
+    } else if (!project) {
+      // No project data and no ID, redirect to home
+      console.warn('No project data found, redirecting to home');
+      navigate('/', { replace: true });
+    } else {
+      // Acknowledge the outcome when page loads
+      acknowledgeOutcome(project.id);
+    }
+  }, []);
+
+  const acknowledgeOutcome = async (projectId: string) => {
+    try {
+      // Get userId from localStorage (traditional login)
+      const userId = localStorage.getItem('userId');
+      
+      await fetch(`http://localhost:5000/api/projects/${projectId}/acknowledge-outcome`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ userId })
+      });
+      console.log('Outcome acknowledged for project:', projectId);
+    } catch (error) {
+      console.error('Error acknowledging outcome:', error);
+    }
+  };
+
+  const fetchProjectData = async (projectId: string) => {
+    try {
+      const res = await fetch(`http://localhost:5000/api/projects/${projectId}`);
+      if (!res.ok) throw new Error('Failed to fetch project');
+      const data = await res.json();
+      const fetchedProject = data.project || data;
+      setProject(fetchedProject);
+      // Acknowledge outcome after fetching
+      acknowledgeOutcome(projectId);
+    } catch (error) {
+      console.error('Error fetching project:', error);
+      navigate('/', { replace: true });
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  if (loading) {
+    return (
+      <div className="min-h-screen bg-gradient-to-br from-primary/5 via-accent/5 to-background flex items-center justify-center">
+        <Loader2 className="h-12 w-12 animate-spin text-primary" />
+      </div>
+    );
+  }
+
+  if (!project) return null;
+
+  const raisedAmount = project.fundingCurrent || 0;
+  const goalAmount = project.fundingGoal || 1;
+  const backersCount = project.backers || 0;
+  const percentage = Math.round((raisedAmount / goalAmount) * 100);
+  const endDate = new Date(project.fundingDeadline).toLocaleDateString('en-US', { 
+    year: 'numeric', 
+    month: 'short', 
+    day: 'numeric' 
+  });
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-primary/5 via-accent/5 to-background flex items-center justify-center p-8">
@@ -60,7 +144,7 @@ export default function ProjectSuccess() {
                   <DollarSign className="h-5 w-5 text-green-600" />
                   <p className="text-sm font-medium text-green-800 dark:text-green-300">Total Raised</p>
                 </div>
-                <p className="text-4xl font-bold text-green-900 dark:text-green-100">৳2,847</p>
+                <p className="text-4xl font-bold text-green-900 dark:text-green-100">৳{raisedAmount.toLocaleString()}</p>
               </div>
 
               {/* Backers */}
@@ -69,7 +153,7 @@ export default function ProjectSuccess() {
                   <Users className="h-5 w-5 text-blue-600" />
                   <p className="text-sm font-medium text-blue-800 dark:text-blue-300">Backers</p>
                 </div>
-                <p className="text-4xl font-bold text-blue-900 dark:text-blue-100">7</p>
+                <p className="text-4xl font-bold text-blue-900 dark:text-blue-100">{backersCount}</p>
               </div>
 
               {/* Funding Percentage */}
@@ -78,7 +162,7 @@ export default function ProjectSuccess() {
                   <TrendingUp className="h-5 w-5 text-purple-600" />
                   <p className="text-sm font-medium text-purple-800 dark:text-purple-300">Funded</p>
                 </div>
-                <p className="text-4xl font-bold text-purple-900 dark:text-purple-100">1076%</p>
+                <p className="text-4xl font-bold text-purple-900 dark:text-purple-100">{percentage}%</p>
               </div>
             </div>
 
@@ -86,14 +170,14 @@ export default function ProjectSuccess() {
             <div className="flex flex-col items-center gap-4">
               <Button 
                 size="lg" 
-                onClick={() => navigate('/project/outcome/payment')}
+                onClick={() => navigate(`/demo/payment-breakdown`, { state: { project } })}
                 className="bg-gradient-to-r from-primary to-accent hover:from-primary-hover hover:to-accent-hover text-white px-12 py-6 text-lg font-semibold shadow-lg hover:shadow-xl transition-all"
               >
-                Next
+                View Payment Breakdown
                 <ArrowRight className="h-5 w-5 ml-2" />
               </Button>
               <p className="text-sm text-muted-foreground">
-                Let's review your payment breakdown
+                See detailed fee breakdown and payout information
               </p>
             </div>
           </CardContent>
@@ -102,8 +186,8 @@ export default function ProjectSuccess() {
         {/* Footer Note */}
         <div className="text-center mt-6">
           <p className="text-sm text-muted-foreground">
-            Project: <span className="font-semibold">EcoSmart Water Bottle</span> • 
-            Campaign ended: Dec 20, 2025
+            Project: <span className="font-semibold">{project.title}</span> • 
+            Campaign ended: {endDate}
           </p>
         </div>
       </div>

@@ -282,6 +282,7 @@ import { User, Settings, Heart, Bell, Gift, MessageSquare, Clock, CheckCircle, D
 import defaultAvatar from "@/assets/default-avatar.png";
 import NotificationDetailsModal from "@/components/NotificationDetailsModal";
 import NotificationSettings from "@/components/NotificationSettings";
+import { EndedProjectBanner } from "@/components/creator/EndedProjectBanner";
 
 
 interface Project {
@@ -548,6 +549,9 @@ const Profile = () => {
       <Navbar />
 
       <div className="container mx-auto px-4 py-12">
+        {/* Show ended project banners for creators */}
+        <EndedProjectBanner />
+        
         <div className="mb-8 animate-fade-in">
           <Card>
             <CardContent className="pt-6">

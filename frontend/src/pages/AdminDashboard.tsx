@@ -16,7 +16,10 @@ import {
   BarChart3,
   Clock,
   Eye,
-  MessageSquare
+  MessageSquare,
+  Target,
+  Calendar,
+  AlertCircle
 } from "lucide-react";
 import Navbar from "@/components/Navbar";
 import Footer from "@/components/Footer";
@@ -47,6 +50,35 @@ interface AdminStats {
   total: number;
 }
 
+interface Milestone {
+  id: string;
+  project_id: string;
+  milestone_number: number;
+  title: string;
+  description: string;
+  deadline: string;
+  status: string;
+  admin_approved: boolean;
+  created_at: string;
+  project: {
+    title: string;
+    users: {
+      full_name: string;
+    };
+  };
+  communications?: Communication[];
+}
+
+interface Communication {
+  id: string;
+  message: string;
+  sender_role: string;
+  created_at: string;
+  sender: {
+    full_name: string;
+  };
+}
+
 const AdminDashboard = () => {
   const navigate = useNavigate();
   const { toast } = useToast();
@@ -56,6 +88,10 @@ const AdminDashboard = () => {
   const [allProjects, setAllProjects] = useState<Project[]>([]);
   const [filteredProjects, setFilteredProjects] = useState<Project[]>([]);
   const [activeTab, setActiveTab] = useState<string>("pending");
+  const [milestones, setMilestones] = useState<Milestone[]>([]);
+  const [loadingMilestones, setLoadingMilestones] = useState(false);
+  const [adminReplyText, setAdminReplyText] = useState<Record<string, string>>({});
+  const [sendingReply, setSendingReply] = useState<string | null>(null);
   const [selectedProject, setSelectedProject] = useState<Project | null>(null);
   const [actionDialog, setActionDialog] = useState<{
     open: boolean;
@@ -123,6 +159,9 @@ const AdminDashboard = () => {
         const allData = await allRes.json();
         setAllProjects(allData.projects);
       }
+
+      // Fetch milestones
+      fetchMilestones();
     } catch (error) {
       console.error("Error fetching admin data:", error);
       toast({
@@ -132,6 +171,141 @@ const AdminDashboard = () => {
       });
     } finally {
       setLoading(false);
+    }
+  };
+
+  const fetchMilestones = async () => {
+    setLoadingMilestones(true);
+    try {
+      // Fetch all milestones from successful projects (now includes communications)
+      const res = await fetch(`http://localhost:5000/api/admin/milestones`);
+      if (res.ok) {
+        const data = await res.json();
+        setMilestones(data.milestones || []);
+      }
+    } catch (error) {
+      console.error("Error fetching milestones:", error);
+    } finally {
+      setLoadingMilestones(false);
+    }
+  };
+
+  const approveMilestone = async (milestoneId: string) => {
+    try {
+      if (!userId) {
+        toast({
+          title: "Error",
+          description: "Missing admin credentials",
+          variant: "destructive",
+        });
+        return;
+      }
+
+      const res = await fetch(`http://localhost:5000/api/projects/milestones/${milestoneId}/approve`, {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ userId })
+      });
+
+      if (!res.ok) {
+        const errorData = await res.json().catch(() => ({}));
+        throw new Error(errorData.error || 'Failed to approve milestone');
+      }
+
+      toast({
+        title: "Success",
+        description: "Milestone approved successfully",
+      });
+      fetchMilestones();
+    } catch (error) {
+      console.error("Error approving milestone:", error);
+      toast({
+        title: "Error",
+        description: "Failed to approve milestone",
+        variant: "destructive",
+      });
+    }
+  };
+
+  const completeMilestone = async (milestoneId: string) => {
+    try {
+      if (!userId) {
+        toast({
+          title: "Error",
+          description: "Missing admin credentials",
+          variant: "destructive",
+        });
+        return;
+      }
+
+      const res = await fetch(`http://localhost:5000/api/projects/milestones/${milestoneId}/complete`, {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ userId })
+      });
+
+      if (!res.ok) {
+        const errorData = await res.json().catch(() => ({}));
+        throw new Error(errorData.error || 'Failed to complete milestone');
+      }
+
+      toast({
+        title: "Success",
+        description: "Milestone marked as completed",
+      });
+      fetchMilestones();
+    } catch (error) {
+      console.error("Error completing milestone:", error);
+      toast({
+        title: "Error",
+        description: "Failed to complete milestone",
+        variant: "destructive",
+      });
+    }
+  };
+
+  const sendAdminReply = async (milestoneId: string, projectId: string) => {
+    const message = adminReplyText[milestoneId]?.trim();
+    if (!message) {
+      toast({
+        title: "Error",
+        description: "Please enter a message",
+        variant: "destructive",
+      });
+      return;
+    }
+
+    setSendingReply(milestoneId);
+    try {
+      const res = await fetch(`http://localhost:5000/api/projects/${projectId}/communications`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          userId,
+          message,
+          relatedMilestoneId: milestoneId
+        }),
+      });
+
+      if (res.ok) {
+        toast({
+          title: "Success",
+          description: "Feedback sent to creator",
+        });
+        setAdminReplyText({ ...adminReplyText, [milestoneId]: '' });
+        fetchMilestones();
+      } else {
+        throw new Error('Failed to send reply');
+      }
+    } catch (error) {
+      console.error("Error sending reply:", error);
+      toast({
+        title: "Error",
+        description: "Failed to send feedback",
+        variant: "destructive",
+      });
+    } finally {
+      setSendingReply(null);
     }
   };
 
@@ -419,6 +593,195 @@ const AdminDashboard = () => {
             </Card>
           </div>
         )}
+
+        {/* Milestones Management */}
+        <Card className="mb-8">
+          <CardHeader>
+            <div className="flex items-center justify-between">
+              <div>
+                <CardTitle className="text-2xl flex items-center gap-2">
+                  <Target className="h-6 w-6" />
+                  Milestones Management
+                </CardTitle>
+                <CardDescription>Review and approve creator milestones for successful projects</CardDescription>
+              </div>
+              <Badge variant="outline" className="text-lg">
+                {milestones.filter(m => !m.admin_approved).length} Pending
+              </Badge>
+            </div>
+          </CardHeader>
+          <CardContent>
+            {loadingMilestones ? (
+              <div className="text-center py-8">
+                <p className="text-gray-600">Loading milestones...</p>
+              </div>
+            ) : milestones.length === 0 ? (
+              <div className="text-center py-12">
+                <Target className="h-12 w-12 mx-auto text-gray-400 mb-4" />
+                <p className="text-gray-600">No milestones submitted yet</p>
+              </div>
+            ) : (
+              <div className="space-y-6">
+                {/* Group by project */}
+                {Object.entries(
+                  milestones.reduce((acc, milestone) => {
+                    if (!acc[milestone.project_id]) acc[milestone.project_id] = [];
+                    acc[milestone.project_id].push(milestone);
+                    return acc;
+                  }, {} as Record<string, Milestone[]>)
+                ).map(([projectId, projectMilestones]) => {
+                  const firstMilestone = projectMilestones[0];
+                  const allApproved = projectMilestones.every(m => m.admin_approved);
+                  const completedCount = projectMilestones.filter(m => m.status === 'completed').length;
+                  
+                  return (
+                    <Card key={projectId} className={allApproved ? "border-green-200" : "border-yellow-200"}>
+                      <CardHeader className="pb-3">
+                        <div className="flex items-start justify-between">
+                          <div>
+                            <CardTitle className="text-lg">{firstMilestone.project.title}</CardTitle>
+                            <CardDescription>
+                              Creator: {firstMilestone.project.users.full_name} • 
+                              {completedCount}/3 Complete
+                            </CardDescription>
+                          </div>
+                          {allApproved ? (
+                            <Badge className="bg-green-500 text-white">All Approved</Badge>
+                          ) : (
+                            <Badge className="bg-yellow-500 text-white">Needs Review</Badge>
+                          )}
+                        </div>
+                      </CardHeader>
+                      <CardContent className="space-y-3">
+                        {projectMilestones
+                          .sort((a, b) => a.milestone_number - b.milestone_number)
+                          .map((milestone) => (
+                            <div 
+                              key={milestone.id} 
+                              className={`p-4 rounded-lg border ${
+                                milestone.status === 'completed' ? 'bg-green-50 border-green-200' :
+                                milestone.admin_approved ? 'bg-blue-50 border-blue-200' : 
+                                'bg-yellow-50 border-yellow-200'
+                              }`}
+                            >
+                              <div className="flex items-start justify-between mb-2">
+                                <div className="flex-1">
+                                  <div className="flex items-center gap-2 mb-1">
+                                    <Badge variant="outline">Milestone {milestone.milestone_number}</Badge>
+                                    {milestone.status === 'completed' && (
+                                      <Badge className="bg-green-600 text-white">
+                                        <CheckCircle className="h-3 w-3 mr-1" />
+                                        Completed
+                                      </Badge>
+                                    )}
+                                    {milestone.admin_approved && milestone.status !== 'completed' && (
+                                      <Badge className="bg-blue-600 text-white">Approved</Badge>
+                                    )}
+                                  </div>
+                                  <h4 className="font-semibold">{milestone.title}</h4>
+                                  <p className="text-sm text-gray-600 mt-1">{milestone.description}</p>
+                                  <div className="flex items-center gap-4 mt-2 text-sm">
+                                    <span className="flex items-center gap-1 text-gray-700">
+                                      <Calendar className="h-4 w-4" />
+                                      Due: {new Date(milestone.deadline).toLocaleDateString()}
+                                    </span>
+                                    {new Date(milestone.deadline) < new Date() && milestone.status !== 'completed' && (
+                                      <span className="flex items-center gap-1 text-red-600">
+                                        <AlertCircle className="h-4 w-4" />
+                                        Overdue
+                                      </span>
+                                    )}
+                                  </div>
+                                  
+                                  {/* Creator proof/communications */}
+                                  {milestone.communications && milestone.communications.length > 0 && (
+                                    <div className="mt-3 space-y-2">
+                                      {milestone.communications.map((comm) => (
+                                        <div key={comm.id} className={`rounded p-3 ${
+                                          comm.sender_role === 'admin' 
+                                            ? 'bg-purple-50 border border-purple-200' 
+                                            : 'bg-blue-50 border border-blue-200'
+                                        }`}>
+                                          <div className="flex items-start gap-2">
+                                            <MessageSquare className={`h-4 w-4 mt-0.5 ${
+                                              comm.sender_role === 'admin' ? 'text-purple-600' : 'text-blue-600'
+                                            }`} />
+                                            <div className="flex-1">
+                                              <div className="flex items-center gap-2 mb-1">
+                                                <span className={`text-xs font-medium ${
+                                                  comm.sender_role === 'admin' ? 'text-purple-800' : 'text-blue-800'
+                                                }`}>
+                                                  {comm.sender.full_name} ({comm.sender_role})
+                                                </span>
+                                                <span className="text-xs text-gray-500">
+                                                  {new Date(comm.created_at).toLocaleDateString()}
+                                                </span>
+                                              </div>
+                                              <p className="text-sm text-gray-700 whitespace-pre-wrap">{comm.message}</p>
+                                            </div>
+                                          </div>
+                                        </div>
+                                      ))}
+                                    </div>
+                                  )}
+
+                                  {/* Admin Reply Form */}
+                                  <div className="mt-3 space-y-2 p-3 bg-purple-50 border border-purple-200 rounded">
+                                    <h5 className="text-sm font-semibold flex items-center gap-2">
+                                      <MessageSquare className="h-4 w-4" />
+                                      Send Feedback to Creator
+                                    </h5>
+                                    <Textarea
+                                      placeholder="Provide feedback, request more proof, or acknowledge completion..."
+                                      value={adminReplyText[milestone.id] || ''}
+                                      onChange={(e) => setAdminReplyText({ ...adminReplyText, [milestone.id]: e.target.value })}
+                                      rows={2}
+                                      className="resize-none bg-white"
+                                    />
+                                    <Button
+                                      size="sm"
+                                      onClick={() => sendAdminReply(milestone.id, milestone.project_id)}
+                                      disabled={sendingReply === milestone.id}
+                                      className="bg-purple-600 hover:bg-purple-700"
+                                    >
+                                      <MessageSquare className="h-4 w-4 mr-1" />
+                                      {sendingReply === milestone.id ? 'Sending...' : 'Send Feedback'}
+                                    </Button>
+                                  </div>
+                                </div>
+                                <div className="flex gap-2 ml-4">
+                                  {!milestone.admin_approved && (
+                                    <Button
+                                      size="sm"
+                                      onClick={() => approveMilestone(milestone.id)}
+                                      className="bg-green-600 hover:bg-green-700"
+                                    >
+                                      <CheckCircle className="h-4 w-4 mr-1" />
+                                      Approve
+                                    </Button>
+                                  )}
+                                  {milestone.admin_approved && milestone.status !== 'completed' && (
+                                    <Button
+                                      size="sm"
+                                      onClick={() => completeMilestone(milestone.id)}
+                                      className="bg-blue-600 hover:bg-blue-700"
+                                    >
+                                      <CheckCircle className="h-4 w-4 mr-1" />
+                                      Mark Complete
+                                    </Button>
+                                  )}
+                                </div>
+                              </div>
+                            </div>
+                          ))}
+                      </CardContent>
+                    </Card>
+                  );
+                })}
+              </div>
+            )}
+          </CardContent>
+        </Card>
 
         {/* Projects List */}
         <Card className="mb-8">

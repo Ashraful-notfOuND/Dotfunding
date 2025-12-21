@@ -58,11 +58,6 @@ const Explore = () => {
 
   const normalizedProjects = useMemo(() => {
     return projects
-      .filter((p) => {
-        // Filter out past projects - only show live/running projects
-        const deadline = p.fundingDeadline || p.funding_deadline;
-        return isProjectLive(deadline);
-      })
       .map((p) => ({
         ...p,
         image: p.image || p.image_urls || "",
@@ -78,11 +73,16 @@ const Explore = () => {
   const filteredProjects = useMemo(() => {
     let filtered = [...normalizedProjects];
 
+    console.log('Total normalized projects:', normalizedProjects.length);
+    console.log('Project d exists:', normalizedProjects.find(p => p.title === 'd'));
+
     // ✅ Category-based filtering
     if (selectedCategory !== "All") {
       filtered = filtered.filter((p) => p.category === selectedCategory);
     }
 
+    console.log('After category filter:', filtered.length);
+    console.log('Selected category:', selectedCategory);
 
     if (selectedSubCategories.length > 0) {
       filtered = filtered.filter((p) =>
@@ -91,6 +91,9 @@ const Explore = () => {
     }
 
     filtered = filtered.filter((p) => p.fundingGoal <= fundingGoalRange[0]);
+
+    console.log('After funding goal filter:', filtered.length);
+    console.log('Funding goal range:', fundingGoalRange[0]);
 
     if (selectedFilters.length > 0) {
       filtered = filtered.filter((project) => {
@@ -104,6 +107,9 @@ const Explore = () => {
         });
       });
     }
+
+    console.log('After status filters:', filtered.length);
+    console.log('Final filtered has d:', filtered.find(p => p.title === 'd'));
 
     switch (sortOption) {
       case "funding":

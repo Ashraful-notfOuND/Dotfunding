@@ -26,6 +26,7 @@ import { Community } from "@/components/Community";
 import { BackerOnboarding } from "@/components/BackerOnboarding";
 import { CreatorDashboard } from "@/components/creator/CreatorDashboard";
 import { CreatorOnly } from "@/components/RoleGate";
+import ProjectMilestones from "@/components/ProjectMilestones";
 import { useAuth } from "@/hooks/useAuth";
 import { useToast } from "@/hooks/use-toast";
 import { useProjectRole } from "@/hooks/useProjectRole";
@@ -140,6 +141,16 @@ const ProjectDetail = () => {
       setProject((data && data.project) ? data.project : data ?? null);
       setOwnerId(data?.project?.user_id || null);
       console.log("ProjectDetail fetch response:", data);
+
+      // Redirect creator to outcome page only if they haven't acknowledged it yet
+      const projectData = (data && data.project) ? data.project : data;
+      const isCreator = user?.id === (data?.project?.user_id || null);
+      if (isCreator && projectData?.status && ['ENDED_SUCCESS', 'ENDED_FAILED'].includes(projectData.status)) {
+        // Check if outcome has been acknowledged
+        if (!projectData.outcome_acknowledged) {
+          navigate(`/project/${id}/outcome`, { state: { project: projectData } });
+        }
+      }
     } catch (err: any) {
       if (err.name === "AbortError") return;
       console.error("Error fetching project:", err);
@@ -147,7 +158,7 @@ const ProjectDetail = () => {
     } finally {
       setLoading(false);
     }
-  }, [id, navigate]);
+  }, [id, navigate, user]);
 
   useEffect(() => {
     if (!id) {
@@ -270,11 +281,14 @@ const ProjectDetail = () => {
         ? [project.image_urls]
         : [];
 
-  // ProjectHero expects a specific status union; default to 'active' if missing/unknown
-  const allowedStatuses = ["just-launched", "trending", "funded", "nearly-funded", "active"] as const;
-  const heroStatus = allowedStatuses.includes(project.status as any)
-    ? (project.status as any)
-    : "active";
+  // Map backend status to frontend display status
+  const getHeroStatus = () => {
+    if (project.status === 'ENDED_SUCCESS') return 'ended-success';
+    if (project.status === 'ENDED_FAILED') return 'ended-failed';
+    if (project.status === 'LIVE') return 'active';
+    return 'active'; // fallback
+  };
+  const heroStatus = getHeroStatus();
 
   const heroCreator = project.creator || "Unknown Creator";
 
@@ -321,6 +335,13 @@ const ProjectDetail = () => {
                 <TabsTrigger value="faq">FAQ</TabsTrigger>
                 <TabsTrigger value="creator">Creator</TabsTrigger>
                 <TabsTrigger value="updates">Updates</TabsTrigger>
+                <TabsTrigger value="milestones" className="relative">
+                  Milestones
+                  <span className="absolute -top-1 -right-1 flex h-3 w-3">
+                    <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-red-400 opacity-75"></span>
+                    <span className="relative inline-flex rounded-full h-3 w-3 bg-red-500"></span>
+                  </span>
+                </TabsTrigger>
                 <TabsTrigger value="community">Community</TabsTrigger>
                 <TabsTrigger value="comments">Comments</TabsTrigger>
                 <TabsTrigger value="reviews">Reviews</TabsTrigger>
@@ -347,6 +368,13 @@ const ProjectDetail = () => {
                   currentUser={user} 
                   ownerEmail={project.creatorEmail} 
                   projectId={project.id} 
+                />
+              </TabsContent>
+
+              <TabsContent value="milestones" className="mt-6">
+                <ProjectMilestones 
+                  projectId={project.id}
+                  isCreator={user?.email === project.creatorEmail}
                 />
               </TabsContent>
 

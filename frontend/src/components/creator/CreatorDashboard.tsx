@@ -9,11 +9,13 @@ import {
   BarChart3, 
   AlertCircle, 
   CheckCircle,
-  Clock
+  Clock,
+  Target
 } from 'lucide-react';
 import { ProjectAnalytics } from './ProjectAnalytics';
 import { ProjectHealthAlerts, HealthAlert } from './ProjectHealthAlerts';
 import { ProjectBackers } from '../ProjectBackers';
+import { MilestoneProgress } from './MilestoneProgress';
 
 interface CreatorDashboardProps {
   projectId: string;
@@ -100,7 +102,7 @@ export function CreatorDashboard({ projectId, creatorId, projectTitle }: Creator
 
           {/* Tabbed Dashboard Interface */}
           <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full">
-            <TabsList className="grid w-full grid-cols-3 mb-6">
+            <TabsList className="grid w-full grid-cols-4 mb-6">
               <TabsTrigger value="overview" className="flex items-center gap-2">
                 <AlertCircle className="h-4 w-4" />
                 Overview
@@ -108,6 +110,10 @@ export function CreatorDashboard({ projectId, creatorId, projectTitle }: Creator
               <TabsTrigger value="analytics" className="flex items-center gap-2">
                 <BarChart3 className="h-4 w-4" />
                 Analytics
+              </TabsTrigger>
+              <TabsTrigger value="milestones" className="flex items-center gap-2">
+                <Target className="h-4 w-4" />
+                Milestones
               </TabsTrigger>
               <TabsTrigger value="backers" className="flex items-center gap-2">
                 <Users className="h-4 w-4" />
@@ -126,6 +132,11 @@ export function CreatorDashboard({ projectId, creatorId, projectTitle }: Creator
             {/* Analytics Tab */}
             <TabsContent value="analytics">
               <ProjectAnalytics projectId={projectId} />
+            </TabsContent>
+
+            {/* Milestones Tab */}
+            <TabsContent value="milestones">
+              <MilestoneProgress projectId={projectId} />
             </TabsContent>
 
             {/* Backers Tab - Moved from main project tabs */}

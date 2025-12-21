@@ -2,7 +2,7 @@ import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Separator } from "@/components/ui/separator";
 import { Badge } from "@/components/ui/badge";
-import { useNavigate } from "react-router-dom";
+import { useNavigate, useLocation } from "react-router-dom";
 import { 
   DollarSign, 
   CreditCard, 
@@ -13,6 +13,14 @@ import {
   ArrowRight
 } from "lucide-react";
 
+interface ProjectData {
+  id: string;
+  title: string;
+  fundingCurrent: number;
+  fundingGoal: number;
+  backers: number;
+}
+
 /**
  * DEMO PAGE 2: Payment & Fee Breakdown
  * Purpose: Screenshot for presentation slides
@@ -20,6 +28,23 @@ import {
  */
 export default function PaymentBreakdown() {
   const navigate = useNavigate();
+  const location = useLocation();
+  const project: ProjectData | undefined = location.state?.project;
+
+  // If no project data, redirect to home
+  if (!project) {
+    navigate('/', { replace: true });
+    return null;
+  }
+
+  // Calculate fees based on actual project data
+  const totalRaised = project.fundingCurrent;
+  const platformFee = totalRaised * 0.05; // 5%
+  const processingFee = (totalRaised * 0.029) + (project.backers * 0.30); // 2.9% + ৳0.30 per transaction
+  const finalPayout = totalRaised - platformFee - processingFee;
+
+  const payoutDate = new Date();
+  payoutDate.setDate(payoutDate.getDate() + 3); // 3 days from now
 
   return (
     <div className="min-h-screen bg-background flex items-center justify-center p-8">
@@ -56,10 +81,10 @@ export default function PaymentBreakdown() {
                   </div>
                   <div>
                     <p className="text-sm text-green-800 dark:text-green-300 font-medium">Total Funds Raised</p>
-                    <p className="text-xs text-green-700 dark:text-green-400">From 7 backers</p>
+                    <p className="text-xs text-green-700 dark:text-green-400">From {project.backers} backers</p>
                   </div>
                 </div>
-                <p className="text-3xl font-bold text-green-900 dark:text-green-100">৳2,847.00</p>
+                <p className="text-3xl font-bold text-green-900 dark:text-green-100">৳{totalRaised.toLocaleString()}</p>
               </div>
             </div>
 
@@ -81,7 +106,7 @@ export default function PaymentBreakdown() {
                     <p className="text-sm text-muted-foreground">5% of total raised</p>
                   </div>
                 </div>
-                <p className="text-lg font-semibold text-muted-foreground">-৳142.35</p>
+                <p className="text-lg font-semibold text-muted-foreground">-৳{platformFee.toFixed(2)}</p>
               </div>
 
               {/* Payment Processing Fee */}
@@ -95,7 +120,7 @@ export default function PaymentBreakdown() {
                     <p className="text-sm text-muted-foreground">2.9% + ৳0.30 per transaction</p>
                   </div>
                 </div>
-                <p className="text-lg font-semibold text-muted-foreground">-৳84.66</p>
+                <p className="text-lg font-semibold text-muted-foreground">-৳{processingFee.toFixed(2)}</p>
               </div>
             </div>
 
@@ -107,7 +132,7 @@ export default function PaymentBreakdown() {
                 <div>
                   <p className="text-sm text-muted-foreground font-medium mb-1">Your Payout Amount</p>
                   <p className="text-4xl font-bold bg-gradient-to-r from-primary to-accent bg-clip-text text-transparent">
-                    ৳2,619.99
+                    ৳{finalPayout.toFixed(2)}
                   </p>
                 </div>
                 <CheckCircle className="h-12 w-12 text-primary" />
@@ -123,7 +148,7 @@ export default function PaymentBreakdown() {
                     Estimated Payout Date
                   </p>
                   <p className="text-sm text-blue-800 dark:text-blue-200 mb-2">
-                    <span className="font-semibold">Within 72 hours</span> • December 24, 2025
+                    <span className="font-semibold">Within 72 hours</span> • {payoutDate.toLocaleDateString('en-US', { month: 'long', day: 'numeric', year: 'numeric' })}
                   </p>
                   <p className="text-xs text-blue-700 dark:text-blue-300">
                     Your payout will be transferred to your registered bank account ending in ****4892
@@ -143,10 +168,10 @@ export default function PaymentBreakdown() {
             {/* CTA */}
             <Button 
               size="lg" 
-              onClick={() => navigate('/project/outcome/next-steps')}
+              onClick={() => navigate(`/project/${project.id}/milestones/setup`, { state: { project } })}
               className="w-full bg-gradient-to-r from-primary to-accent hover:from-primary-hover hover:to-accent-hover text-white font-semibold"
             >
-              Next
+              Set Up Milestones
               <ArrowRight className="h-5 w-5 ml-2" />
             </Button>
           </CardContent>
@@ -155,7 +180,7 @@ export default function PaymentBreakdown() {
         {/* Footer */}
         <div className="text-center mt-6">
           <p className="text-xs text-muted-foreground">
-            Questions about your payout? Contact our support team at support@dotfunding.com
+            Project: <span className="font-semibold">{project.title}</span> • Questions about your payout? Contact support@dotfunding.com
           </p>
         </div>
       </div>
