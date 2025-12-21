@@ -1,5 +1,5 @@
 import express from "express";
-import { createProject, createCampaign, getUserProjects, getProjectById, createRewards, getRewards, getCampaignByProjectId, getAllProjects, getProjectCreator, getProjectDonations, getProjectStatus, batchUpdateProjectStatuses, getProjectForEdit, editProject } from "../controllers/projectController.js";
+import { createProject, createCampaign, getUserProjects, getProjectById, createRewards, getRewards, getCampaignByProjectId, getAllProjects, getProjectCreator, getProjectDonations, getProjectStatus, batchUpdateProjectStatuses, getProjectForEdit, editProject, getProjectBackers, getProjectAnalytics, trackProjectView } from "../controllers/projectController.js";
 import multer from "multer";
 
 const upload = multer({ storage: multer.memoryStorage() });
@@ -18,6 +18,9 @@ router.get("/userProjects/:userId", getUserProjects);
 router.get("/:id/status", getProjectStatus);
 router.post("/batch-update-status", batchUpdateProjectStatuses);
 router.get("/:id/donations", getProjectDonations);
+router.get("/:id/backers", getProjectBackers);
+router.get("/:id/analytics", getProjectAnalytics);
+router.post("/:id/track-view", trackProjectView);
 router.get("/:id", getProjectById);
 router.get("/campaign/:projectId", getCampaignByProjectId);
 router.get("/creator/:projectId", getProjectCreator);

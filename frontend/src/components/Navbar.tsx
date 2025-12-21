@@ -1,5 +1,5 @@
 import { Link, useNavigate } from "react-router-dom";
-import { Search, User, Menu, LogOut, Bell } from "lucide-react";
+import { Search, User, Menu, LogOut, Bell, BarChart3, Eye } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { useState, useEffect } from "react";
@@ -7,10 +7,13 @@ import { useAuth } from "@/hooks/useAuth";
 import SearchOverlay from "@/components/SearchOverlay"; // Import SearchOverlay
 
 interface NavbarProps {
-  hideSearch?: boolean; // New optional prop
+  hideSearch?: boolean;
+  showAnalyticsButton?: boolean;
+  showingAnalytics?: boolean;
+  onAnalyticsClick?: () => void;
 }
 
-const Navbar = ({ hideSearch }: NavbarProps) => {
+const Navbar = ({ hideSearch, showAnalyticsButton, showingAnalytics, onAnalyticsClick }: NavbarProps) => {
   const [isMenuOpen, setIsMenuOpen] = useState(false);
   const [isSearchOpen, setIsSearchOpen] = useState(false);
   const [unreadCount, setUnreadCount] = useState(0);
@@ -88,19 +91,42 @@ const Navbar = ({ hideSearch }: NavbarProps) => {
 
           {/* Right: Desktop Navigation */}
           <div className="hidden md:flex items-center gap-4 flex-shrink-0">
-            <Button variant="ghost" asChild>
-              <Link to="/explore">Explore</Link>
-            </Button>
-            {!user?.isAdmin && (
-              <Button variant="default" asChild className="bg-primary hover:bg-primary-hover">
-                <Link to="/create-project">Start a Project</Link>
-              </Button>
+            {!showAnalyticsButton && (
+              <>
+                <Button variant="ghost" asChild>
+                  <Link to="/explore">Explore</Link>
+                </Button>
+                {!user?.isAdmin && (
+                  <Button variant="default" asChild className="bg-primary hover:bg-primary-hover">
+                    <Link to="/create-project">Start a Project</Link>
+                  </Button>
+                )}
+              </>
             )}
             {isAuthenticated ? (
               <>
                 {user?.isAdmin && (
                   <Button variant="ghost" asChild className="bg-gradient-to-r from-purple-600 to-blue-600 text-white hover:from-purple-700 hover:to-blue-700">
                     <Link to="/admin">Admin Dashboard</Link>
+                  </Button>
+                )}
+                {showAnalyticsButton && (
+                  <Button 
+                    variant="default" 
+                    onClick={onAnalyticsClick}
+                    className={`px-4 transition-all ${showingAnalytics ? 'bg-accent hover:bg-accent-hover' : 'bg-primary hover:bg-primary-hover'} text-white`}
+                  >
+                    {showingAnalytics ? (
+                      <>
+                        <Eye className="h-4 w-4 mr-2" />
+                        User View
+                      </>
+                    ) : (
+                      <>
+                        <BarChart3 className="h-4 w-4 mr-2" />
+                        Creator Analytics
+                      </>
+                    )}
                   </Button>
                 )}
                 <Button variant="ghost" size="icon" asChild className="relative">

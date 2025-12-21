@@ -24,8 +24,11 @@ import ProjectReviews from "@/components/ProjectReviews";
 import ProjectDonations from "@/components/ProjectDonations";
 import { Community } from "@/components/Community";
 import { BackerOnboarding } from "@/components/BackerOnboarding";
+import { CreatorDashboard } from "@/components/creator/CreatorDashboard";
+import { CreatorOnly } from "@/components/RoleGate";
 import { useAuth } from "@/hooks/useAuth";
 import { useToast } from "@/hooks/use-toast";
+import { useProjectRole } from "@/hooks/useProjectRole";
 
 type Reward = {
   amount: number;
@@ -80,6 +83,39 @@ const ProjectDetail = () => {
   const [ownerId, setOwnerId] = useState<string | null>(null);
   const [showOnboarding, setShowOnboarding] = useState(false);
   const [activeTab, setActiveTab] = useState('campaign');
+  const [showCreatorDashboard, setShowCreatorDashboard] = useState(false);
+
+  // Role-based access control
+  const projectRole = useProjectRole(ownerId, false); // TODO: pass actual backer status
+
+  // Track project view
+  useEffect(() => {
+    if (!id) return;
+
+    const trackView = async () => {
+      try {
+        // Get IP address from external service (optional)
+        const ipResponse = await fetch('https://api.ipify.org?format=json').catch(() => null);
+        const ipData = ipResponse ? await ipResponse.json() : null;
+
+        await fetch(`http://localhost:5000/api/projects/${id}/track-view`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            userId: user?.id || null,
+            ipAddress: ipData?.ip || null,
+            userAgent: navigator.userAgent,
+            referrer: document.referrer || null
+          })
+        });
+      } catch (err) {
+        // Silently fail - analytics shouldn't break user experience
+        console.debug('View tracking failed:', err);
+      }
+    };
+
+    trackView();
+  }, [id, user]);
 
   const fetchProject = useCallback(async (signal?: AbortSignal) => {
     setLoading(true);
@@ -244,7 +280,26 @@ const ProjectDetail = () => {
 
   return (
     <div className="min-h-screen flex flex-col">
-      <Navbar />
+      <Navbar 
+        showAnalyticsButton={projectRole.isCreator}
+        showingAnalytics={showCreatorDashboard}
+        onAnalyticsClick={() => setShowCreatorDashboard(prev => !prev)}
+      />
+
+      {/* Creator-Only Analytics - Full Width Below Navbar */}
+      {showCreatorDashboard && (
+        <CreatorOnly currentRole={projectRole.role}>
+          <div className="w-full bg-background border-b">
+            <div className="container mx-auto px-4 py-6">
+              <CreatorDashboard 
+                projectId={project.id}
+                creatorId={user?.id || ''}
+                projectTitle={project.title}
+              />
+            </div>
+          </div>
+        </CreatorOnly>
+      )}
 
       <div className="container mx-auto px-4 py-8">
         <div className="grid lg:grid-cols-3 gap-8">
@@ -259,7 +314,7 @@ const ProjectDetail = () => {
               status={heroStatus}
             />
 
-            {/* Tabs */}
+            {/* Standard Project Tabs - Visible to Everyone */}
             <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full">
               <TabsList className="w-full justify-start">
                 <TabsTrigger value="campaign">Campaign</TabsTrigger>

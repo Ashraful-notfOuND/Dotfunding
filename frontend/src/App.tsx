@@ -23,6 +23,7 @@ import CreatorProfile from "./pages/CreatorProfile";
 import AuthCallback from "./pages/AuthCallback";
 import TermsAndConditions from "./pages/TermsAndConditions";
 import AdminDashboard from "./pages/AdminDashboard";
+import ProjectTimeline from "./pages/ProjectTimeline";
 
 
 const queryClient = new QueryClient();
@@ -66,6 +67,7 @@ const App = () => {
             <Route path="/profile" element={<PageWrapper><Profile /></PageWrapper>} />
             <Route path="/profile/edit" element={<PageWrapper><EditProfile /></PageWrapper>} />
                       <Route path="/project/:id/edit" element={<PageWrapper><EditProject /></PageWrapper>} />
+                      <Route path="/project/:id/timeline" element={<PageWrapper><ProjectTimeline /></PageWrapper>} />
                       <Route path="/payment-success" element={<PageWrapper><PaymentSuccess /></PageWrapper>} />
                       <Route path="/creator/:id" element={<PageWrapper><CreatorProfile /></PageWrapper>} />
                       <Route path="/admin" element={<PageWrapper><AdminDashboard /></PageWrapper>} />

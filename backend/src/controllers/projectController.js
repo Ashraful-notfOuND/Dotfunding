@@ -1118,3 +1118,322 @@ export const batchUpdateProjectStatuses = async (req, res) => {
     return res.status(500).json({ error: "Batch update failed" });
   }
 };
+
+/**
+ * Get all backers for a project (for project creator)
+ * GET /api/projects/:id/backers
+ * Returns list of all backers with their pledge details, reward tier, and messages
+ */
+export const getProjectBackers = async (req, res) => {
+  try {
+    const { id } = req.params;
+    const { creator_id } = req.query; // Pass creator_id to verify ownership
+
+    if (!id) {
+      return res.status(400).json({ error: "Project ID is required" });
+    }
+
+    console.log(`Fetching backers for project ID: ${id}`);
+
+    // Verify the requesting user is the project creator
+    if (creator_id) {
+      const { data: project } = await supabase
+        .from("main_projects")
+        .select("user_id")
+        .eq("id", id)
+        .single();
+
+      if (!project || project.user_id !== creator_id) {
+        return res.status(403).json({ error: "Unauthorized: Only project creator can view backers" });
+      }
+    }
+
+    // Fetch all paid pledges with user information, reward details, and backer messages
+    const { data: pledges, error: pledgesError } = await supabase
+      .from("pledges")
+      .select(`
+        id,
+        amount,
+        created_at,
+        user_id,
+        reward_id,
+        tran_id,
+        status,
+        users:user_id (
+          id,
+          full_name,
+          email
+        )
+      `)
+      .eq("project_id", id)
+      .eq("status", "paid")
+      .order("created_at", { ascending: false });
+
+    if (pledgesError) {
+      console.error("Error fetching pledges:", pledgesError);
+      throw pledgesError;
+    }
+
+    if (!pledges || pledges.length === 0) {
+      return res.status(200).json({
+        backers: [],
+        totalBackers: 0,
+        totalAmount: 0
+      });
+    }
+
+    // Get all reward IDs from pledges
+    const rewardIds = pledges
+      .map(p => p.reward_id)
+      .filter(id => id != null);
+
+    // Fetch reward details if there are any
+    let rewards = [];
+    if (rewardIds.length > 0) {
+      const { data: rewardData } = await supabase
+        .from("reward_table")
+        .select("id, title, amount")
+        .in("id", rewardIds);
+      rewards = rewardData || [];
+    }
+
+    // Create a map of reward_id to reward details
+    const rewardMap = rewards.reduce((acc, reward) => {
+      acc[reward.id] = reward;
+      return acc;
+    }, {});
+
+    // Get backer messages from payment_sessions
+    const tranIds = pledges.map(p => p.tran_id).filter(Boolean);
+    let sessions = [];
+    if (tranIds.length > 0) {
+      const { data: sessionData } = await supabase
+        .from("payment_sessions")
+        .select("tran_id, backer_message")
+        .in("tran_id", tranIds);
+      sessions = sessionData || [];
+    }
+
+    // Create a map of tran_id to backer_message
+    const messageMap = sessions.reduce((acc, session) => {
+      acc[session.tran_id] = session.backer_message;
+      return acc;
+    }, {});
+
+    // Format the backers list
+    const backers = pledges.map(pledge => ({
+      id: pledge.id,
+      amount: Number(pledge.amount) || 0,
+      date: pledge.created_at,
+      backer: {
+        id: pledge.users?.id,
+        name: pledge.users?.full_name || "Anonymous",
+        email: pledge.users?.email || null
+      },
+      reward: pledge.reward_id ? {
+        id: pledge.reward_id,
+        title: rewardMap[pledge.reward_id]?.title || "Unknown Reward",
+        amount: rewardMap[pledge.reward_id]?.amount || 0
+      } : null,
+      pledgeType: pledge.reward_id ? "reward" : "no-reward",
+      message: messageMap[pledge.tran_id] || null,
+      transactionId: pledge.tran_id
+    }));
+
+    // Calculate totals
+    const totalAmount = backers.reduce((sum, b) => sum + b.amount, 0);
+    const uniqueBackers = new Set(backers.map(b => b.backer.id)).size;
+
+    return res.status(200).json({
+      backers,
+      totalBackers: uniqueBackers,
+      totalPledges: backers.length,
+      totalAmount: totalAmount
+    });
+
+  } catch (err) {
+    console.error("Error fetching project backers:", err);
+    return res.status(500).json({ error: "Failed to fetch project backers" });
+  }
+};
+
+// Get project analytics (views, visitors, conversion rate, etc.)
+export const getProjectAnalytics = async (req, res) => {
+  try {
+    const { id } = req.params;
+
+    // Verify project exists and user is the owner
+    const { data: project, error: projectError } = await supabase
+      .from("main_projects")
+      .select("id, owner_id, title, created_at")
+      .eq("id", id)
+      .single();
+
+    if (projectError || !project) {
+      return res.status(404).json({ error: "Project not found" });
+    }
+
+    // Note: For now, we'll allow any authenticated user to view analytics
+    // In production, uncomment this to restrict to project owner only
+    // const userId = req.user?.id; // Assuming auth middleware sets req.user
+    // if (project.owner_id !== userId) {
+    //   return res.status(403).json({ error: "Unauthorized: Only project owner can view analytics" });
+    // }
+
+    // Get total views
+    const { data: viewsData, error: viewsError } = await supabase
+      .from("project_views")
+      .select("id, user_id, ip_address, referrer, viewed_at")
+      .eq("project_id", id);
+
+    const views = viewsData || [];
+    const totalViews = views.length;
+
+    // Calculate unique visitors (based on authenticated users + unique IPs for anonymous)
+    const uniqueUserIds = new Set(views.filter(v => v.user_id).map(v => v.user_id));
+    const uniqueIPs = new Set(views.filter(v => !v.user_id && v.ip_address).map(v => v.ip_address));
+    const uniqueVisitors = uniqueUserIds.size + uniqueIPs.size;
+
+    // Get backers count for conversion rate
+    const { data: pledgesData } = await supabase
+      .from("pledges")
+      .select("user_id")
+      .eq("project_id", id);
+
+    const backers = pledgesData || [];
+    const uniqueBackers = new Set(backers.map(p => p.user_id)).size;
+    const conversionRate = uniqueVisitors > 0 ? ((uniqueBackers / uniqueVisitors) * 100).toFixed(1) : 0;
+
+    // Calculate weekly growth (compare last 7 days vs previous 7 days)
+    const now = new Date();
+    const last7Days = new Date(now.getTime() - 7 * 24 * 60 * 60 * 1000);
+    const previous7Days = new Date(now.getTime() - 14 * 24 * 60 * 60 * 1000);
+
+    const recentViews = views.filter(v => new Date(v.viewed_at) >= last7Days).length;
+    const previousViews = views.filter(v => {
+      const viewDate = new Date(v.viewed_at);
+      return viewDate >= previous7Days && viewDate < last7Days;
+    }).length;
+
+    const weeklyGrowth = previousViews > 0 
+      ? (((recentViews - previousViews) / previousViews) * 100).toFixed(1)
+      : recentViews > 0 ? 100 : 0;
+
+    // Get funding trend (last 7 days)
+    const { data: fundingData } = await supabase
+      .from("pledges")
+      .select("amount, created_at")
+      .eq("project_id", id)
+      .gte("created_at", last7Days.toISOString())
+      .order("created_at", { ascending: true });
+
+    // Group by date
+    const fundingByDate = {};
+    let cumulativeAmount = 0;
+
+    // Get total funding before last 7 days
+    const { data: previousFunding } = await supabase
+      .from("pledges")
+      .select("amount")
+      .eq("project_id", id)
+      .lt("created_at", last7Days.toISOString());
+
+    cumulativeAmount = (previousFunding || []).reduce((sum, p) => sum + (Number(p.amount) || 0), 0);
+
+    // Build funding trend
+    for (let i = 6; i >= 0; i--) {
+      const date = new Date(now.getTime() - i * 24 * 60 * 60 * 1000);
+      const dateKey = date.toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
+      fundingByDate[dateKey] = cumulativeAmount;
+    }
+
+    (fundingData || []).forEach(pledge => {
+      const pledgeDate = new Date(pledge.created_at);
+      const dateKey = pledgeDate.toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
+      cumulativeAmount += Number(pledge.amount) || 0;
+      if (fundingByDate.hasOwnProperty(dateKey)) {
+        fundingByDate[dateKey] = cumulativeAmount;
+      }
+    });
+
+    const fundingTrend = Object.entries(fundingByDate).map(([date, amount]) => ({
+      date,
+      amount: Math.round(amount)
+    }));
+
+    // Traffic sources from referrer data
+    const trafficSources = {};
+    views.forEach(view => {
+      if (!view.referrer || view.referrer === '') {
+        trafficSources['Direct'] = (trafficSources['Direct'] || 0) + 1;
+      } else if (view.referrer.includes('facebook') || view.referrer.includes('twitter') || 
+                 view.referrer.includes('instagram') || view.referrer.includes('linkedin')) {
+        trafficSources['Social Media'] = (trafficSources['Social Media'] || 0) + 1;
+      } else if (view.referrer.includes('google') || view.referrer.includes('bing')) {
+        trafficSources['Search'] = (trafficSources['Search'] || 0) + 1;
+      } else {
+        trafficSources['Referral'] = (trafficSources['Referral'] || 0) + 1;
+      }
+    });
+
+    const totalSources = Object.values(trafficSources).reduce((sum, count) => sum + count, 0);
+    const trafficSourcesArray = Object.entries(trafficSources).map(([source, count]) => ({
+      source,
+      percentage: totalSources > 0 ? Math.round((count / totalSources) * 100) : 0
+    }));
+
+    // Count inactive backers (no pledges in last 30 days)
+    const thirtyDaysAgo = new Date(now.getTime() - 30 * 24 * 60 * 60 * 1000);
+    const { data: recentBackers } = await supabase
+      .from("pledges")
+      .select("user_id")
+      .eq("project_id", id)
+      .gte("created_at", thirtyDaysAgo.toISOString());
+
+    const recentBackerIds = new Set((recentBackers || []).map(p => p.user_id));
+    const allBackerIds = new Set(backers.map(p => p.user_id));
+    const inactiveBackers = allBackerIds.size - recentBackerIds.size;
+
+    return res.status(200).json({
+      totalViews,
+      uniqueVisitors,
+      conversionRate: Number(conversionRate),
+      activeBackers: recentBackerIds.size,
+      inactiveBackers,
+      weeklyGrowth: Number(weeklyGrowth),
+      fundingTrend,
+      trafficSources: trafficSourcesArray
+    });
+
+  } catch (err) {
+    console.error("Error fetching project analytics:", err);
+    return res.status(500).json({ error: "Failed to fetch project analytics" });
+  }
+};
+
+// Track project view
+export const trackProjectView = async (req, res) => {
+  try {
+    const { id } = req.params;
+    const { userId, ipAddress, userAgent, referrer } = req.body;
+
+    // Insert view record
+    const { error } = await supabase
+      .from("project_views")
+      .insert([{
+        project_id: id,
+        user_id: userId || null,
+        ip_address: ipAddress || null,
+        user_agent: userAgent || null,
+        referrer: referrer || null
+      }]);
+
+    if (error) throw error;
+
+    return res.status(201).json({ message: "View tracked successfully" });
+
+  } catch (err) {
+    console.error("Error tracking project view:", err);
+    return res.status(500).json({ error: "Failed to track view" });
+  }
+};
