@@ -64,32 +64,41 @@ const FAQ = ({ projectId, isOwner = false }: FAQProps) => {
     return () => controller.abort();
   }, [projectId]);
 
-  const handleAddFAQ = async () => {
-    if (!question.trim() || !answer.trim() || !projectId) return;
+const handleAddFAQ = async () => {
+  if (!question.trim() || !answer.trim() || !projectId) return;
 
-    try {
-      setPosting(true);
+  try {
+    setPosting(true);
 
-      const res = await fetch("http://localhost:5000/api/faqs", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ project_id: projectId, question, answer }),
-      });
+    const res = await fetch("http://localhost:5000/api/faqs", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        project_id: projectId, // keep as string if DB uses text/uuid
+        faqs: [{ question: question.trim(), answer: answer.trim() }],
+      }),
+    });
 
-      if (!res.ok) throw new Error("Failed to add FAQ");
+    const data = await res.json();
+    console.log("Backend response:", data);
 
-      const newFaq = await res.json();
-      setFaqs((prev) => [...prev, newFaq]);
+    if (!res.ok) throw new Error(data?.error || "Failed to add FAQ");
 
-      setQuestion("");
-      setAnswer("");
-      setShowForm(false);
-    } catch (err) {
-      console.error("Add FAQ error:", err);
-    } finally {
-      setPosting(false);
-    }
-  };
+    // backend returns array
+    const newFaq = Array.isArray(data) ? data[0] : data;
+
+    setFaqs((prev) => [...prev, newFaq]);
+    setQuestion("");
+    setAnswer("");
+    setShowForm(false);
+  } catch (err: any) {
+    console.error("Add FAQ error:", err.message || err);
+  } finally {
+    setPosting(false);
+  }
+};
+
+
 
   const handleDeleteFAQ = async () => {
     if (!selectedFAQ) return;
