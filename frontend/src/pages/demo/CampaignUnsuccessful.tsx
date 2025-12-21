@@ -54,7 +54,7 @@ export default function CampaignUnsuccessful() {
                   <DollarSign className="h-4 w-4 text-muted-foreground" />
                   <p className="text-xs font-medium text-muted-foreground">Raised</p>
                 </div>
-                <p className="text-2xl font-bold text-foreground">$2,847</p>
+                <p className="text-2xl font-bold text-foreground">৳2,847</p>
               </div>
 
               {/* Goal */}
@@ -63,7 +63,7 @@ export default function CampaignUnsuccessful() {
                   <Target className="h-4 w-4 text-muted-foreground" />
                   <p className="text-xs font-medium text-muted-foreground">Goal</p>
                 </div>
-                <p className="text-2xl font-bold text-foreground">$10,000</p>
+                <p className="text-2xl font-bold text-foreground">৳10,000</p>
               </div>
 
               {/* Backers */}
@@ -94,7 +94,7 @@ export default function CampaignUnsuccessful() {
                 />
               </div>
               <p className="text-xs text-muted-foreground mt-2">
-                28% of your $10,000 goal
+                28% of your ৳10,000 goal
               </p>
             </div>
 

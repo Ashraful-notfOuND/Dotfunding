@@ -162,10 +162,10 @@ export function ProjectAnalytics({ projectId }: ProjectAnalyticsProps) {
                 <YAxis 
                   className="text-xs"
                   stroke="#888"
-                  tickFormatter={(value) => `$${value / 1000}k`}
+                  tickFormatter={(value) => `৳${value / 1000}k`}
                 />
                 <Tooltip 
-                  formatter={(value) => [`$${value}`, 'Amount']}
+                  formatter={(value) => [`৳${value}`, 'Amount']}
                   contentStyle={{ 
                     backgroundColor: 'white', 
                     border: '1px solid #ccc',

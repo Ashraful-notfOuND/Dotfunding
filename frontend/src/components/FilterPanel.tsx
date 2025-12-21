@@ -122,7 +122,7 @@ const FilterPanel = ({
           step={50}
         />
         <p className="text-sm text-muted-foreground mt-2">
-          Up to ${fundingGoalRange[0].toLocaleString()}
+          Up to ৳{fundingGoalRange[0].toLocaleString()}
         </p>
       </div>
 

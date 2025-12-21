@@ -581,7 +581,7 @@ const Profile = () => {
                     </div>
                     <div>
                       <span className="font-semibold text-foreground">
-                        ${profileData.totalBacked.toLocaleString()}
+                        ৳{profileData.totalBacked.toLocaleString()}
                       </span>{" "}
                       <span className="text-muted-foreground">total backed</span>
                     </div>
@@ -864,7 +864,7 @@ const Profile = () => {
                         <div className="flex items-center gap-2 text-sm text-muted-foreground">
                           <DollarSign className="h-4 w-4" />
                           <span className="font-medium text-foreground">
-                            ${(backing.amount || 0).toLocaleString()}
+                            ৳{(backing.amount || 0).toLocaleString()}
                           </span>
                           <span>pledged</span>
                         </div>

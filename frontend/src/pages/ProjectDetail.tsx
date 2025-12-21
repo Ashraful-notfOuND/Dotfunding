@@ -396,7 +396,7 @@ const ProjectDetail = () => {
                     </h3>
                     <p className="text-sm text-muted-foreground">
                       {project.status === 'ENDED_SUCCESS' 
-                        ? `This project reached its funding goal of $${project.fundingGoal?.toLocaleString() || 0}` 
+                        ? `This project reached its funding goal of ৳${project.fundingGoal?.toLocaleString() || 0}` 
                         : `This project did not reach its funding goal and is no longer accepting pledges.`
                       }
                     </p>

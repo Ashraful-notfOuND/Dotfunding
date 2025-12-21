@@ -60,7 +60,7 @@ export default function ProjectSuccess() {
                   <DollarSign className="h-5 w-5 text-green-600" />
                   <p className="text-sm font-medium text-green-800 dark:text-green-300">Total Raised</p>
                 </div>
-                <p className="text-4xl font-bold text-green-900 dark:text-green-100">$2,847</p>
+                <p className="text-4xl font-bold text-green-900 dark:text-green-100">৳2,847</p>
               </div>
 
               {/* Backers */}

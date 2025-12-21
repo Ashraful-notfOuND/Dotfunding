@@ -241,7 +241,7 @@ const AdminDashboard = () => {
           <div className="text-sm text-gray-600">
             <p><strong>Creator:</strong> {project.users?.full_name || "Unknown"}</p>
             <p><strong>Email:</strong> {project.users?.email || "N/A"}</p>
-            <p><strong>Goal:</strong> ${project.funding_goal?.toLocaleString()}</p>
+            <p><strong>Goal:</strong> ৳{project.funding_goal?.toLocaleString()}</p>
             <p><strong>Created:</strong> {new Date(project.created_at).toLocaleDateString()}</p>
           </div>
 

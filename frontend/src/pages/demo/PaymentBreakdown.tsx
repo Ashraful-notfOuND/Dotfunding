@@ -59,7 +59,7 @@ export default function PaymentBreakdown() {
                     <p className="text-xs text-green-700 dark:text-green-400">From 7 backers</p>
                   </div>
                 </div>
-                <p className="text-3xl font-bold text-green-900 dark:text-green-100">$2,847.00</p>
+                <p className="text-3xl font-bold text-green-900 dark:text-green-100">৳2,847.00</p>
               </div>
             </div>
 
@@ -81,7 +81,7 @@ export default function PaymentBreakdown() {
                     <p className="text-sm text-muted-foreground">5% of total raised</p>
                   </div>
                 </div>
-                <p className="text-lg font-semibold text-muted-foreground">-$142.35</p>
+                <p className="text-lg font-semibold text-muted-foreground">-৳142.35</p>
               </div>
 
               {/* Payment Processing Fee */}
@@ -92,10 +92,10 @@ export default function PaymentBreakdown() {
                   </div>
                   <div>
                     <p className="font-medium">Payment Processing Fee</p>
-                    <p className="text-sm text-muted-foreground">2.9% + $0.30 per transaction</p>
+                    <p className="text-sm text-muted-foreground">2.9% + ৳0.30 per transaction</p>
                   </div>
                 </div>
-                <p className="text-lg font-semibold text-muted-foreground">-$84.66</p>
+                <p className="text-lg font-semibold text-muted-foreground">-৳84.66</p>
               </div>
             </div>
 
@@ -107,7 +107,7 @@ export default function PaymentBreakdown() {
                 <div>
                   <p className="text-sm text-muted-foreground font-medium mb-1">Your Payout Amount</p>
                   <p className="text-4xl font-bold bg-gradient-to-r from-primary to-accent bg-clip-text text-transparent">
-                    $2,619.99
+                    ৳2,619.99
                   </p>
                 </div>
                 <CheckCircle className="h-12 w-12 text-primary" />

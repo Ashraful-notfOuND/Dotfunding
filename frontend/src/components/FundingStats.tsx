@@ -48,10 +48,10 @@ const FundingStats = ({ fundingCurrent, fundingGoal, backers, daysLeft }: Fundin
       <CardContent className="pt-6 space-y-6">
         <div>
           <div className="text-3xl font-bold text-primary mb-1">
-            ${fundingCurrent.toLocaleString()}
+            ৳{fundingCurrent.toLocaleString()}
           </div>
           <div className="text-sm text-muted-foreground mb-4">
-            pledged of ${fundingGoal.toLocaleString()} goal
+            pledged of ৳{fundingGoal.toLocaleString()} goal
           </div>
           <Progress value={Math.min(animatedProgress, 100)} className="h-2 mb-2" />
           <div className="text-sm text-muted-foreground">

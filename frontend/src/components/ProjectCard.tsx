@@ -102,7 +102,7 @@ const ProjectCard = ({
           <div className="mt-4 border-t border-border pt-3 text-sm">
             <div className="flex items-baseline justify-between">
               <div className="flex items-baseline gap-2">
-                <span className="font-semibold text-foreground">${fundingCurrent.toLocaleString()}</span>
+                <span className="font-semibold text-foreground">৳{fundingCurrent.toLocaleString()}</span>
               </div>
               <div>
                 <span

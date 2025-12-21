@@ -60,7 +60,7 @@ const FeaturedProjectCard = ({ project }: FeaturedProjectCardProps) => {
           <div className="flex items-center justify-between text-sm">
             <div>
               <span className="font-bold text-foreground">
-                ${project.fundingCurrent.toLocaleString()}
+                ৳{project.fundingCurrent.toLocaleString()}
               </span>
               <span className="text-muted-foreground"> raised</span>
             </div>

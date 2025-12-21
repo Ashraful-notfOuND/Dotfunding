@@ -85,11 +85,11 @@ const SuccessStories = () => {
                     <div className="space-y-2">
                       <div className="flex justify-between text-sm">
                         <span className="text-muted-foreground">Raised</span>
-                        <span className="font-bold text-success">${story.raised.toLocaleString()}</span>
+                        <span className="font-bold text-success">৳{story.raised.toLocaleString()}</span>
                       </div>
                       <div className="flex justify-between text-sm">
                         <span className="text-muted-foreground">Goal</span>
-                        <span className="font-medium">${story.goal.toLocaleString()}</span>
+                        <span className="font-medium">৳{story.goal.toLocaleString()}</span>
                       </div>
                     </div>
 

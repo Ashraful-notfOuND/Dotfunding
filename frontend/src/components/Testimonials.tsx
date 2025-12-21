@@ -20,7 +20,7 @@ const testimonials = [
     role: "Game Developer",
     image: michaelChenImg,
     rating: 5,
-    text: "Raised $50k in just 2 weeks. The platform is intuitive and the backers are genuinely interested.",
+    text: "Raised ৳50k in just 2 weeks. The platform is intuitive and the backers are genuinely interested.",
   },
   {
     name: "Emma Rodriguez",
