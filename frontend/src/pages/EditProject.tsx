@@ -18,7 +18,7 @@ interface Reward {
   description: string;
   delivery: Date | null;
   backers: number;
-  available: number;
+  available: number | null;
 }
 
 const formatDate_dd_mm_yyyy = (date: Date) => {
@@ -56,7 +56,6 @@ const EditProject = () => {
       navigate("/login", { replace: true });
       return;
     }
-
     fetch(`http://localhost:5000/api/projects/getEditProjectInfo/${id}`)
       .then(res => res.json())
       .then(data => {
@@ -96,7 +95,7 @@ const EditProject = () => {
   const handleAddReward = () => {
     setForm({
       ...form,
-      rewards: [...(form.rewards || []), { amount: "", title: "", description: "", delivery: null, backers: 0, available: 0 }],
+      rewards: [...(form.rewards || []), { amount: "", title: "", description: "", delivery: null, backers: 0, available: null }],
     });
   };
 
@@ -306,25 +305,83 @@ const EditProject = () => {
             <Textarea rows={4} value={form.description} onChange={(e) => handleChange("description", e.target.value)} />
           </div>
 
-          {/* Rewards */}
-          <div className="space-y-3">
-            <div className="flex justify-between items-center">
-              <Label>Rewards</Label>
-              <Button type="button" variant="outline" size="sm" onClick={handleAddReward}>Add Reward</Button>
-            </div>
-            {(form.rewards || []).map((reward: Reward, i: number) => (
-              <div key={i} className="border p-3 rounded-md space-y-2">
-                <div className="flex gap-2">
-                  <Input placeholder="Title" value={reward.title} onChange={(e) => handleRewardChange(i, "title", e.target.value)} />
-                  <Input placeholder="Amount" type="number" value={reward.amount} onChange={(e) => handleRewardChange(i, "amount", e.target.value)} />
-                </div>
-                <Textarea placeholder="Description" value={reward.description} onChange={(e) => handleRewardChange(i, "description", e.target.value)} />
+            {/* Rewards */}
+              <div className="space-y-3">
                 <div className="flex justify-between items-center">
-                  <Button type="button" variant="destructive" size="sm" onClick={() => handleRemoveReward(i)}>Remove</Button>
+                  <Label>Rewards</Label>
+                  <Button type="button" variant="outline" size="sm" onClick={handleAddReward}>
+                    Add Reward
+                  </Button>
                 </div>
+
+                {(form.rewards || []).map((reward: Reward, i: number) => (
+                  <div key={i} className="border p-3 rounded-md space-y-3">
+                    
+                    {/* Title */}
+                    <div>
+                      <Label>Title</Label>
+                      <Input
+                        placeholder="Enter reward title"
+                        value={reward.title}
+                        onChange={(e) => handleRewardChange(i, "title", e.target.value)}
+                      />
+                    </div>
+
+                    {/* Amount and Available side by side */}
+                    <div className="flex gap-2">
+                      <div className="flex-1">
+                        <Label>Amount ($)</Label>
+                        <Input
+                          placeholder="Enter amount"
+                          type="number"
+                          value={reward.amount}
+                          onChange={(e) => handleRewardChange(i, "amount", e.target.value)}
+                        />
+                      </div>
+                        <div className="flex-1">
+                          <Label>Available Amount (Leave empty for unlimited)</Label>
+                          <Input
+                            placeholder="Enter available quantity"
+                            type="number"
+                            min={0}
+                            value={reward.available === null ? "" : reward.available}
+                            onChange={(e) =>
+                              handleRewardChange(
+                                i,
+                                "available",
+                                e.target.value === "" ? null : Number(e.target.value)
+                              )
+                            }
+                          />
+                        </div>
+                    </div>
+
+                    {/* Description */}
+                    <div>
+                      <Label>Reward Description</Label>
+                      <Textarea
+                        placeholder="Enter reward description"
+                        value={reward.description}
+                        onChange={(e) => handleRewardChange(i, "description", e.target.value)}
+                      />
+                    </div>
+
+                    {/* Remove button */}
+                    <div className="flex justify-end">
+                      <Button
+                        type="button"
+                        variant="destructive"
+                        size="sm"
+                        onClick={() => handleRemoveReward(i)}
+                      >
+                        Remove
+                      </Button>
+                    </div>
+
+                  </div>
+                ))}
               </div>
-            ))}
-          </div>
+
 
           <div className="flex gap-3">
             <Button type="submit" className="w-full bg-primary" disabled={submitting}>{submitting ? "Saving..." : "Save Changes"}</Button>

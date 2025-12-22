@@ -70,6 +70,7 @@ const handleSubmit = async (e: React.FormEvent) => {
           name: data.user.full_name,
           bio: data.user.bio || "",
           profilePic: data.user.profile_pic || defaultAvatar,
+          joinedDate: data.user.created_at,
           location: data.user.location || "Not specified",
           isAdmin: data.user.is_admin || false,
         });
