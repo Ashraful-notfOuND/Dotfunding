@@ -625,8 +625,18 @@ export const validatePayment = async (req, res) => {
 export const successHandler = async (req, res) => {
   try {
     // SSLCommerz may send data via query params (GET) or form body (POST).
-    const params = req.method === "GET" ? req.query || {} : req.body || {};
+    // Merge both to ensure we get all parameters
+    const params = { ...(req.query || {}), ...(req.body || {}) };
     const { val_id, tran_id, project_id, user_id, reward_id, amount } = params;
+    
+    console.log("successHandler: Full request details:", {
+      method: req.method,
+      query: req.query,
+      body: req.body,
+      mergedParams: params,
+      url: req.url,
+      originalUrl: req.originalUrl
+    });
     
     console.log("successHandler: received params:", { 
       val_id, 
@@ -646,6 +656,10 @@ export const successHandler = async (req, res) => {
     const processor = new PaymentProcessor(strategy);
     const validationResult = await processor.validate({ val_id });
     const validation = validationResult.validation;
+    
+    console.log("successHandler: validation response:", JSON.stringify(validation, null, 2));
+
+    console.log("successHandler: validation response:", JSON.stringify(validation, null, 2));
 
     // treat as success when validation indicates valid
     const status = validation?.status || validation?.status_code || null;
@@ -653,7 +667,11 @@ export const successHandler = async (req, res) => {
 
     if (ok) {
       // Resolve tran_id and metadata similar to validatePayment
-      const tran = tran_id || validation?.tran_id || null;
+      // Try multiple fields where SSLCommerz might place the transaction ID
+      const tran = tran_id || validation?.tran_id || validation?.tran_date || params.tran || params.tranId || null;
+      
+      console.log("successHandler: Extracted tran_id:", tran);
+      
       let project_id_res = project_id || null;
       let user_id_res = user_id || null;
       let reward_id_res = reward_id || null;
