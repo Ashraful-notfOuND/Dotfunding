@@ -466,17 +466,36 @@ export const getUserProjects = async (req, res) => {
       return res.status(500).json({ error: error.message });
     }
 
-    const result = projects.map((prj) => ({
-      id: prj.id,
-      title: prj.title,
-      tagline: prj.tagline,
-      imageUrl: prj.image_url,
-      fundingGoal: prj.funding_goal,
-      fundingDeadline: prj.funding_deadline,
-      category: prj.category,
-      approval_status: prj.approval_status,
-      admin_message: prj.admin_message,
-    }));
+    const result = await Promise.all(
+      projects.map(async (prj) => {
+        // Sum pledges for this project
+        let fundingCurrent = 0;
+        try {
+          const { data: pledges } = await supabase
+            .from("pledges")
+            .select("amount")
+            .eq("project_id", prj.id);
+          if (Array.isArray(pledges)) {
+            fundingCurrent = pledges.reduce((acc, r) => acc + Number(r.amount || 0), 0);
+          }
+        } catch (e) {
+          console.error(`Error fetching pledges for project ${prj.id}:`, e);
+        }
+
+        return {
+          id: prj.id,
+          title: prj.title,
+          tagline: prj.tagline,
+          imageUrl: prj.image_url,
+          fundingGoal: prj.funding_goal,
+          fundingDeadline: prj.funding_deadline,
+          category: prj.category,
+          approval_status: prj.approval_status,
+          admin_message: prj.admin_message,
+          fundingCurrent: fundingCurrent,
+        };
+      })
+    );
 
     return res.status(200).json({ projects: result });
   } catch (err) {
@@ -484,8 +503,6 @@ export const getUserProjects = async (req, res) => {
     return res.status(500).json({ error: "Internal server error" });
   }
 };
-
-
 /**
  * Get single project by id
  */
@@ -1624,3 +1641,4 @@ export const trackProjectView = async (req, res) => {
     return res.status(500).json({ error: "Failed to track view" });
   }
 };
+
