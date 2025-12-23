@@ -241,8 +241,6 @@ export const getRewards = async (req, res) => {
 // };
 
 
-
-
 /**
  * Get user's selected reward for a project
  * GET /api/projects/:projectId/rewards/selected?userId=xxx
@@ -256,27 +254,24 @@ export const getSelectedReward = async (req, res) => {
       return res.status(400).json({ error: "User ID is required" });
     }
 
-    // If record exists in reward_selections, it means payment was successful
     const { data, error } = await supabase
       .from("reward_selections")
-      .select("id, reward_id, created_at")
+      .select("reward_id")
       .eq("user_id", userId)
-      .eq("project_id", projectId)
-      .single();
+      .eq("project_id", projectId);
 
-    if (error && error.code !== "PGRST116") {
-      throw error;
-    }
+    if (error) throw error;
 
-    return res.status(200).json({ 
-      selected: data ? data.reward_id : null 
+    return res.status(200).json({
+      selected: data.map(r => r.reward_id),
     });
 
   } catch (err) {
-    console.error("Error getting selected reward:", err);
-    return res.status(500).json({ error: "Failed to get selected reward" });
+    console.error(err);
+    return res.status(500).json({ error: "Failed to get selected rewards" });
   }
 };
+
 
 /**
  * Deselect a reward (delete from reward_selections table)
@@ -301,23 +296,34 @@ export const deselectReward = async (req, res) => {
 
     if (deleteError) throw deleteError;
 
-    // 2️⃣ Fetch current backers
+    // 2️⃣ Fetch current counters
     const { data: reward, error: fetchError } = await supabase
       .from("rewards")
-      .select("backers")
+      .select("backers, available")
       .eq("id", rewardId)
       .single();
 
-    // 3️⃣ Decrement safely
-    if (!fetchError && reward && reward.backers > 0) {
-      await supabase
-        .from("rewards")
-        .update({ backers: reward.backers - 1 })
-        .eq("id", rewardId);
+    if (fetchError) throw fetchError;
+
+    // 3️⃣ Update counters
+    const updateData = {
+      backers: Math.max((reward.backers || 1) - 1, 0),
+    };
+
+    // increase available only if limited
+    if (reward.available !== null) {
+      updateData.available = reward.available + 1;
     }
 
+    const { error: updateError } = await supabase
+      .from("rewards")
+      .update(updateData)
+      .eq("id", rewardId);
+
+    if (updateError) throw updateError;
+
     return res.status(200).json({
-      message: "Reward deselected successfully",
+      message: "Reward deselected",
     });
 
   } catch (err) {
@@ -326,78 +332,25 @@ export const deselectReward = async (req, res) => {
   }
 };
 
+
+
 /**
  * Save reward selection after successful payment
  * POST /api/projects/:projectId/rewards/:rewardId/save
  */
 export const saveRewardSelection = async (req, res) => {
   try {
+    
     const { projectId, rewardId } = req.params;
     const { userId } = req.body;
+    console.log("rewArd id ", rewardId);
 
     if (!userId) {
       return res.status(400).json({ error: "User ID is required" });
     }
-
-    // 1️⃣ Check existing selection
-    const { data: existing, error: checkError } = await supabase
-      .from("reward_selections")
-      .select("id, reward_id")
-      .eq("user_id", userId)
-      .eq("project_id", projectId)
-      .maybeSingle();
-
-    if (checkError) throw checkError;
-
-    // Same reward → do nothing
-    if (existing && existing.reward_id === rewardId) {
-      return res.status(200).json({ message: "Reward already saved" });
-    }
-
-    // 2️⃣ User switching rewards
-    if (existing) {
-      const oldRewardId = existing.reward_id;
-
-      const { error: updateError } = await supabase
-        .from("reward_selections")
-        .update({ reward_id: rewardId })
-        .eq("id", existing.id);
-
-      if (updateError) throw updateError;
-
-      // 🔻 decrement old reward
-      const { data: oldReward } = await supabase
-        .from("rewards")
-        .select("backers")
-        .eq("id", oldRewardId)
-        .single();
-
-      if (oldReward && oldReward.backers > 0) {
-        await supabase
-          .from("rewards")
-          .update({ backers: oldReward.backers - 1 })
-          .eq("id", oldRewardId);
-      }
-
-      // 🔺 increment new reward
-      const { data: newReward } = await supabase
-        .from("rewards")
-        .select("backers")
-        .eq("id", rewardId)
-        .single();
-
-      if (newReward) {
-        await supabase
-          .from("rewards")
-          .update({ backers: newReward.backers + 1 })
-          .eq("id", rewardId);
-      }
-
-      return res.status(200).json({ message: "Reward updated" });
-    }
-
-    // 3️⃣ New reward selection
-    const { data, error } = await supabase
+    console.log("Reward ID ", rewardId)
+    // 1️⃣ Insert reward selection
+    const { data: selection, error: insertError } = await supabase
       .from("reward_selections")
       .insert({
         user_id: userId,
@@ -407,25 +360,37 @@ export const saveRewardSelection = async (req, res) => {
       .select()
       .single();
 
-    if (error) throw error;
+    if (insertError) throw insertError;
 
-    // 🔺 increment reward backers
-    const { data: reward } = await supabase
+    // 2️⃣ Get current reward counters
+    const { data: reward, error: fetchError } = await supabase
       .from("rewards")
-      .select("backers")
+      .select("backers, available")
       .eq("id", rewardId)
       .single();
 
-    if (reward) {
-      await supabase
-        .from("rewards")
-        .update({ backers: reward.backers + 1 })
-        .eq("id", rewardId);
+    if (fetchError) throw fetchError;
+
+    // 3️⃣ Update counters
+    const updateData = {
+      backers: (reward.backers || 0) + 1,
+    };
+
+    // only decrement available if it's a number
+    if (reward.available !== null) {
+      updateData.available = reward.available - 1;
     }
 
+    const { error: updateError } = await supabase
+      .from("rewards")
+      .update(updateData)
+      .eq("id", rewardId);
+
+    if (updateError) throw updateError;
+
     return res.status(201).json({
-      message: "Reward saved",
-      selection: data,
+      message: "Reward selected",
+      selection,
     });
 
   } catch (err) {
@@ -433,7 +398,6 @@ export const saveRewardSelection = async (req, res) => {
     return res.status(500).json({ error: "Failed to save reward" });
   }
 };
-
 
 
 export const getUserProjects = async (req, res) => {
@@ -1641,4 +1605,5 @@ export const trackProjectView = async (req, res) => {
     return res.status(500).json({ error: "Failed to track view" });
   }
 };
+
 
