@@ -5,6 +5,16 @@ import { Input } from "@/components/ui/input";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Heart } from "lucide-react";
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from "@/components/ui/alert-dialog";
 
 import Navbar from "@/components/Navbar";
 import Footer from "@/components/Footer";
@@ -85,6 +95,10 @@ const ProjectDetail = () => {
   
   // Track selected reward IDs from database (if exists = payment successful)
   const [selectedRewardIds, setSelectedRewardIds] = useState<string[]>([]);
+
+  // Confirmation dialog state
+  const [showConfirmDeselect, setShowConfirmDeselect] = useState(false);
+  const [rewardToDeselect, setRewardToDeselect] = useState<Reward | null>(null);
 
   // Role-based access control
   const projectRole = useProjectRole(ownerId, false);
@@ -236,6 +250,51 @@ useEffect(() => {
     };
   }, [location.pathname]);
 
+  const handleDeselectReward = async () => {
+    if (!rewardToDeselect || !user?.id) return;
+
+    try {
+      const res = await fetch(
+        `http://localhost:5000/api/projects/${id}/rewards/deselect`,
+        {
+          method: "DELETE",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ 
+            userId: user.id,
+            rewardId: rewardToDeselect.id
+          }),
+        }
+      );
+
+      if (!res.ok) {
+        const errorData = await res.json();
+        throw new Error(errorData.error || "Failed to deselect reward");
+      }
+
+      setSelectedRewardIds(prev => prev.filter(id => id !== rewardToDeselect.id));
+      setSelectedReward(null);
+      sessionStorage.removeItem('pendingRewardId');
+      
+      toast({ 
+        title: "Reward deselected", 
+        description: "Your reward selection has been removed successfully."
+      });
+
+      fetchProject();
+      
+    } catch (err) {
+      console.error("Error deselecting reward:", err);
+      toast({ 
+        title: "Error", 
+        description: err instanceof Error ? err.message : "Failed to update reward selection",
+        variant: "destructive" 
+      });
+    } finally {
+      setShowConfirmDeselect(false);
+      setRewardToDeselect(null);
+    }
+  };
+
   const handleRewardToggle = async (reward: Reward) => {
     if (!user?.id) {
       toast({ 
@@ -250,44 +309,9 @@ useEffect(() => {
     const isCurrentlySelected = selectedRewardIds.includes(reward.id);
 
     if (isCurrentlySelected) {
-      // DESELECT: Remove from selected rewards
-      try {
-        const res = await fetch(
-          `http://localhost:5000/api/projects/${id}/rewards/deselect`,
-          {
-            method: "DELETE",
-            headers: { "Content-Type": "application/json" },
-            body: JSON.stringify({ 
-              userId: user.id,
-              rewardId: reward.id
-            }),
-          }
-        );
-
-        if (!res.ok) {
-          const errorData = await res.json();
-          throw new Error(errorData.error || "Failed to deselect reward");
-        }
-
-        setSelectedRewardIds(prev => prev.filter(id => id !== reward.id));
-        setSelectedReward(null);
-        sessionStorage.removeItem('pendingRewardId');
-        
-        toast({ 
-          title: "Reward deselected", 
-          description: "Your reward selection has been removed successfully."
-        });
-
-        fetchProject();
-        
-      } catch (err) {
-        console.error("Error toggling reward:", err);
-        toast({ 
-          title: "Error", 
-          description: err instanceof Error ? err.message : "Failed to update reward selection",
-          variant: "destructive" 
-        });
-      }
+      // Show confirmation dialog before deselecting
+      setRewardToDeselect(reward);
+      setShowConfirmDeselect(true);
     } else {
       // SELECT: Start payment process
       sessionStorage.setItem('pendingRewardId', reward.id);
@@ -500,6 +524,26 @@ useEffect(() => {
         onGoToCommunity={() => setActiveTab('community')}
         onGoToReviews={() => setActiveTab('reviews')}
       />
+
+      {/* Confirmation Dialog for Deselecting Reward */}
+      <AlertDialog open={showConfirmDeselect} onOpenChange={setShowConfirmDeselect}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Remove this reward?</AlertDialogTitle>
+            <AlertDialogDescription>
+              Are you sure you want to deselect "{rewardToDeselect?.title}"? This will remove your backing for this reward tier.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel onClick={() => setRewardToDeselect(null)}>
+              Cancel
+            </AlertDialogCancel>
+            <AlertDialogAction onClick={handleDeselectReward}>
+              Yes, remove reward
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </div>
   );
 };
