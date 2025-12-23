@@ -29,6 +29,7 @@ interface Project {
   creatorName: string | null;
   approval_status?: string;
   admin_message?: string;
+  fundingCurrent?: number;
 }
 
 const Profile = () => {
@@ -106,6 +107,7 @@ const Profile = () => {
           creatorName: p.creator || null,
           approval_status: p.approval_status,
           admin_message: p.admin_message,
+          fundingCurrent: p.fundingCurrent ?? 0,
         }));
 
         setMyProjects(projects);
@@ -449,7 +451,7 @@ const Profile = () => {
                           creator={user.name ?? ""}
                           image={project.image_urls}
                           fundingGoal={project.fundingGoal}
-                          fundingCurrent={0}
+                          fundingCurrent={project.fundingCurrent ?? 0}
                           daysLeft={getDaysLeft(project.fundingDeadline)}
                           category={project.category}
                         />
@@ -490,7 +492,7 @@ const Profile = () => {
                           creator={user.name ?? ""}
                           image={project.image_urls}
                           fundingGoal={project.fundingGoal}
-                          fundingCurrent={0}
+                          fundingCurrent={project.fundingCurrent ?? 0}
                           daysLeft={getDaysLeft(project.fundingDeadline)}
                           category={project.category}
                         />
@@ -526,7 +528,7 @@ const Profile = () => {
                         creator={user.name ?? ""}
                         image={project.image_urls}
                         fundingGoal={project.fundingGoal}
-                        fundingCurrent={0}
+                        fundingCurrent={project.fundingCurrent ?? 0}
                         daysLeft={getDaysLeft(project.fundingDeadline)}
                         category={project.category}
                       />
@@ -558,7 +560,7 @@ const Profile = () => {
                         creator={user.name ?? ""}
                         image={project.image_urls}
                         fundingGoal={project.fundingGoal}
-                        fundingCurrent={0}
+                        fundingCurrent={project.fundingCurrent ?? 0}
                         daysLeft={getDaysLeft(project.fundingDeadline)}
                         category={project.category}
                       />
