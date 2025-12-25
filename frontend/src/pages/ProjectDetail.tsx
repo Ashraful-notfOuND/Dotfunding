@@ -5,6 +5,16 @@ import { Input } from "@/components/ui/input";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Heart } from "lucide-react";
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from "@/components/ui/alert-dialog";
 
 import Navbar from "@/components/Navbar";
 import Footer from "@/components/Footer";
@@ -32,6 +42,7 @@ import { useToast } from "@/hooks/use-toast";
 import { useProjectRole } from "@/hooks/useProjectRole";
 
 type Reward = {
+  id: string;
   amount: number;
   title: string;
   description: string;
@@ -69,32 +80,6 @@ const ProjectDetail = () => {
   const location = useLocation();
   const { toast } = useToast();
   const [project, setProject] = useState<Project | null>(null);
-
-  // Check if user profile is complete before pledging
-  const checkProfileComplete = () => {
-    if (!user) {
-      toast({
-        title: "Please log in",
-        description: "You need to be logged in to back a project.",
-        variant: "destructive",
-      });
-      navigate('/login');
-      return false;
-    }
-
-    // Check if phone and address are filled
-    if (!user.phone || !user.address) {
-      toast({
-        title: "Complete your profile",
-        description: "Please add your phone number and address before backing a project.",
-        variant: "destructive",
-      });
-      navigate('/profile');
-      return false;
-    }
-
-    return true;
-  };
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [rawBody, setRawBody] = useState<any>(null);
@@ -102,48 +87,21 @@ const ProjectDetail = () => {
   const [customPledgeAmount, setCustomPledgeAmount] = useState("");
   const [isPledgeModalOpen, setIsPledgeModalOpen] = useState(false);
   const [rewards, setRewards] = useState<Reward[]>([]);
-  const [selectedReward, setSelectedReward] = useState<{
-    amount: number;
-    title: string;
-    description: string;
-  } | null>(null);
+  const [selectedReward, setSelectedReward] = useState<Reward | null>(null);
   const [ownerId, setOwnerId] = useState<string | null>(null);
   const [showOnboarding, setShowOnboarding] = useState(false);
-  const [lastTransactionId, setLastTransactionId] = useState<string | null>(null);
   const [activeTab, setActiveTab] = useState('campaign');
   const [showCreatorDashboard, setShowCreatorDashboard] = useState(false);
+  
+  // Track selected reward IDs from database (if exists = payment successful)
+  const [selectedRewardIds, setSelectedRewardIds] = useState<string[]>([]);
+
+  // Confirmation dialog state
+  const [showConfirmDeselect, setShowConfirmDeselect] = useState(false);
+  const [rewardToDeselect, setRewardToDeselect] = useState<Reward | null>(null);
 
   // Role-based access control
-  const projectRole = useProjectRole(ownerId, false); // TODO: pass actual backer status
-
-  // Track project view
-  useEffect(() => {
-    if (!id) return;
-
-    const trackView = async () => {
-      try {
-        // Get IP address from external service (optional)
-        const ipResponse = await fetch('https://api.ipify.org?format=json').catch(() => null);
-        const ipData = ipResponse ? await ipResponse.json() : null;
-
-        await fetch(`http://localhost:5000/api/projects/${id}/track-view`, {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({
-            userId: user?.id || null,
-            ipAddress: ipData?.ip || null,
-            userAgent: navigator.userAgent,
-            referrer: document.referrer || null
-          })
-        });
-      } catch (err) {
-        // Silently fail - analytics shouldn't break user experience
-        console.debug('View tracking failed:', err);
-      }
-    };
-
-    trackView();
-  }, [id, user]);
+  const projectRole = useProjectRole(ownerId, false);
 
   const fetchProject = useCallback(async (signal?: AbortSignal) => {
     setLoading(true);
@@ -167,13 +125,10 @@ const ProjectDetail = () => {
       setRawBody(data);
       setProject((data && data.project) ? data.project : data ?? null);
       setOwnerId(data?.project?.user_id || null);
-      console.log("ProjectDetail fetch response:", data);
 
-      // Redirect creator to outcome page only if they haven't acknowledged it yet
       const projectData = (data && data.project) ? data.project : data;
       const isCreator = user?.id === (data?.project?.user_id || null);
       if (isCreator && projectData?.status && ['ENDED_SUCCESS', 'ENDED_FAILED'].includes(projectData.status)) {
-        // Check if outcome has been acknowledged
         if (!projectData.outcome_acknowledged) {
           navigate(`/project/${id}/outcome`, { state: { project: projectData } });
         }
@@ -189,7 +144,6 @@ const ProjectDetail = () => {
 
   useEffect(() => {
     if (!id) {
-      console.error("No project ID provided in URL");
       navigate("/404");
       return;
     }
@@ -198,13 +152,11 @@ const ProjectDetail = () => {
 
     return () => controller.abort();
   }, [id, navigate, fetchProject]);
-  // Fetch rewards after project is loaded
+
   useEffect(() => {
-    if (!project) return; // wait until project is loaded
-    console.log("Fetching rewards for projectId in frontend:", project.id);
+    if (!project) return;
     const fetchRewards = async () => {
       try {
-
         const res = await fetch(`http://localhost:5000/api/projects/rewards/${project.id}`);
         if (!res.ok) throw new Error("Failed to fetch rewards");
         const data = await res.json();
@@ -217,56 +169,157 @@ const ProjectDetail = () => {
     fetchRewards();
   }, [project]);
 
-  // React to payment redirect params (payment_status) and show toast + refresh
   useEffect(() => {
-    const params = new URLSearchParams(location.search);
-    const status = params.get("payment_status");
-    const tran = params.get("tran_id");
-    if (status) {
-      if (status === "success") {
-        toast({ title: "Payment successful", description: `Transaction ${tran} completed.` });
-        // Store transaction ID for receipt download
-        if (tran) setLastTransactionId(tran);
-        // refetch project to update funding and progress
-        fetchProject();
-        
-        // Check if this is user's first time backing this project
-        const checkFirstTimeBackingAndShowOnboarding = async () => {
-          if (!user?.id || !id) return;
-          
-          try {
-            const response = await fetch(`http://localhost:5000/api/projects/${id}/backers`);
-            if (response.ok) {
-              const data = await response.json();
-              // Count how many times this user has backed this project
-              const userBackingCount = data.backers?.filter((b: any) => b.user_id === user.id).length || 0;
-              
-              // Show onboarding only if this is their first backing
-              if (userBackingCount === 1) {
-                setTimeout(() => setShowOnboarding(true), 1000);
-              }
-            }
-          } catch (error) {
-            console.error('Error checking backing status:', error);
-            // Show onboarding anyway if check fails
-            setTimeout(() => setShowOnboarding(true), 1000);
-          }
-        };
-        
-        checkFirstTimeBackingAndShowOnboarding();
-      } else if (status === "failed") {
-        toast({ title: "Payment failed", description: "Your payment did not complete." });
-      }
+    if (!user?.id || !id) return;
 
-      // remove params from URL to keep it clean
+    const fetchSelectedReward = async () => {
       try {
-        const clean = window.location.pathname;
-        navigate(clean, { replace: true });
-      } catch (e) {
-        // ignore navigation errors
+        const res = await fetch(
+          `http://localhost:5000/api/projects/${id}/rewards/selected?userId=${user.id}`
+        );
+        
+        if (res.ok) {
+          const data = await res.json();
+          setSelectedRewardIds(data.selected || []);
+          console.log("Fetched selected reward IDs:", data.selected);
+        }
+      } catch (err) {
+        console.error("Failed to fetch selected reward:", err);
+      }
+    };
+
+    fetchSelectedReward();
+  }, [user?.id, id]);
+
+useEffect(() => {
+  if (!project?.id || !user?.id) return; 
+
+  const params = new URLSearchParams(location.search);
+  const status = params.get("payment_status");
+
+  if (!status) return;
+
+  const handlePaymentSuccess = async () => {
+    if (status === "success") {
+      const pendingRewardId = sessionStorage.getItem("pendingRewardId");
+      console.log("baireeee");
+      if (pendingRewardId) {
+        try {
+          console.log("vitoooore");
+          const response = await fetch(
+            `http://localhost:5000/api/projects/${project.id}/rewards/${pendingRewardId}/save`,
+            {
+              method: "POST",
+              headers: { "Content-Type": "application/json" },
+              body: JSON.stringify({ userId: user.id }),
+            }
+          );
+
+          if (response.ok) {
+            // ✅ UPDATE STATE IMMEDIATELY: Add to array instead of replacing
+            setSelectedRewardIds(prev => [...prev, pendingRewardId]);
+            sessionStorage.removeItem('pendingRewardId');
+            
+            toast({
+              title: "Payment Successful",
+              description: "You have successfully backed this reward!",
+            });
+
+            // Refresh stats to update backer count
+            fetchProject();
+          }
+        } catch (error) {
+          console.error("Error saving reward:", error);
+        }
       }
     }
-  }, [location.search, navigate, toast, fetchProject]);
+
+    // Clean URL query params without refreshing page
+    navigate(window.location.pathname, { replace: true });
+  };
+
+  handlePaymentSuccess();
+}, [location.search, project?.id, user?.id, navigate, fetchProject, toast]);
+
+
+  useEffect(() => {
+    return () => {
+      if (!location.pathname.includes('/project/')) {
+        sessionStorage.removeItem('pendingRewardId');
+      }
+    };
+  }, [location.pathname]);
+
+  const handleDeselectReward = async () => {
+    if (!rewardToDeselect || !user?.id) return;
+
+    try {
+      const res = await fetch(
+        `http://localhost:5000/api/projects/${id}/rewards/deselect`,
+        {
+          method: "DELETE",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ 
+            userId: user.id,
+            rewardId: rewardToDeselect.id
+          }),
+        }
+      );
+
+      if (!res.ok) {
+        const errorData = await res.json();
+        throw new Error(errorData.error || "Failed to deselect reward");
+      }
+
+      setSelectedRewardIds(prev => prev.filter(id => id !== rewardToDeselect.id));
+      setSelectedReward(null);
+      sessionStorage.removeItem('pendingRewardId');
+      
+      toast({ 
+        title: "Reward deselected", 
+        description: "Your reward selection has been removed successfully."
+      });
+
+      fetchProject();
+      
+    } catch (err) {
+      console.error("Error deselecting reward:", err);
+      toast({ 
+        title: "Error", 
+        description: err instanceof Error ? err.message : "Failed to update reward selection",
+        variant: "destructive" 
+      });
+    } finally {
+      setShowConfirmDeselect(false);
+      setRewardToDeselect(null);
+    }
+  };
+
+  const handleRewardToggle = async (reward: Reward) => {
+    if (!user?.id) {
+      toast({ 
+        title: "Please log in", 
+        description: "You must be logged in to manage rewards",
+        variant: "destructive"
+      });
+      return;
+    }
+
+    // Check if reward is currently selected
+    const isCurrentlySelected = selectedRewardIds.includes(reward.id);
+
+    if (isCurrentlySelected) {
+      // Show confirmation dialog before deselecting
+      setRewardToDeselect(reward);
+      setShowConfirmDeselect(true);
+    } else {
+      // SELECT: Start payment process
+      sessionStorage.setItem('pendingRewardId', reward.id);
+      setSelectedReward(reward);
+      setPledgeAmount(String(reward.amount));
+      setIsPledgeModalOpen(true);
+    }
+  };
 
   if (loading) {
     return (
@@ -284,48 +337,16 @@ const ProjectDetail = () => {
     );
   }
 
-  // If no project after fetch, show a helpful message instead of returning null
   if (!project) {
-    const showDebug = typeof window !== "undefined" && new URLSearchParams(window.location.search).get("debug") === "1";
     return (
       <div className="min-h-screen flex items-center justify-center">
         <div className="text-center">
           <p className="text-lg font-semibold mb-2">Project data not available.</p>
-          <p className="text-sm text-muted-foreground mb-4">The backend returned no project for this id.</p>
-          {error && <div className="text-red-600 mb-4">Error: {error}</div>}
-          {showDebug && (
-            <pre className="text-left max-w-3xl overflow-auto text-xs bg-surface border p-3 rounded">
-              {JSON.stringify(rawBody, null, 2)}
-            </pre>
-          )}
         </div>
       </div>
     );
   }
 
-
-  const handleRewardSelect = (reward: { amount: number; title: string; description: string }) => {
-    setSelectedReward(reward);
-    setPledgeAmount(reward.amount.toString());
-    setIsPledgeModalOpen(true);
-  };
-
-  const handlePledgeClick = () => {
-    setSelectedReward(null);
-    setIsPledgeModalOpen(true);
-  };
-
-  const handleCustomPledge = () => {
-    if (!customPledgeAmount || parseFloat(customPledgeAmount) < 1) return;
-    setSelectedReward(null);
-    setPledgeAmount(customPledgeAmount);
-    setIsPledgeModalOpen(true);
-  };
-
-  // TODO: replace with backend related-projects API. For now, show none.
-  const relatedProjects: any[] = [];
-
-  // Derive safe props for ProjectHero to avoid runtime errors when backend fields differ
   const heroImages: string[] =
     (project.images && project.images.length > 0)
       ? project.images
@@ -333,16 +354,12 @@ const ProjectDetail = () => {
         ? [project.image_urls]
         : [];
 
-  // Map backend status to frontend display status
   const getHeroStatus = () => {
     if (project.status === 'ENDED_SUCCESS') return 'ended-success';
     if (project.status === 'ENDED_FAILED') return 'ended-failed';
-    if (project.status === 'LIVE') return 'active';
-    return 'active'; // fallback
+    return 'active';
   };
   const heroStatus = getHeroStatus();
-
-  const heroCreator = project.creator || "Unknown Creator";
 
   return (
     <div className="min-h-screen flex flex-col">
@@ -352,7 +369,6 @@ const ProjectDetail = () => {
         onAnalyticsClick={() => setShowCreatorDashboard(prev => !prev)}
       />
 
-      {/* Creator-Only Analytics - Full Width Below Navbar */}
       {showCreatorDashboard && (
         <CreatorOnly currentRole={projectRole.role}>
           <div className="w-full bg-background border-b">
@@ -369,90 +385,41 @@ const ProjectDetail = () => {
 
       <div className="container mx-auto px-4 py-8">
         <div className="grid lg:grid-cols-3 gap-8">
-          {/* Main Content */}
           <div className="lg:col-span-2 space-y-6">
             <ProjectHero
               title={project?.title || "Untitled Project"}
-              creator={heroCreator}
+              creator={project.creator || "Unknown Creator"}
               tagline={project?.tagline || ""}
               images={heroImages}
               videoUrl={project?.videoUrl}
               status={heroStatus}
             />
 
-            {/* Standard Project Tabs - Visible to Everyone */}
             <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full">
               <TabsList className="w-full justify-start">
                 <TabsTrigger value="campaign">Campaign</TabsTrigger>
                 <TabsTrigger value="faq">FAQ</TabsTrigger>
                 <TabsTrigger value="creator">Creator</TabsTrigger>
                 <TabsTrigger value="updates">Updates</TabsTrigger>
-                <TabsTrigger value="milestones" className="relative">
-                  Milestones
-                  <span className="absolute -top-1 -right-1 flex h-3 w-3">
-                    <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-red-400 opacity-75"></span>
-                    <span className="relative inline-flex rounded-full h-3 w-3 bg-red-500"></span>
-                  </span>
-                </TabsTrigger>
+                <TabsTrigger value="milestones" className="relative">Milestones</TabsTrigger>
                 <TabsTrigger value="community">Community</TabsTrigger>
                 <TabsTrigger value="comments">Comments</TabsTrigger>
                 <TabsTrigger value="reviews">Reviews</TabsTrigger>
                 <TabsTrigger value="statistics">Statistics</TabsTrigger>
               </TabsList>
 
-              <TabsContent value="campaign" className="mt-6">
-                <Campaign projectId={project.id} />
-              </TabsContent>
-
-                <TabsContent value="faq" className="mt-6">
-                  <FAQ
-                    projectId={project.id}
-                    isOwner={user?.email === project.creatorEmail}
-                  />
-                </TabsContent>
-
-              <TabsContent value="creator" className="mt-6">
-                <CreatorTab projectId={project.id} />
-              </TabsContent>
-
-              <TabsContent value="updates" className="mt-6">
-                <Updates 
-                  currentUser={user} 
-                  ownerEmail={project.creatorEmail} 
-                  projectId={project.id} 
-                />
-              </TabsContent>
-
-              <TabsContent value="milestones" className="mt-6">
-                <ProjectMilestones 
-                  projectId={project.id}
-                  isCreator={user?.email === project.creatorEmail}
-                />
-              </TabsContent>
-
-              <TabsContent value="community" className="mt-6">
-                <Community 
-                  projectId={project.id}
-                  projectCreatorId={ownerId || ''}
-                />
-              </TabsContent>
-
-              <TabsContent value="comments" className="mt-6">
-                <Comments />
-              </TabsContent>
-
-              <TabsContent value="reviews" className="mt-6">
-                <ProjectReviews projectId={project.id} />
-              </TabsContent>
-
-              <TabsContent value="statistics" className="mt-6">
-                <StatisticsTab />
-              </TabsContent>
+              <TabsContent value="campaign" className="mt-6"><Campaign projectId={project.id} /></TabsContent>
+              <TabsContent value="faq" className="mt-6"><FAQ projectId={project.id} isOwner={user?.email === project.creatorEmail} /></TabsContent>
+              <TabsContent value="creator" className="mt-6"><CreatorTab projectId={project.id} /></TabsContent>
+              <TabsContent value="updates" className="mt-6"><Updates currentUser={user} ownerEmail={project.creatorEmail} projectId={project.id} /></TabsContent>
+              <TabsContent value="milestones" className="mt-6"><ProjectMilestones projectId={project.id} isCreator={user?.email === project.creatorEmail} /></TabsContent>
+              <TabsContent value="community" className="mt-6"><Community projectId={project.id} projectCreatorId={ownerId || ''} /></TabsContent>
+              <TabsContent value="comments" className="mt-6"><Comments /></TabsContent>
+              <TabsContent value="reviews" className="mt-6"><ProjectReviews projectId={project.id} /></TabsContent>
+              <TabsContent value="statistics" className="mt-6"><StatisticsTab /></TabsContent>
             </Tabs>
-
           </div>
 
-          {/* Sidebar */}
           <div className="lg:sticky top-24 space-y-6">
             <FundingStats
               fundingCurrent={project?.fundingCurrent ?? 0}
@@ -461,145 +428,76 @@ const ProjectDetail = () => {
               daysLeft={project?.daysLeft ?? 0}
             />
 
-            {/* Project Status Badge */}
             {project.status && project.status !== 'LIVE' && (
-              <Card className="border-2 animate-fade-in" style={{
-                borderColor: project.status === 'ENDED_SUCCESS' ? 'rgb(34 197 94)' : 'rgb(239 68 68)'
-              }}>
-                <CardContent className="pt-6">
-                  <div className="text-center">
-                    <div className="text-2xl mb-2">
-                      {project.status === 'ENDED_SUCCESS' ? '🎉' : '⏰'}
-                    </div>
-                    <h3 className="font-bold text-lg mb-1">
-                      {project.status === 'ENDED_SUCCESS' ? 'Successfully Funded!' : 'Campaign Ended'}
-                    </h3>
+              <Card className="border-2 animate-fade-in" style={{ borderColor: project.status === 'ENDED_SUCCESS' ? 'rgb(34 197 94)' : 'rgb(239 68 68)' }}>
+                <CardContent className="pt-6 text-center">
+                    <div className="text-2xl mb-2">{project.status === 'ENDED_SUCCESS' ? '🎉' : '⏰'}</div>
+                    <h3 className="font-bold text-lg mb-1">{project.status === 'ENDED_SUCCESS' ? 'Successfully Funded!' : 'Campaign Ended'}</h3>
                     <p className="text-sm text-muted-foreground">
                       {project.status === 'ENDED_SUCCESS' 
-                        ? `This project reached its funding goal of ৳${project.fundingGoal?.toLocaleString() || 0}` 
-                        : `This project did not reach its funding goal and is no longer accepting pledges.`
-                      }
+                        ? `This project reached its goal of ৳${project.fundingGoal?.toLocaleString()}` 
+                        : `This project is no longer accepting pledges.`}
                     </p>
-                  </div>
                 </CardContent>
               </Card>
             )}
 
             {user && user.email === project.creatorEmail && (
-              <div className="animate-fade-in mb-2">
-                <Link to={`/project/${project.id}/edit`}>
-                  <Button variant="outline" className="w-full">
-                    Edit Project
-                  </Button>
-                </Link>
-              </div>
+              <Link to={`/project/${project.id}/edit`} className="block mb-2">
+                <Button variant="outline" className="w-full">Edit Project</Button>
+              </Link>
             )}
 
-            {/* Pledge Button - Status Aware & Admin Check */}
             {user?.isAdmin ? (
-              <div className="bg-gray-100 border border-gray-300 rounded-lg p-4 text-center animate-fade-in">
+              <div className="bg-gray-100 border p-4 text-center rounded-lg">
                 <p className="text-gray-700 font-medium">Admins cannot back projects</p>
-                <p className="text-gray-500 text-sm mt-1">You can only moderate and manage projects</p>
               </div>
             ) : project.status === 'LIVE' ? (
               <Button
-                className="w-full bg-accent hover:bg-accent-hover animate-fade-in"
+                className="w-full bg-accent hover:bg-accent-hover"
                 size="lg"
-                onClick={() => {
-                  if (!checkProfileComplete()) return;
-                  // open pledge modal
-                  setSelectedReward(null);
-                  setIsPledgeModalOpen(true);
-                }}
+                onClick={() => { setSelectedReward(null); setIsPledgeModalOpen(true); }}
               >
                 Back this project
               </Button>
             ) : (
-              <Button
-                className="w-full animate-fade-in"
-                size="lg"
-                disabled
-                variant="secondary"
-              >
-                {project.status === 'ENDED_SUCCESS' ? '✓ Funding Successful' : project.status === 'ENDED_FAILED' ? '✗ Funding Closed' : 'Funding Closed'}
+              <Button className="w-full" size="lg" disabled variant="secondary">
+                {project.status === 'ENDED_SUCCESS' ? '✓ Funding Successful' : '✗ Funding Closed'}
               </Button>
             )}
 
             <ShareButtons projectTitle={project.title} />
-
-            {/* Donations Section */}
             <ProjectDonations projectId={project.id} />
 
-            {/* Pledge without rewards */}
-            <Card className="border-2 border-primary/20 animate-fade-in">
-              <CardHeader>
-                <CardTitle className="text-lg flex items-center gap-2">
-                  <Heart className="h-5 w-5 text-primary" />
-                  Pledge without a reward
-                </CardTitle>
-              </CardHeader>
+            <Card className="border-2 border-primary/20">
+              <CardHeader><CardTitle className="text-lg flex items-center gap-2"><Heart className="h-5 w-5 text-primary" />Pledge without a reward</CardTitle></CardHeader>
               <CardContent className="space-y-3">
-                <p className="text-sm text-muted-foreground">
-                  Support this project with any amount you choose. You won't receive a reward, but you'll help bring this project to life.
-                </p>
                 <div className="flex gap-2">
-                  <Input
-                    type="number"
-                    placeholder="Enter amount"
-                    min="1"
-                    value={customPledgeAmount}
-                    onChange={(e) => setCustomPledgeAmount(e.target.value)}
-                    className="flex-1"
-                  />
-                  <Button
-                    onClick={() => {
-                      if (!customPledgeAmount || parseFloat(customPledgeAmount) < 1) return;
-                      if (!checkProfileComplete()) return;
-                      setSelectedReward(null);
-                      setPledgeAmount(customPledgeAmount);
-                      setIsPledgeModalOpen(true);
-                    }}
-                    disabled={!customPledgeAmount || parseFloat(customPledgeAmount) < 1}
-                    className="bg-accent hover:bg-accent-hover"
-                  >
-                    Continue
-                  </Button>
+                  <Input type="number" placeholder="Enter amount" min="1" value={customPledgeAmount} onChange={(e) => setCustomPledgeAmount(e.target.value)} />
+                  <Button onClick={() => { if (parseFloat(customPledgeAmount) >= 1) { setSelectedReward(null); setPledgeAmount(customPledgeAmount); setIsPledgeModalOpen(true); } }} disabled={!customPledgeAmount} className="bg-accent">Continue</Button>
                 </div>
               </CardContent>
             </Card>
 
-            {/* Rewards */}
-            {/* Rewards */}
             {!user?.isAdmin && (
-              <div className="space-y-4 animate-fade-in">
+              <div className="space-y-4">
                 <h3 className="font-bold text-xl">Rewards</h3>
-                {rewards.length > 0 ? rewards.map((reward, index) => (
+                {rewards.length > 0 ? rewards.map((reward) => (
                   <RewardTierCard
-                    key={index}
+                    key={reward.id}
                     amount={reward.amount}
                     title={reward.title}
                     description={reward.description}
                     delivery={reward.delivery}
                     backers={reward.backers ?? 0}
-                    available={reward.available ?? 999}
-                    onSelect={() => {
-                      setSelectedReward(reward as any);
-                      setPledgeAmount(String(reward.amount));
-                      setIsPledgeModalOpen(true);
-                    }}
+                    available={reward.available ?? null}
+                    isSelected={selectedRewardIds.includes(reward.id)}
+                    onSelect={() => handleRewardToggle(reward)}
                   />
-                )) : (
-                  <p className="text-muted-foreground">No rewards available yet.</p>
-                )}
+                )) : <p className="text-muted-foreground">No rewards available yet.</p>}
               </div>
             )}
           </div>
-        </div>
-
-        {/* Related Projects */}
-        <div className="mt-16">
-          <RelatedProjects projects={relatedProjects} category={project?.category || ""} />
-
         </div>
       </div>
 
@@ -611,9 +509,9 @@ const ProjectDetail = () => {
         projectTitle={project?.title || ""}
         defaultAmount={pledgeAmount}
         selectedReward={selectedReward}
-        projectId={project?.id}     // project id
-        ownerId={ownerId}           // ✅ owner id from simple variable
-        userId={user?.id}           // current logged in user
+        projectId={project?.id}
+        ownerId={ownerId}
+        userId={user?.id}
         userEmail={user?.email}
         userName={user?.name}
         userPhone={user?.phone}
@@ -623,13 +521,31 @@ const ProjectDetail = () => {
         open={showOnboarding}
         onClose={() => setShowOnboarding(false)}
         projectTitle={project?.title || ""}
-        transactionId={lastTransactionId || undefined}
         onGoToCommunity={() => setActiveTab('community')}
         onGoToReviews={() => setActiveTab('reviews')}
       />
+
+      {/* Confirmation Dialog for Deselecting Reward */}
+      <AlertDialog open={showConfirmDeselect} onOpenChange={setShowConfirmDeselect}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Remove this reward?</AlertDialogTitle>
+            <AlertDialogDescription>
+              Are you sure you want to deselect "{rewardToDeselect?.title}"? This will remove your backing for this reward tier.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel onClick={() => setRewardToDeselect(null)}>
+              Cancel
+            </AlertDialogCancel>
+            <AlertDialogAction onClick={handleDeselectReward}>
+              Yes, remove reward
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </div>
   );
 };
 
 export default ProjectDetail;
-

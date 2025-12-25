@@ -109,7 +109,8 @@ export const loginUser = async (req, res) => {
         bio: user.bio, 
         location: user.location, 
         profile_pic: user.profile_pic,
-        is_admin: user.is_admin || false
+        is_admin: user.is_admin || false, 
+        created_at: user.created_at
       },
     });
 

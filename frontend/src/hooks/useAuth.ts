@@ -10,6 +10,7 @@ interface User {
   bio?: string;        
   location?: string;
   isAdmin?: boolean;
+  joinedDate?: string;
 }
 
 interface AuthState {
@@ -35,6 +36,7 @@ export const useAuth = create<AuthState>()(
               id: '123', // 👈 example user id (in real login, comes from backend)
               email: VALID_EMAIL,
               name: 'Tamim Dewan',
+              joinedDate: '2025-12-23',
             },
             isAuthenticated: true,
           });

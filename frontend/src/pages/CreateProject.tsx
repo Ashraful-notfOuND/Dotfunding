@@ -18,7 +18,7 @@ interface Reward {
   description: string;
   delivery: Date | null; 
   backers: number;
-  available: number;
+  available: number | null;
 }
 
 interface Update {
@@ -113,6 +113,11 @@ const CreateProject = () => {
         if (!r.title.trim()) {
           newErrors[`reward_title_${i}`] = `Reward #${i + 1} title is required.`;
         }
+
+        const avail = Number(r.available);
+        if (isNaN(avail) || avail < 0) {
+          newErrors[`reward_available_${i}`] = `Reward #${i + 1} availability must be 0 or more.`;
+        }
       });
     }
 
@@ -134,7 +139,7 @@ const CreateProject = () => {
           description: "",
           delivery: null, // ✅ null by default
           backers: 0,
-          available: 0,
+          available: null,
         },
       ],
     }));
@@ -148,7 +153,7 @@ const CreateProject = () => {
   const handleRewardChange = (
     index: number,
     field: keyof Reward,
-    value: string | Date | null
+    value: string | Date | null | number
   ) => {
     const updated = [...form.rewards];
     (updated[index] as any)[field] = value;
@@ -378,35 +383,6 @@ const handleSubmit = async (e: React.FormEvent) => {
     console.log("FAQs uploaded successfully");
   }
 }
-
-    // ✅ Send rewards (if any) as JSON to backend rewards endpoint
-    // if (form.rewards && form.rewards.length > 0) {
-    //   try {
-    //    const rewardsPayload = form.rewards.map((r) => ({
-    //       title: r.title,
-    //       description: r.description,
-    //       amount: r.amount,
-    //       delivery: r.delivery ? new Date(r.delivery).toISOString().split("T")[0] : "",
-    //       backers: r.backers ?? 0,
-    //       available: r.available ?? 0,
-    //     }));
-
-
-    //     const responseRewards = await fetch("http://localhost:5000/api/projects/rewards", {
-    //       method: "POST",
-    //       headers: { "Content-Type": "application/json" },
-    //       body: JSON.stringify({ project_id, rewards: rewardsPayload }),
-    //     });
-
-    //     if (!responseRewards.ok) {
-    //       const errBody = await responseRewards.json().catch(() => ({}));
-    //       console.error("Failed to save rewards:", errBody);
-    //       // don't block the user, but log the error
-    //     }
-    //   } catch (err) {
-    //     console.error("Network error saving rewards:", err);
-    //   }
-    // }
     console.log("Project created successfully:", data);
     toast({
       title: "🎉 Project Submitted Successfully!",
@@ -693,6 +669,27 @@ const handleCancel = () => {
                     {errors[`reward_amount_${i}`]}
                   </p>
                 )}
+                <Input
+                  placeholder="Available Amount of this Reward (Leave empty for unlimited)"
+                  type="number"
+                  min={0}
+                  value={reward.available === null ? "" : reward.available} // null = unlimited
+                  onChange={(e) =>
+                    handleRewardChange(
+                      i,
+                      "available",
+                      e.target.value === "" ? null : Number(e.target.value)
+                    )
+                  }
+                />
+
+
+                {errors[`reward_available_${i}`] && (
+                  <p className="text-red-600 text-sm">
+                    {errors[`reward_available_${i}`]}
+                  </p>
+                )}
+
                 <div>
                   <Label>Delivery Date</Label>
                   <Popover>
