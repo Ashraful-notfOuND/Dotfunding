@@ -193,7 +193,7 @@ export const oauthLogin = async (req, res) => {
 
 export const updateProfile = async (req, res) => {
   try {
-    const { id, full_name, email, password, phone, bio, location } = req.body;
+    const { id, full_name, email, password, phone, bio, address } = req.body;
     console.log("updateProfile req.body:", req.body);
     console.log("updateProfile req.file:", req.file);
     
@@ -233,7 +233,7 @@ export const updateProfile = async (req, res) => {
       email,
       phone,
       bio,
-      location,
+      address,
     };
 
     // Add profile pic if uploaded

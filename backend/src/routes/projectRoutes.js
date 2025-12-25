@@ -49,10 +49,7 @@ import {
   editProject, 
   getProjectBackers, 
   getProjectAnalytics, 
-  trackProjectView,
-  deselectReward,    // ✅ NEW
-  getSelectedReward,  // ✅ NEW
-  saveRewardSelection  // ✅ NEW
+  trackProjectView
 } from "../controllers/projectController.js";
 import multer from "multer";
 
@@ -73,20 +70,20 @@ router.get("/:id/backers", getProjectBackers);
 router.get("/:id/analytics", getProjectAnalytics);
 router.post("/:id/track-view", trackProjectView);
 
-// // ✅ NEW: Reward selection routes
+// // ✅ NEW: Reward selection routes (TODO: Implement these controllers)
 // router.post("/:projectId/rewards/:rewardId/select", selectReward);
 // router.delete("/:projectId/rewards/deselect", deselectReward);
 // router.get("/:projectId/rewards/selected", getSelectedReward);
 // router.get("/pledges/user/:userId/project/:projectId", checkUserPaidPledge);
 
-// Save reward after successful payment
-router.post('/:projectId/rewards/:rewardId/save', saveRewardSelection);
+// // Save reward after successful payment
+// router.post('/:projectId/rewards/:rewardId/save', saveRewardSelection);
 
-// Get selected reward
-router.get('/:projectId/rewards/selected', getSelectedReward);
+// // Get selected reward
+// router.get('/:projectId/rewards/selected', getSelectedReward);
 
-// Deselect reward
-router.delete('/:projectId/rewards/deselect', deselectReward);
+// // Deselect reward
+// router.delete('/:projectId/rewards/deselect', deselectReward);
 
 router.get("/:id", getProjectById);
 router.get("/campaign/:projectId", getCampaignByProjectId);
