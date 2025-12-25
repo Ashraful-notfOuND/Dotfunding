@@ -279,16 +279,30 @@ export const getUserProjects = async (req, res) => {
       return res.status(500).json({ error: error.message });
     }
 
-    const result = projects.map((prj) => ({
-      id: prj.id,
-      title: prj.title,
-      tagline: prj.tagline,
-      imageUrl: prj.image_url,
-      fundingGoal: prj.funding_goal,
-      fundingDeadline: prj.funding_deadline,
-      category: prj.category,
-      approval_status: prj.approval_status,
-      admin_message: prj.admin_message,
+    // Calculate backed amount for each project by summing paid pledges
+    const result = await Promise.all(projects.map(async (prj) => {
+      const { data: pledges } = await supabase
+        .from("pledges")
+        .select("amount")
+        .eq("project_id", prj.id)
+        .eq("status", "paid");
+
+      const backedAmount = pledges 
+        ? pledges.reduce((sum, pledge) => sum + Number(pledge.amount || 0), 0)
+        : 0;
+
+      return {
+        id: prj.id,
+        title: prj.title,
+        tagline: prj.tagline,
+        imageUrl: prj.image_url,
+        fundingGoal: prj.funding_goal,
+        fundingDeadline: prj.funding_deadline,
+        category: prj.category,
+        approval_status: prj.approval_status,
+        admin_message: prj.admin_message,
+        backedAmount: backedAmount,
+      };
     }));
 
     return res.status(200).json({ projects: result });

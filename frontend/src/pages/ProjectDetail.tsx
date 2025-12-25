@@ -69,6 +69,32 @@ const ProjectDetail = () => {
   const location = useLocation();
   const { toast } = useToast();
   const [project, setProject] = useState<Project | null>(null);
+
+  // Check if user profile is complete before pledging
+  const checkProfileComplete = () => {
+    if (!user) {
+      toast({
+        title: "Please log in",
+        description: "You need to be logged in to back a project.",
+        variant: "destructive",
+      });
+      navigate('/login');
+      return false;
+    }
+
+    // Check if phone and address are filled
+    if (!user.phone || !user.address) {
+      toast({
+        title: "Complete your profile",
+        description: "Please add your phone number and address before backing a project.",
+        variant: "destructive",
+      });
+      navigate('/profile');
+      return false;
+    }
+
+    return true;
+  };
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [rawBody, setRawBody] = useState<any>(null);
@@ -83,6 +109,7 @@ const ProjectDetail = () => {
   } | null>(null);
   const [ownerId, setOwnerId] = useState<string | null>(null);
   const [showOnboarding, setShowOnboarding] = useState(false);
+  const [lastTransactionId, setLastTransactionId] = useState<string | null>(null);
   const [activeTab, setActiveTab] = useState('campaign');
   const [showCreatorDashboard, setShowCreatorDashboard] = useState(false);
 
@@ -198,10 +225,35 @@ const ProjectDetail = () => {
     if (status) {
       if (status === "success") {
         toast({ title: "Payment successful", description: `Transaction ${tran} completed.` });
+        // Store transaction ID for receipt download
+        if (tran) setLastTransactionId(tran);
         // refetch project to update funding and progress
         fetchProject();
-        // Show onboarding for new backers
-        setTimeout(() => setShowOnboarding(true), 1000);
+        
+        // Check if this is user's first time backing this project
+        const checkFirstTimeBackingAndShowOnboarding = async () => {
+          if (!user?.id || !id) return;
+          
+          try {
+            const response = await fetch(`http://localhost:5000/api/projects/${id}/backers`);
+            if (response.ok) {
+              const data = await response.json();
+              // Count how many times this user has backed this project
+              const userBackingCount = data.backers?.filter((b: any) => b.user_id === user.id).length || 0;
+              
+              // Show onboarding only if this is their first backing
+              if (userBackingCount === 1) {
+                setTimeout(() => setShowOnboarding(true), 1000);
+              }
+            }
+          } catch (error) {
+            console.error('Error checking backing status:', error);
+            // Show onboarding anyway if check fails
+            setTimeout(() => setShowOnboarding(true), 1000);
+          }
+        };
+        
+        checkFirstTimeBackingAndShowOnboarding();
       } else if (status === "failed") {
         toast({ title: "Payment failed", description: "Your payment did not complete." });
       }
@@ -454,6 +506,7 @@ const ProjectDetail = () => {
                 className="w-full bg-accent hover:bg-accent-hover animate-fade-in"
                 size="lg"
                 onClick={() => {
+                  if (!checkProfileComplete()) return;
                   // open pledge modal
                   setSelectedReward(null);
                   setIsPledgeModalOpen(true);
@@ -501,6 +554,7 @@ const ProjectDetail = () => {
                   <Button
                     onClick={() => {
                       if (!customPledgeAmount || parseFloat(customPledgeAmount) < 1) return;
+                      if (!checkProfileComplete()) return;
                       setSelectedReward(null);
                       setPledgeAmount(customPledgeAmount);
                       setIsPledgeModalOpen(true);
@@ -569,6 +623,7 @@ const ProjectDetail = () => {
         open={showOnboarding}
         onClose={() => setShowOnboarding(false)}
         projectTitle={project?.title || ""}
+        transactionId={lastTransactionId || undefined}
         onGoToCommunity={() => setActiveTab('community')}
         onGoToReviews={() => setActiveTab('reviews')}
       />

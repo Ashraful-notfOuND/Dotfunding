@@ -9,6 +9,7 @@ import { NotificationFactory } from "../services/NotificationFactory.js";
 import { NotificationBuilder } from "../services/NotificationDecorator.js";
 import { observerManager } from "../services/ProjectObserver.js";
 import { projectStateMachine, ProjectStatus } from "../services/ProjectStateMachine.js";
+import TransactionPDFService from "../services/TransactionPDFService.js";
 
 dotenv.config();
 
@@ -241,6 +242,190 @@ const updateProjectBackedAmount = async (project_id) => {
     return totalBacked;
   } catch (err) {
     console.error("Error updating project backed amount:", err);
+  }
+};
+
+/**
+ * Helper function to log transaction and generate PDF receipt
+ */
+const logTransactionAndGenerateReceipt = async (transactionData) => {
+  try {
+    const {
+      tran_id,
+      val_id,
+      project_id,
+      user_id,
+      reward_id,
+      pledge_id,
+      amount,
+      currency,
+      status,
+      validation,
+      customer_info,
+      error_message,
+    } = transactionData;
+
+    // Check if transaction_logs table exists by attempting a simple query
+    const { error: tableCheckError } = await supabase
+      .from('transaction_logs')
+      .select('id')
+      .limit(1);
+
+    if (tableCheckError && tableCheckError.code === '42P01') {
+      // Table doesn't exist
+      console.warn('⚠️  transaction_logs table does not exist. Please run the migration:');
+      console.warn('   File: database/create_transaction_logs.sql');
+      console.warn('   Run this SQL in your Supabase Dashboard → SQL Editor');
+      console.warn('   Transaction logging skipped but payment will continue.');
+      return { success: false, error: 'Transaction logs table not found' };
+    }
+
+    // Fetch additional information for the receipt
+    let project_title = null;
+    let reward_title = null;
+    let customer_name = customer_info?.name || null;
+    let customer_email = customer_info?.email || null;
+    let customer_phone = customer_info?.phone || null;
+    let customer_address = null;
+
+    // Get project details
+    if (project_id) {
+      try {
+        const { data: project } = await supabase
+          .from("main_projects")
+          .select("title")
+          .eq("id", project_id)
+          .single();
+        if (project) project_title = project.title;
+      } catch (e) {
+        console.error("Error fetching project for transaction log:", e);
+      }
+    }
+
+    // Get reward details
+    if (reward_id) {
+      try {
+        const { data: reward } = await supabase
+          .from("reward_table")
+          .select("title")
+          .eq("id", reward_id)
+          .single();
+        if (reward) reward_title = reward.title;
+      } catch (e) {
+        console.error("Error fetching reward for transaction log:", e);
+      }
+    }
+
+    // Get user details if not provided
+    if (user_id && (!customer_name || !customer_email || !customer_address)) {
+      try {
+        const { data: user } = await supabase
+          .from("users")
+          .select("full_name, email, phone, address")
+          .eq("id", user_id)
+          .single();
+        if (user) {
+          customer_name = customer_name || user.full_name;
+          customer_email = customer_email || user.email;
+          customer_phone = customer_phone || user.phone;
+          customer_address = customer_address || user.address;
+        }
+      } catch (e) {
+        console.error("Error fetching user for transaction log:", e);
+      }
+    }
+
+    // Extract payment details from validation response
+    const card_type = validation?.card_type || null;
+    const card_brand = validation?.card_brand || null;
+    const card_issuer = validation?.card_issuer || validation?.bank_tran_id || null;
+    const card_issuer_country = validation?.card_issuer_country || null;
+    const risk_level = validation?.risk_level || 0;
+
+    // Generate PDF receipt only for successful transactions
+    let receipt_pdf_url = null;
+    let receipt_generated_at = null;
+    
+    if (status === 'success') {
+      try {
+        const receiptData = {
+          tran_id,
+          val_id,
+          project_id,
+          project_title,
+          user_id,
+          customer_name,
+          customer_email,
+          customer_phone,
+          customer_address,
+          reward_title,
+          amount,
+          currency: currency || 'BDT',
+          status,
+          transaction_date: new Date().toISOString(),
+          card_type,
+          card_brand,
+          card_issuer,
+          gateway_type: 'SSLCommerz',
+        };
+
+        const pdfPath = await TransactionPDFService.generateReceipt(receiptData);
+        receipt_pdf_url = TransactionPDFService.getReceiptUrl(pdfPath);
+        receipt_generated_at = new Date().toISOString();
+        
+        console.log(`📄 Receipt generated for transaction ${tran_id}: ${receipt_pdf_url}`);
+      } catch (pdfError) {
+        console.error("Error generating PDF receipt:", pdfError);
+        // Don't fail the transaction if PDF generation fails
+      }
+    }
+
+    // Insert transaction log
+    const logEntry = {
+      tran_id,
+      val_id: val_id || null,
+      project_id: project_id || null,
+      user_id: user_id || null,
+      reward_id: reward_id || null,
+      pledge_id: pledge_id || null,
+      amount: Number(amount) || 0,
+      currency: currency || 'BDT',
+      gateway_type: 'sslcommerz',
+      card_type,
+      card_brand,
+      card_issuer,
+      card_issuer_country,
+      status,
+      risk_level,
+      customer_name,
+      customer_email,
+      customer_phone,
+      gateway_response: validation || {},
+      error_message: error_message || null,
+      receipt_pdf_url,
+      receipt_generated_at,
+      transaction_date: new Date().toISOString(),
+    };
+
+    const { data: logData, error: logError } = await supabase
+      .from("transaction_logs")
+      .insert([logEntry])
+      .select();
+
+    if (logError) {
+      console.error("Error inserting transaction log:", logError);
+      if (logError.code === '42P01') {
+        console.error('❌ transaction_logs table does not exist!');
+        console.error('📝 Please run: database/create_transaction_logs.sql');
+      }
+    } else {
+      console.log(`✅ Transaction logged: ${tran_id} (Status: ${status})`);
+    }
+
+    return { success: !logError, logData, receipt_pdf_url };
+  } catch (err) {
+    console.error("Error in logTransactionAndGenerateReceipt:", err);
+    return { success: false, error: err.message };
   }
 };
 
@@ -511,6 +696,26 @@ export const validatePayment = async (req, res) => {
         console.error("pledge insert error:", pledgeError);
       }
 
+      // Log transaction and generate PDF receipt
+      const pledge_id = pledgeData && pledgeData[0] ? pledgeData[0].id : null;
+      await logTransactionAndGenerateReceipt({
+        tran_id: tran,
+        val_id: val_id,
+        project_id: project_id,
+        user_id: user_id,
+        reward_id: reward_id,
+        pledge_id: pledge_id,
+        amount: amount,
+        currency: 'BDT', // Bangladeshi Taka
+        status: 'success',
+        validation: validation,
+        customer_info: {
+          name: validation?.value_a || null,
+          email: validation?.value_b || null,
+          phone: validation?.value_c || null,
+        },
+      });
+
       // If reward_id provided, increment backers and decrement available safely
       if (reward_id) {
         try {
@@ -611,6 +816,24 @@ export const validatePayment = async (req, res) => {
       }
 
       return res.status(200).json({ ok: true, validation, pledge: pledgeData?.[0] ?? null });
+    }
+
+    // Log failed validation
+    const tran = body_tran || validation?.tran_id || null;
+    if (tran) {
+      await logTransactionAndGenerateReceipt({
+        tran_id: tran,
+        val_id: val_id,
+        project_id: body_project_id || null,
+        user_id: body_user_id || null,
+        reward_id: body_reward_id || null,
+        pledge_id: null,
+        amount: body_amount || (validation?.amount ? Number(validation.amount) : 0),
+        currency: 'BDT',
+        status: 'failed',
+        validation: validation,
+        error_message: validation?.status || 'Payment validation failed',
+      });
     }
 
     return res.status(400).json({ ok: false, validation });
@@ -791,6 +1014,26 @@ export const successHandler = async (req, res) => {
       const { data: pledgeData, error: pledgeError } = await supabase.from("pledges").insert([pledgeRow]).select();
       if (pledgeError) console.error("pledge insert error:", pledgeError);
 
+      // Log transaction and generate PDF receipt
+      const pledge_id = pledgeData && pledgeData[0] ? pledgeData[0].id : null;
+      await logTransactionAndGenerateReceipt({
+        tran_id: tran,
+        val_id: val_id,
+        project_id: project_id_res,
+        user_id: user_id_res,
+        reward_id: reward_id_res,
+        pledge_id: pledge_id,
+        amount: amount_res,
+        currency: 'BDT', // Bangladeshi Taka
+        status: 'success',
+        validation: validation,
+        customer_info: {
+          name: validation?.value_a || null,
+          email: validation?.value_b || null,
+          phone: validation?.value_c || null,
+        },
+      });
+
       if (reward_id_res) {
         try {
           const { data: reward } = await supabase.from("reward_table").select("backers, available").eq("id", reward_id_res).single();
@@ -950,6 +1193,24 @@ export const successHandler = async (req, res) => {
     }
 
   // On failure, redirect to a failure page (frontend) and include status
+  // Log failed transaction
+  const tran = tran_id || validation?.tran_id || validation?.tran_date || params.tran || params.tranId || null;
+  if (tran) {
+    await logTransactionAndGenerateReceipt({
+      tran_id: tran,
+      val_id: val_id,
+      project_id: project_id || null,
+      user_id: user_id || null,
+      reward_id: reward_id || null,
+      pledge_id: null,
+      amount: amount || (validation?.amount ? Number(validation.amount) : 0),
+      currency: 'BDT',
+      status: 'failed',
+      validation: validation,
+      error_message: validation?.status || 'Payment validation failed',
+    });
+  }
+  
   const frontendFail = process.env.FRONTEND_FAIL_URL || "http://localhost:5173/payment-fail";
   const failSep = frontendFail.includes("?") ? "&" : "?";
   const failRedirect = `${frontendFail}${failSep}payment_status=failed`;
@@ -1025,6 +1286,7 @@ export const getBackedProjects = async (req, res) => {
       amount: pledge.amount,
       created_at: pledge.created_at,
       project_id: pledge.project_id,
+      tran_id: pledge.tran_id,
       backer_message: messageMap[pledge.tran_id] || null,
       payment_status: pledge.status,
       project: pledge.main_projects ? {

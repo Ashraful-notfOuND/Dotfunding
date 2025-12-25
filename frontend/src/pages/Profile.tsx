@@ -217,7 +217,7 @@
 //                     creator={user.name ?? ""}
 //                     image={project.image_urls}
 //                     fundingGoal={project.fundingGoal}
-//                     fundingCurrent={0}
+//                     fundingCurrent={project.backedAmount || 0}
 //                     daysLeft={getDaysLeft(project.fundingDeadline)}
 //                     category={project.category}
 //                   />
@@ -278,7 +278,7 @@ import { Badge } from "@/components/ui/badge";
 import Navbar from "@/components/Navbar";
 import Footer from "@/components/Footer";
 import ProjectCard from "@/components/ProjectCard";
-import { User, Settings, Heart, Bell, Gift, MessageSquare, Clock, CheckCircle, DollarSign } from "lucide-react";
+import { User, Settings, Heart, Bell, Gift, MessageSquare, Clock, CheckCircle, DollarSign, FileText } from "lucide-react";
 import defaultAvatar from "@/assets/default-avatar.png";
 import NotificationDetailsModal from "@/components/NotificationDetailsModal";
 import NotificationSettings from "@/components/NotificationSettings";
@@ -298,6 +298,7 @@ interface Project {
   creatorName: string | null;
   approval_status?: string;
   admin_message?: string;
+  backedAmount?: number;
 }
 
 const Profile = () => {
@@ -318,6 +319,46 @@ const Profile = () => {
   const [notifications, setNotifications] = useState<any[]>([]);
   const [loadingNotifications, setLoadingNotifications] = useState(false);
   const [errorNotifications, setErrorNotifications] = useState<string | null>(null);
+
+  // Handle receipt download
+  const handleDownloadReceipt = async (tranId: string) => {
+    try {
+      console.log('🎫 Downloading receipt for transaction:', tranId);
+      console.log('🎫 Full URL:', `http://localhost:5000/api/transactions/${tranId}`);
+      const response = await fetch(`http://localhost:5000/api/transactions/${tranId}`);
+      
+      if (!response.ok) {
+        const errorData = await response.json().catch(() => ({}));
+        console.error('Failed to fetch transaction:', response.status, errorData);
+        
+        if (response.status === 503) {
+          alert('Transaction logging system is not set up yet. Please contact support or check the setup instructions.');
+          return;
+        }
+        
+        if (response.status === 404) {
+          alert('Receipt not found. The transaction may still be processing or the receipt system was set up after this payment.');
+          return;
+        }
+        
+        throw new Error('Failed to fetch transaction');
+      }
+      
+      const data = await response.json();
+      console.log('Transaction data:', data);
+      const receiptUrl = data.transaction?.receipt_pdf_url;
+      
+      if (receiptUrl) {
+        console.log('Opening receipt URL:', receiptUrl);
+        window.open(receiptUrl, '_blank');
+      } else {
+        alert('Receipt is being generated. Please try again in a few moments.');
+      }
+    } catch (error) {
+      console.error('Error downloading receipt:', error);
+      alert('Failed to download receipt. Please try again or contact support.');
+    }
+  };
   const [selectedNotification, setSelectedNotification] = useState<any>(null);
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [activeTab, setActiveTab] = useState(user?.isAdmin ? "notifications" : "created");
@@ -375,6 +416,7 @@ const Profile = () => {
           creatorName: p.creator || null,
           approval_status: p.approval_status,
           admin_message: p.admin_message,
+          backedAmount: p.backedAmount ?? 0,
         }));
 
         setMyProjects(projects);
@@ -412,6 +454,7 @@ const Profile = () => {
         }
 
         const body = await resp.json();
+        console.log('Backed projects data:', body.backedProjects || body.payments || []);
         setBackedProjects(body.backedProjects || body.payments || []);
       } catch (err: any) {
         console.error("Error fetching backed projects:", err);
@@ -570,6 +613,9 @@ const Profile = () => {
                   {user.phone && (
                     <p className="text-muted-foreground mb-4">📱 {user.phone}</p>
                   )}
+                  {user.address && (
+                    <p className="text-muted-foreground mb-4">📍 {user.address}</p>
+                  )}
                   <div className="flex flex-wrap gap-6 text-sm">
                     <div>
                       <span className="font-semibold text-foreground">
@@ -675,7 +721,7 @@ const Profile = () => {
                           creator={user.name ?? ""}
                           image={project.image_urls}
                           fundingGoal={project.fundingGoal}
-                          fundingCurrent={0}
+                          fundingCurrent={project.backedAmount || 0}
                           daysLeft={getDaysLeft(project.fundingDeadline)}
                           category={project.category}
                         />
@@ -716,7 +762,7 @@ const Profile = () => {
                           creator={user.name ?? ""}
                           image={project.image_urls}
                           fundingGoal={project.fundingGoal}
-                          fundingCurrent={0}
+                          fundingCurrent={project.backedAmount || 0}
                           daysLeft={getDaysLeft(project.fundingDeadline)}
                           category={project.category}
                         />
@@ -752,7 +798,7 @@ const Profile = () => {
                         creator={user.name ?? ""}
                         image={project.image_urls}
                         fundingGoal={project.fundingGoal}
-                        fundingCurrent={0}
+                        fundingCurrent={project.backedAmount || 0}
                         daysLeft={getDaysLeft(project.fundingDeadline)}
                         category={project.category}
                       />
@@ -784,7 +830,7 @@ const Profile = () => {
                         creator={user.name ?? ""}
                         image={project.image_urls}
                         fundingGoal={project.fundingGoal}
-                        fundingCurrent={0}
+                        fundingCurrent={project.backedAmount || 0}
                         daysLeft={getDaysLeft(project.fundingDeadline)}
                         category={project.category}
                       />
@@ -905,13 +951,25 @@ const Profile = () => {
                         )}
                       </div>
 
-                      <Button
-                        onClick={() => navigate(`/project/${backing.project_id}`)}
-                        className="w-full"
-                        variant="outline"
-                      >
-                        View Project
-                      </Button>
+                      <div className="space-y-2">
+                        <Button
+                          onClick={() => navigate(`/project/${backing.project_id}`)}
+                          className="w-full"
+                          variant="outline"
+                        >
+                          View Project
+                        </Button>
+                        {backing.tran_id && (
+                          <Button
+                            onClick={() => handleDownloadReceipt(backing.tran_id)}
+                            variant="secondary"
+                            className="w-full flex items-center gap-2"
+                          >
+                            <FileText className="h-4 w-4" />
+                            Download Transaction Receipt
+                          </Button>
+                        )}
+                      </div>
                     </CardContent>
                   </Card>
                 ))}

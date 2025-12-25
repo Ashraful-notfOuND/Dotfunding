@@ -1,8 +1,9 @@
 import { useState, useEffect } from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
+import { Button } from '@/components/ui/button';
 import { format } from 'date-fns';
-import { Users, DollarSign, Gift, MessageSquare, Calendar } from 'lucide-react';
+import { Users, DollarSign, Gift, MessageSquare, Calendar, FileText, Download } from 'lucide-react';
 
 interface Backer {
   id: string;
@@ -41,6 +42,27 @@ export function ProjectBackers({ projectId, creatorId }: ProjectBackersProps) {
   useEffect(() => {
     fetchBackers();
   }, [projectId, creatorId]);
+
+  const handleDownloadReceipt = async (tranId: string) => {
+    try {
+      // Fetch transaction to get receipt URL
+      const response = await fetch(`http://localhost:5000/api/transactions/${tranId}`);
+      if (!response.ok) throw new Error('Failed to fetch transaction');
+      
+      const data = await response.json();
+      const receiptUrl = data.transaction?.receipt_pdf_url;
+      
+      if (receiptUrl) {
+        // Open receipt in new tab for download
+        window.open(receiptUrl, '_blank');
+      } else {
+        alert('Receipt not available for this transaction');
+      }
+    } catch (error) {
+      console.error('Error downloading receipt:', error);
+      alert('Failed to download receipt. Please try again.');
+    }
+  };
 
   const fetchBackers = async () => {
     try {
@@ -101,6 +123,21 @@ export function ProjectBackers({ projectId, creatorId }: ProjectBackersProps) {
 
   return (
     <div className="space-y-6">
+      {/* Info banner */}
+      <Card className="bg-blue-50 border-blue-200">
+        <CardContent className="pt-6">
+          <div className="flex items-start gap-3">
+            <FileText className="h-5 w-5 text-blue-600 mt-0.5" />
+            <div>
+              <h3 className="font-semibold text-blue-900">Transaction Receipts</h3>
+              <p className="text-sm text-blue-700 mt-1">
+                You can download transaction receipts for each backer by clicking the "Receipt" button next to their transaction ID.
+              </p>
+            </div>
+          </div>
+        </CardContent>
+      </Card>
+
       {/* Stats Cards */}
       <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
         <Card>
@@ -207,12 +244,23 @@ export function ProjectBackers({ projectId, creatorId }: ProjectBackersProps) {
                     )}
                   </div>
 
-                  {/* Transaction ID */}
-                  <div className="text-right">
-                    <p className="text-xs text-gray-500">Transaction ID:</p>
-                    <p className="text-xs font-mono text-gray-600 break-all">
-                      {backer.transactionId?.substring(0, 16)}...
-                    </p>
+                  {/* Transaction ID & Receipt */}
+                  <div className="text-right space-y-2">
+                    <div>
+                      <p className="text-xs text-gray-500">Transaction ID:</p>
+                      <p className="text-xs font-mono text-gray-600 break-all">
+                        {backer.transactionId?.substring(0, 16)}...
+                      </p>
+                    </div>
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      onClick={() => handleDownloadReceipt(backer.transactionId)}
+                      className="flex items-center gap-2"
+                    >
+                      <FileText className="h-4 w-4" />
+                      Receipt
+                    </Button>
                   </div>
                 </div>
               </div>

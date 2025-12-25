@@ -16,8 +16,8 @@ const EditProfile = () => {
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [phone, setPhone] = useState("");
+  const [address, setAddress] = useState("");
   const [bio, setBio] = useState("");
-  const [location, setLocation] = useState("");
   const [profilePicFile, setProfilePicFile] = useState<File | null>(null);
   const [profilePicPreview, setProfilePicPreview] = useState<string>("");
 
@@ -31,8 +31,8 @@ const EditProfile = () => {
       setName(user.name || "");
       setEmail(user.email || "");
       setPhone(user.phone || "");
+      setAddress(user.address || "");
       setBio(user.bio || "");
-      setLocation(user.location || "");
       setProfilePicPreview(user.profilePic || "");
     }
   }, [isAuthenticated, navigate, user]);
@@ -71,8 +71,8 @@ const EditProfile = () => {
       formData.append("email", email);
       formData.append("password", password);
       formData.append("phone", phone);
+      formData.append("address", address);
       formData.append("bio", bio);
-      formData.append("location", location);
 
       if (profilePicFile) {
         formData.append("profilePic", profilePicFile);
@@ -92,8 +92,8 @@ const EditProfile = () => {
           name: data.user.full_name,
           email: data.user.email,
           phone: data.user.phone,
+          address: data.user.address,
           bio: data.user.bio,
-          location: data.user.location,
           profilePic: data.user.profile_pic,
         });
         console.log("Updated user:", data.user);
@@ -165,6 +165,18 @@ const EditProfile = () => {
                 />
               </div>
 
+              <div className="space-y-2">
+                <Label htmlFor="address">Address *</Label>
+                <Input
+                  id="address"
+                  type="text"
+                  placeholder="Your full address"
+                  value={address}
+                  onChange={(e) => setAddress(e.target.value)}
+                  required
+                />
+              </div>
+
               {/* Profile picture upload with preview */}
               <div className="space-y-2">
                 <Label htmlFor="profilePicFile">Upload Profile Picture *</Label>
@@ -196,18 +208,6 @@ const EditProfile = () => {
                   className="w-full border rounded-md p-2 text-sm resize-none h-24"
                 />
                 {errors.bio && <p className="text-red-600 text-sm">{errors.bio}</p>}
-              </div>
-
-
-              <div className="space-y-2">
-                <Label htmlFor="location">Location *</Label>
-                <Input
-                  id="location"
-                  placeholder="Your City, Country"
-                  value={location}
-                  onChange={(e) => setLocation(e.target.value)}
-                />
-                {errors.location && <p className="text-red-600 text-sm">{errors.location}</p>}
               </div>
 
               <div className="flex gap-4">
