@@ -49,7 +49,10 @@ import {
   editProject, 
   getProjectBackers, 
   getProjectAnalytics, 
-  trackProjectView
+  trackProjectView, 
+  deselectReward,    // ✅ NEW
+  getSelectedReward,  // ✅ NEW
+  saveRewardSelection  // ✅ NEW
 } from "../controllers/projectController.js";
 import multer from "multer";
 
@@ -84,6 +87,14 @@ router.post("/:id/track-view", trackProjectView);
 
 // // Deselect reward
 // router.delete('/:projectId/rewards/deselect', deselectReward);
+// Save reward after successful payment
+router.post('/:projectId/rewards/:rewardId/save', saveRewardSelection);
+
+// Get selected reward
+router.get('/:projectId/rewards/selected', getSelectedReward);
+
+// Deselect reward
+router.delete('/:projectId/rewards/deselect', deselectReward);
 
 router.get("/:id", getProjectById);
 router.get("/campaign/:projectId", getCampaignByProjectId);

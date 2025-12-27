@@ -242,8 +242,146 @@ export const getRewards = async (req, res) => {
 
 
 
+// ============================================
+// UPDATED CONTROLLER FUNCTIONS FOR MULTIPLE REWARDS
+// Replace these three functions in projectController.js
+// ============================================
 
+/**
+ * Get user's selected rewards for a project (supports multiple)
+ * GET /api/projects/:projectId/rewards/selected?userId=xxx
+ */
+export const getSelectedReward = async (req, res) => {
+  try {
+    const { projectId } = req.params;
+    const { userId } = req.query;
 
+    if (!userId) {
+      return res.status(400).json({ error: "User ID is required" });
+    }
+
+    // Fetch ALL reward selections for this user and project
+    const { data, error } = await supabase
+      .from("reward_selections")
+      .select("id, reward_id, created_at")
+      .eq("user_id", userId)
+      .eq("project_id", projectId);
+
+    if (error) {
+      throw error;
+    }
+
+    // Return array of reward IDs instead of single ID
+    const selectedRewardIds = data ? data.map(selection => selection.reward_id) : [];
+
+    return res.status(200).json({ 
+      selected: selectedRewardIds  // Returns array like ["id1", "id2"]
+    });
+
+  } catch (err) {
+    console.error("Error getting selected rewards:", err);
+    return res.status(500).json({ error: "Failed to get selected rewards" });
+  }
+};
+
+/**
+ * Deselect a specific reward (delete from reward_selections table)
+ * DELETE /api/projects/:projectId/rewards/:rewardId/deselect
+ */
+export const deselectReward = async (req, res) => {
+  try {
+    const { projectId, rewardId } = req.params;
+    const { userId } = req.body;
+
+    if (!userId) {
+      return res.status(400).json({ error: "User ID is required" });
+    }
+
+    if (!rewardId) {
+      return res.status(400).json({ error: "Reward ID is required" });
+    }
+
+    console.log(`User ${userId} deselecting reward ${rewardId} for project ${projectId}`);
+
+    // Delete the specific reward selection (not all rewards for this project)
+    const { error } = await supabase
+      .from("reward_selections")
+      .delete()
+      .eq("user_id", userId)
+      .eq("project_id", projectId)
+      .eq("reward_id", rewardId);  // ✅ Added this condition
+
+    if (error) throw error;
+
+    return res.status(200).json({ 
+      message: "Reward deselected successfully" 
+    });
+
+  } catch (err) {
+    console.error("Error deselecting reward:", err);
+    return res.status(500).json({ error: "Failed to deselect reward" });
+  }
+};
+
+/**
+ * Save reward selection after successful payment (supports multiple rewards)
+ * POST /api/projects/:projectId/rewards/:rewardId/save
+ */
+export const saveRewardSelection = async (req, res) => {
+  try {
+    const { projectId, rewardId } = req.params;
+    const { userId } = req.body;
+
+    if (!userId) {
+      return res.status(400).json({ error: "User ID is required" });
+    }
+
+    console.log(`Saving reward ${rewardId} for user ${userId}, project ${projectId}`);
+
+    // Check if user already has THIS EXACT reward selected
+    const { data: existing, error: checkError } = await supabase
+      .from("reward_selections")
+      .select("id, reward_id")
+      .eq("user_id", userId)
+      .eq("project_id", projectId)
+      .eq("reward_id", rewardId)  // ✅ Check for this specific reward
+      .single();
+
+    if (checkError && checkError.code !== "PGRST116") {
+      throw checkError;
+    }
+
+    // If user already selected this exact reward, return success
+    if (existing) {
+      return res.status(200).json({ 
+        message: "Reward already saved",
+        selection: existing 
+      });
+    }
+
+    // Otherwise, create new selection (allows multiple rewards per project)
+    const { data, error } = await supabase
+      .from("reward_selections")
+      .insert([{
+        user_id: userId,
+        project_id: projectId,
+        reward_id: rewardId
+      }])
+      .select()
+      .single();
+
+    if (error) throw error;
+
+    return res.status(201).json({ 
+      message: "Reward saved successfully",
+      selection: data 
+    });
+
+  } catch (err) {
+    console.error("Error saving reward:", err);
+    return res.status(500).json({ error: "Failed to save reward" });
+  }
+};
 
 
 
