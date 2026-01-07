@@ -3,13 +3,15 @@ import { supabase } from "../config/supabaseClient.js";
  * Get all comments with their replies
  */
 export const getComments = async (req, res) => {
+  const { projectId } = req.query; // Get projectId from query params
   try {
     // 1. Top-level comments
-    const { data: topComments, error: topError } = await supabase
-      .from("comments")
-      .select("*, users: user_id (id, full_name, profile_pic)")
-      .is("parent_id", null)
-      .order("created_at", { ascending: false });
+  const { data: topComments, error: topError } = await supabase
+        .from("comments")
+        .select("*, users: user_id (id, full_name, profile_pic)")
+        .eq("project_id", projectId) // <--- FILTER BY PROJECT
+        .is("parent_id", null)
+        .order("created_at", { ascending: false });
 
     if (topError) throw topError;
 
@@ -51,13 +53,19 @@ export const getComments = async (req, res) => {
  * Add a comment or reply
  */
 export const addComment = async (req, res) => {
-  const { user_id, text, parent_id } = req.body;
-  if (!user_id || !text) return res.status(400).json({ error: "Missing fields" });
+const { user_id, text, parent_id, project_id } = req.body;
+if (!user_id || !text) return res.status(400).json({ error: "Missing fields" });
 
   try {
     const { data, error } = await supabase
       .from("comments")
-      .insert([{ user_id, text, parent_id: parent_id || null, likes: 0 }]) // initialize likes to 0
+      .insert([{ 
+          user_id, 
+          text, 
+          parent_id: parent_id || null, 
+          project_id, // <--- SAVE THE PROJECT ID
+          likes: 0 
+      }])
       .select()
       .single();
 

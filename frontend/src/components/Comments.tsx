@@ -1,7 +1,7 @@
-
 import React, { useState, useEffect } from "react";
 import CommentCard from "./CommentCard";
 import { useAuth } from "../hooks/useAuth";
+
 interface Reply {
   id: string;
   user: string;
@@ -19,6 +19,11 @@ interface Comment {
   replies: Reply[];
 }
 
+// 1. Define the props to accept projectId from the parent component
+interface CommentsProps {
+  projectId: string;
+}
+
 const timeAgo = (timestamp: string) => {
   const seconds = Math.floor((Date.now() - new Date(timestamp).getTime()) / 1000);
   if (seconds < 60) return `${seconds}s ago`;
@@ -27,143 +32,151 @@ const timeAgo = (timestamp: string) => {
   return `${Math.floor(seconds / 86400)}d ago`;
 };
 
-const Comments: React.FC = () => {
-  const { user } = useAuth(); 
-  if (!user) return <p>Please login to comment</p>;
-  const currentUser = { id: user.id, full_name: user.name };
-
+const Comments: React.FC<CommentsProps> = ({ projectId }) => {
+  const { user } = useAuth();
   const [comments, setComments] = useState<Comment[]>([]);
   const [newComment, setNewComment] = useState("");
   const [isWriting, setIsWriting] = useState(false);
   const [openReplies, setOpenReplies] = useState<Record<string, boolean>>({});
+  const [liking, setLiking] = useState<Record<string, boolean>>({});
+
+  if (!user) return <p className="p-4 text-gray-500">Please login to comment</p>;
+  const currentUser = { id: user.id, full_name: user.name };
 
   // -------------------- Fetch comments --------------------
-const fetchComments = async () => {
-  try {
-    const res = await fetch('http://localhost:5000/api/comments');
-    const data = await res.json();
+  const fetchComments = async () => {
+    try {
+      // 2. Pass projectId as a query string so the backend can filter
+      const res = await fetch(`http://localhost:5000/api/comments?projectId=${projectId}`);
+      const data = await res.json();
 
-    setComments(
-      data.comments.map((c: any) => ({
-        ...c,
-        user: c.users.full_name,
-        timestamp: c.created_at,
-        replies: c.replies.map((r: any) => ({
-          ...r,
-          user: r.users.full_name,
-          timestamp: r.created_at,
-        })),
-      }))
-    );
-  } catch (err) {
-    console.error("Failed to fetch comments", err);
-  }
-};
+      setComments(
+        data.comments.map((c: any) => ({
+          ...c,
+          user: c.users?.full_name || "Unknown User",
+          timestamp: c.created_at,
+          replies: (c.replies || []).map((r: any) => ({
+            ...r,
+            user: r.users?.full_name || "Unknown User",
+            timestamp: r.created_at,
+          })),
+        }))
+      );
+    } catch (err) {
+      console.error("Failed to fetch comments", err);
+    }
+  };
 
+  // 3. Re-run fetch whenever the projectId changes
   useEffect(() => {
     fetchComments();
-  }, []);
+  }, [projectId]);
 
   // -------------------- Add comment --------------------
- const addComment = async () => {
-  if (!newComment.trim()) return;
-  try {
-    const res = await fetch("http://localhost:5000/api/comments", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ user_id: currentUser.id, text: newComment, parent_id: null }),
-    });
-    const data = await res.json();
+  const addComment = async () => {
+    if (!newComment.trim()) return;
+    try {
+      const res = await fetch("http://localhost:5000/api/comments", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        // 4. Include project_id in the body for the backend to save
+        body: JSON.stringify({ 
+            user_id: currentUser.id, 
+            text: newComment, 
+            parent_id: null, 
+            project_id: projectId 
+        }),
+      });
+      const data = await res.json();
 
-    setComments(prev => [
-      ...prev,
-      { ...data.comment, user: currentUser.full_name, timestamp: data.comment.created_at, replies: [] },
-    ]);
-    setNewComment("");
-    setIsWriting(false);
-  } catch (err) {
-    console.error("Failed to add comment", err);
-  }
-};
-
+      setComments(prev => [
+        { ...data.comment, user: currentUser.full_name, timestamp: data.comment.created_at, replies: [] },
+        ...prev,
+      ]);
+      setNewComment("");
+      setIsWriting(false);
+    } catch (err) {
+      console.error("Failed to add comment", err);
+    }
+  };
 
   // -------------------- Add reply --------------------
- const addReply = async (commentId: string, replyText: string) => {
-  try {
-    const res = await fetch("http://localhost:5000/api/comments", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ user_id: currentUser.id, text: replyText, parent_id: commentId }),
-    });
-    const data = await res.json();
+  const addReply = async (commentId: string, replyText: string) => {
+    try {
+      const res = await fetch("http://localhost:5000/api/comments", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        // 5. Also include project_id for replies
+        body: JSON.stringify({ 
+            user_id: currentUser.id, 
+            text: replyText, 
+            parent_id: commentId, 
+            project_id: projectId 
+        }),
+      });
+      const data = await res.json();
 
-    setComments(prev =>
-      prev.map(c =>
-        c.id === commentId
-          ? {
-              ...c,
-              replies: [
-                ...c.replies,
-                { ...data.comment, user: currentUser.full_name, timestamp: data.comment.created_at },
-              ],
-            }
-          : c
-      )
-    );
-    setOpenReplies(prev => ({ ...prev, [commentId]: true }));
-  } catch (err) {
-    console.error("Failed to add reply", err);
-  }
-};
-
-  // -------------------- Like comment or reply --------------------
-const [liking, setLiking] = useState<Record<string, boolean>>({});
-
-const likeCommentOrReply = async (commentId: string, replyId?: string) => {
-  const targetId = replyId || commentId;
-  if (liking[targetId]) return; // prevent double click
-
-  setLiking(prev => ({ ...prev, [targetId]: true }));
-
-  try {
-    const res = await fetch("http://localhost:5000/api/comments/like", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ comment_id: targetId, user_id: currentUser.id }),
-    });
-
-    const data = await res.json();
-
-    if (res.status === 400 && data.error) {
-      alert(data.error);
-      return;
-    }
-
-    if (replyId) {
       setComments(prev =>
         prev.map(c =>
           c.id === commentId
             ? {
                 ...c,
-                replies: c.replies.map(r =>
-                  r.id === replyId ? { ...r, likes: data.likes } : r
-                ),
+                replies: [
+                  ...c.replies,
+                  { ...data.comment, user: currentUser.full_name, timestamp: data.comment.created_at },
+                ],
               }
             : c
         )
       );
-    } else {
-      setComments(prev =>
-        prev.map(c => (c.id === commentId ? { ...c, likes: data.likes } : c))
-      );
+      setOpenReplies(prev => ({ ...prev, [commentId]: true }));
+    } catch (err) {
+      console.error("Failed to add reply", err);
     }
-  } catch (err) {
-    console.error("Failed to like comment", err);
-  } finally {
-    setLiking(prev => ({ ...prev, [targetId]: false }));
-  }
-};
+  };
 
+  const likeCommentOrReply = async (commentId: string, replyId?: string) => {
+    const targetId = replyId || commentId;
+    if (liking[targetId]) return;
+    setLiking(prev => ({ ...prev, [targetId]: true }));
+
+    try {
+      const res = await fetch("http://localhost:5000/api/comments/like", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ comment_id: targetId, user_id: currentUser.id }),
+      });
+      const data = await res.json();
+
+      if (!res.ok) {
+        alert(data.error);
+        return;
+      }
+
+      if (replyId) {
+        setComments(prev =>
+          prev.map(c =>
+            c.id === commentId
+              ? {
+                  ...c,
+                  replies: c.replies.map(r =>
+                    r.id === replyId ? { ...r, likes: data.likes } : r
+                  ),
+                }
+              : c
+          )
+        );
+      } else {
+        setComments(prev =>
+          prev.map(c => (c.id === commentId ? { ...c, likes: data.likes } : c))
+        );
+      }
+    } catch (err) {
+      console.error("Failed to like comment", err);
+    } finally {
+      setLiking(prev => ({ ...prev, [targetId]: false }));
+    }
+  };
 
   const toggleReplies = (id: string) => {
     setOpenReplies(prev => ({ ...prev, [id]: !prev[id] }));
@@ -173,7 +186,7 @@ const likeCommentOrReply = async (commentId: string, replyId?: string) => {
     <div className="space-y-6">
       <h2 className="text-2xl font-bold">Comments</h2>
 
-      {/* -------------------- Add Comment Box -------------------- */}
+      {/* Write Comment Box */}
       {!isWriting ? (
         <div
           onClick={() => setIsWriting(true)}
@@ -210,7 +223,7 @@ const likeCommentOrReply = async (commentId: string, replyId?: string) => {
         </div>
       )}
 
-      {/* -------------------- Comments List -------------------- */}
+      {/* Comments List */}
       {comments.map(comment => (
         <div key={comment.id} className="space-y-2">
           <CommentCard
@@ -221,11 +234,10 @@ const likeCommentOrReply = async (commentId: string, replyId?: string) => {
             timeAgo={timeAgo(comment.timestamp)}
           />
 
-          {/* Show replies toggle */}
           {comment.replies.length > 0 && (
             <div className="ml-12">
               <button
-                className="text-blue-600 text-sm"
+                className="text-blue-600 text-sm font-medium"
                 onClick={() => toggleReplies(comment.id)}
               >
                 {openReplies[comment.id]
@@ -235,7 +247,6 @@ const likeCommentOrReply = async (commentId: string, replyId?: string) => {
             </div>
           )}
 
-          {/* Replies list */}
           {openReplies[comment.id] &&
             comment.replies.map(reply => (
               <div
@@ -245,11 +256,12 @@ const likeCommentOrReply = async (commentId: string, replyId?: string) => {
                 <img
                   src={`https://ui-avatars.com/api/?name=${reply.user}`}
                   className="w-9 h-9 rounded-full"
+                  alt="avatar"
                 />
                 <div className="flex-1">
                   <p className="font-semibold text-sm">
                     {reply.user} •{" "}
-                    <span className="text-gray-500">{timeAgo(reply.timestamp)}</span>
+                    <span className="text-gray-500 font-normal">{timeAgo(reply.timestamp)}</span>
                   </p>
                   <p className="text-gray-800">{reply.text}</p>
                   <button

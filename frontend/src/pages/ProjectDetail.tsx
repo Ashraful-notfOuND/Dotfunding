@@ -457,7 +457,8 @@ const ProjectDetail = () => {
               </TabsContent>
 
               <TabsContent value="comments" className="mt-6">
-                <Comments />
+                {/* Pass the project.id as a prop */}
+                <Comments projectId={project.id} />
               </TabsContent>
 
               <TabsContent value="reviews" className="mt-6">
