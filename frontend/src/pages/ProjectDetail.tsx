@@ -518,16 +518,31 @@ const ProjectDetail = () => {
                 <p className="text-gray-500 text-sm mt-1">You can only moderate and manage projects</p>
               </div>
             ) : project.status === 'LIVE' ? (
-              <Button
-                className="w-full bg-accent hover:bg-accent-hover animate-fade-in"
-                size="lg"
-                onClick={() => {
-                  setSelectedReward(null);
-                  setIsPledgeModalOpen(true);
-                }}
-              >
-                Back this project
-              </Button>
+<Card className="border-2 border-primary/20 animate-fade-in">
+  <CardHeader>
+    <CardTitle className="text-lg flex items-center gap-2">
+      {/* <Heart className="h-5 w-5 text-primary" /> */}
+      Pledge Without A Reward
+    </CardTitle>
+  </CardHeader>
+  <CardContent className="space-y-3">
+    <p className="text-sm text-muted-foreground">
+      Support this project by backing it. You won't receive a reward, but you'll help bring this project to life.
+    </p>
+
+    <Button
+      className="w-full bg-accent hover:bg-accent-hover"
+      size="lg"
+      onClick={() => {
+        setSelectedReward(null); // no reward selected
+        setIsPledgeModalOpen(true); // open the pledge modal
+      }}
+    >
+      Back this project
+    </Button>
+  </CardContent>
+</Card>
+
             ) : (
               <Button
                 className="w-full animate-fade-in"
@@ -541,9 +556,9 @@ const ProjectDetail = () => {
 
             <ShareButtons projectTitle={project.title} />
 
-            <ProjectDonations projectId={project.id} />
+            {/* <ProjectDonations projectId={project.id} /> */}
 
-            <Card className="border-2 border-primary/20 animate-fade-in">
+            {/* <Card className="border-2 border-primary/20 animate-fade-in">
               <CardHeader>
                 <CardTitle className="text-lg flex items-center gap-2">
                   <Heart className="h-5 w-5 text-primary" />
@@ -577,7 +592,7 @@ const ProjectDetail = () => {
                   </Button>
                 </div>
               </CardContent>
-            </Card>
+            </Card> */}
 
             {/* Rewards with multiple selection support */}
             {!user?.isAdmin && (
