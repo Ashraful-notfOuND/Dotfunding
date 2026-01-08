@@ -99,7 +99,16 @@ const ProjectCard = ({
           <p className="text-sm text-muted-foreground mt-1">by {creator}</p>
 
           {/* Compact stats block: amount on one line, backers + time on second line */}
-          <div className="mt-4 border-t border-border pt-3 text-sm">
+        <div className="mt-4 pt-3 text-sm">
+          {/* Thin progress line */}
+        <div className="relative h-[6px] w-full bg-border mb-3 overflow-hidden rounded-full">
+            <div
+              className="absolute left-0 top-0 h-full bg-red-500"
+              style={{
+                width: `${Math.min(fundingPercentage, 100)}%`,
+              }}
+            />
+          </div>
             <div className="flex items-baseline justify-between">
               <div className="flex items-baseline gap-2">
                 <span className="font-semibold text-foreground">৳{fundingCurrent.toLocaleString()}</span>

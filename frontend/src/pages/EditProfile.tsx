@@ -31,7 +31,7 @@ const EditProfile = () => {
       setName(user.name || "");
       setEmail(user.email || "");
       setPhone(user.phone || "");
-      setAddress(user.address || "");
+      //setLocation(user.address || "");
       setBio(user.bio || "");
       setProfilePicPreview(user.profilePic || "");
     }
@@ -53,7 +53,7 @@ const EditProfile = () => {
     const newErrors: { [key: string]: string } = {};
     if (!email.trim()) newErrors.email = "Email is required.";
     if (!bio.trim()) newErrors.bio = "Bio is required.";
-    if (!location.trim()) newErrors.location = "Location is required.";
+    //if (!location.trim()) newErrors.location = "Location is required.";
     if (!profilePicFile && !profilePicPreview) newErrors.profilePic = "Profile picture is required.";
     setErrors(newErrors);
     return Object.keys(newErrors).length === 0;
@@ -71,7 +71,7 @@ const EditProfile = () => {
       formData.append("email", email);
       formData.append("password", password);
       formData.append("phone", phone);
-      formData.append("address", address);
+      //formData.append("location", location);
       formData.append("bio", bio);
 
       if (profilePicFile) {
@@ -92,7 +92,7 @@ const EditProfile = () => {
           name: data.user.full_name,
           email: data.user.email,
           phone: data.user.phone,
-          address: data.user.address,
+          //address: data.user.address,
           bio: data.user.bio,
           profilePic: data.user.profile_pic,
         });

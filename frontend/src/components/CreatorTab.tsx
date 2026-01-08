@@ -2,6 +2,7 @@ import { useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
+import { MapPin, User, ExternalLink } from "lucide-react";
 import defaultAvatar from "@/assets/default-avatar.png";
 
 interface CreatorProfile {
@@ -33,8 +34,8 @@ const CreatorTab = ({ projectId }: { projectId: string }) => {
             avatar: data.user.profile_pic || defaultAvatar,
             bio: data.user.bio || "No bio provided yet.",
             location: data.user.location || "Not specified",
-            projectsCreated: 0,
-            totalBackers: 0,
+            projectsCreated: data.user.projectsCount || 0, // Ensure your backend sends this
+            totalBackers: data.user.backersCount || 0,    // Ensure your backend sends this
           });
         } else {
           setCreator(null);
@@ -52,9 +53,12 @@ const CreatorTab = ({ projectId }: { projectId: string }) => {
 
   if (loading) {
     return (
-      <Card>
-        <CardContent className="pt-6 text-center text-muted-foreground">
-          Loading creator info...
+      <Card className="border-none shadow-md animate-pulse">
+        <CardContent className="pt-10 pb-10 text-center text-muted-foreground">
+          <div className="flex justify-center mb-4">
+            <div className="w-16 h-16 bg-gray-200 rounded-full"></div>
+          </div>
+          Loading creator story...
         </CardContent>
       </Card>
     );
@@ -62,7 +66,7 @@ const CreatorTab = ({ projectId }: { projectId: string }) => {
 
   if (!creator) {
     return (
-      <Card>
+      <Card className="border-dashed border-2">
         <CardContent className="pt-6 text-center text-muted-foreground">
           Creator information not available.
         </CardContent>
@@ -71,74 +75,65 @@ const CreatorTab = ({ projectId }: { projectId: string }) => {
   }
 
   return (
-    <Card>
-      <CardContent className="pt-6 space-y-6">
-        <div className="flex items-start gap-4">
-          {/* Avatar */}
-          <div className="w-20 h-20 rounded-full overflow-hidden flex-shrink-0">
-            <img
-              src={creator.avatar}
-              alt={creator.name}
-              onError={(e) => (e.currentTarget.src = defaultAvatar)}
-              className="w-full h-full object-cover"
-            />
-          </div>
+<Card className="overflow-hidden border-none shadow-xl bg-white/90 backdrop-blur-md">
+  {/* Pink Accent Line */}
+  <div className="h-2 bg-gradient-to-r from-rose-500 via-pink-500 to-fuchsia-600" />
+  
+  <CardContent className="pt-8 space-y-8 px-6 md:px-8 pb-8">
+    <div className="flex flex-col md:flex-row items-start gap-6">
+      {/* Avatar with Pinkish Glow */}
+      <div className="relative flex-shrink-0 mx-auto md:mx-0">
+        <div className="w-24 h-24 rounded-2xl overflow-hidden border-4 border-white shadow-lg relative z-10">
+          <img
+            src={creator.avatar}
+            alt={creator.name}
+            onError={(e) => (e.currentTarget.src = defaultAvatar)}
+            className="w-full h-full object-cover"
+          />
+        </div>
+        <div className="absolute -inset-1 bg-gradient-to-tr from-rose-400 to-fuchsia-400 rounded-2xl blur-md opacity-20 -z-0"></div>
+      </div>
 
-          <div className="flex-1">
-            <h3 className="font-bold text-2xl mb-1">{creator.name}</h3>
-            <div className="text-sm text-muted-foreground flex items-center gap-1 mb-3">
-              <span className="inline-flex items-center gap-1">
-                <svg
-                  xmlns="http://www.w3.org/2000/svg"
-                  width="14"
-                  height="14"
-                  viewBox="0 0 24 24"
-                  fill="none"
-                  stroke="currentColor"
-                  strokeWidth="2"
-                  strokeLinecap="round"
-                  strokeLinejoin="round"
-                >
-                  <path d="M20 10c0 6-8 12-8 12s-8-6-8-12a8 8 0 0 1 16 0Z" />
-                  <circle cx="12" cy="10" r="3" />
-                </svg>
-                {creator.location}
-              </span>
-            </div>
-            <p className="text-muted-foreground leading-relaxed whitespace-pre-line">
-              {creator.bio}
-            </p>
-          </div>
+      <div className="flex-1 text-center md:text-left space-y-2">
+        <div className="flex flex-col md:flex-row md:items-center gap-2">
+          <h3 className="font-black text-3xl text-slate-800 tracking-tight">
+            {creator.name}
+          </h3>
+          <span className="inline-flex items-center self-center md:self-auto px-2.5 py-0.5 bg-rose-50 text-rose-600 text-[10px] font-bold rounded-full uppercase tracking-widest border border-rose-100">
+            Verified Creator
+          </span>
         </div>
 
-        <div className="border-t border-border pt-4">
-          <div className="grid grid-cols-2 gap-4 mb-4">
-            <div>
-              <div className="text-2xl font-bold text-primary">
-                {creator.projectsCreated}
-              </div>
-              <div className="text-sm text-muted-foreground">Projects Created</div>
-            </div>
-            <div>
-              <div className="text-2xl font-bold text-primary">
-                {creator.totalBackers}
-              </div>
-              <div className="text-sm text-muted-foreground">Total Backers</div>
-            </div>
-          </div>
-
-          <Button
-            variant="outline"
-            className="w-full"
-            onClick={() => {
-              if (creator?.id) navigate(`/creator/${creator.id}`);
-            }}
-          >
-            View Full Profile
-          </Button>
+        <div className="flex items-center justify-center md:justify-start gap-4 text-sm font-medium text-slate-500">
+          <span className="flex items-center gap-1.5">
+            <MapPin className="w-4 h-4 text-rose-400" />
+            {creator.location}
+          </span>
+          <span className="flex items-center gap-1.5">
+            <User className="w-4 h-4 text-rose-400" />
+            Member
+          </span>
         </div>
-      </CardContent>
-    </Card>
+
+        <p className="text-slate-600 leading-relaxed text-sm pt-2 italic">
+          "{creator.bio}"
+        </p>
+      </div>
+    </div>
+
+
+    {/* Action Button */}
+    <Button
+      variant="outline"
+      className="w-full h-12 rounded-xl border-rose-200 text-rose-600 hover:bg-rose-50 hover:text-rose-700 hover:border-rose-300 transition-all font-bold shadow-sm"
+      onClick={() => {
+        if (creator?.id) navigate(`/creator/${creator.id}`);
+      }}
+    >
+      View Full Creator Profile
+    </Button>
+  </CardContent>
+</Card>
   );
 };
 

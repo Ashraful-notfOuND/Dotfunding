@@ -416,7 +416,6 @@ const ProjectDetail = () => {
                 <TabsTrigger value="community">Community</TabsTrigger>
                 <TabsTrigger value="comments">Comments</TabsTrigger>
                 <TabsTrigger value="reviews">Reviews</TabsTrigger>
-                <TabsTrigger value="statistics">Statistics</TabsTrigger>
               </TabsList>
 
               <TabsContent value="campaign" className="mt-6">
