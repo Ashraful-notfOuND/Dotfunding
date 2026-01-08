@@ -86,8 +86,6 @@ const RewardTierCard = ({
         >
           {isSoldOut
             ? "Sold Out"
-            : isSelected
-            ? "Deselect Reward"
             : "Select Reward"}
         </Button>
       </CardContent>

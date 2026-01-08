@@ -1,0 +1,88 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<svg xmlns="http://www.w3.org/2000/svg" width="1200" height="700" viewBox="0 0 1200 700">
+  <style>
+    .box { fill:#ffffff; stroke:#2b6cb0; stroke-width:2; rx:8; }
+    .label { font-family: Arial, Helvetica, sans-serif; font-size:14px; fill:#0b3b66; }
+    .title { font-family: Arial, Helvetica, sans-serif; font-weight:700; font-size:16px; fill:#0b3b66; }
+    .arrow { stroke:#2b6cb0; stroke-width:2; fill:none; marker-end: url(#arrowhead); }
+    .small { font-size:12px; fill:#0b3b66; }
+  </style>
+
+  <defs>
+    <marker id="arrowhead" markerWidth="10" markerHeight="7" refX="10" refY="3.5" orient="auto">
+      <polygon points="0 0, 10 3.5, 0 7" fill="#2b6cb0" />
+    </marker>
+  </defs>
+
+  <!-- Frontend -->
+  <rect x="60" y="60" width="300" height="120" class="box" />
+  <text x="70" y="90" class="title">Frontend (SPA)</text>
+  <text x="70" y="115" class="label">React / Vite / Static CDN</text>
+  <text x="70" y="135" class="small">UI, routing, client-side validation</text>
+
+  <!-- CDN -->
+  <rect x="420" y="40" width="160" height="60" class="box" />
+  <text x="430" y="70" class="label">CDN / Static Host</text>
+
+  <!-- API -->
+  <rect x="620" y="60" width="360" height="140" class="box" />
+  <text x="640" y="90" class="title">Backend API</text>
+  <text x="640" y="115" class="label">Node.js + Express</text>
+  <text x="640" y="135" class="small">Controllers • Services • Payment orchestration</text>
+
+  <!-- Database -->
+  <rect x="220" y="260" width="260" height="120" class="box" />
+  <text x="240" y="295" class="title">Supabase / PostgreSQL</text>
+  <text x="240" y="320" class="small">Auth, RLS, ACID transactions</text>
+
+  <!-- Payment -->
+  <rect x="620" y="260" width="220" height="100" class="box" />
+  <text x="640" y="295" class="title">SSLCommerz</text>
+  <text x="640" y="320" class="small">Payment Gateway & Webhooks</text>
+
+  <!-- Workers -->
+  <rect x="940" y="260" width="200" height="100" class="box" />
+  <text x="960" y="295" class="title">Background Workers</text>
+  <text x="960" y="320" class="small">Emails, Notifications, Jobs</text>
+
+  <!-- Observability -->
+  <rect x="420" y="420" width="360" height="80" class="box" />
+  <text x="440" y="455" class="title">Logging & Metrics</text>
+  <text x="440" y="475" class="small">Structured logs • Tracing • Dashboards</text>
+
+  <!-- Arrows: Frontend -> CDN -> API -->
+  <path class="arrow" d="M360 120 L420 120" />
+  <path class="arrow" d="M580 120 L620 120" />
+
+  <!-- Frontend -> API direct -->
+  <path class="arrow" d="M360 140 L620 140" />
+
+  <!-- API -> Database -->
+  <path class="arrow" d="M800 200 L480 200 L480 260" />
+
+  <!-- API -> Payment -->
+  <path class="arrow" d="M860 200 L860 260" />
+
+  <!-- Payment -> API (webhook) -->
+  <path class="arrow" d="M740 360 L740 330 L740 300" transform="translate(0,0)" />
+  <path class="arrow" d="M740 360 L740 330 L700 330 L700 220" />
+
+  <!-- API -> Workers -->
+  <path class="arrow" d="M980 220 L980 260" />
+
+  <!-- Database -> Workers (analytics) -->
+  <path class="arrow" d="M360 320 L940 320" />
+
+  <!-- Labels on arrows -->
+  <text x="440" y="110" class="small">HTTPS / REST (JSON)</text>
+  <text x="770" y="190" class="small">DB queries (SQL)</text>
+  <text x="820" y="250" class="small">Create/Verify Payment Session</text>
+  <text x="900" y="300" class="small">Webhook (HTTPS)</text>
+
+  <!-- Legend / notes -->
+  <rect x="60" y="520" width="1080" height="140" rx="6" fill="#f7fbff" stroke="#cfe3ff" />
+  <text x="80" y="545" class="title">Diagram Notes</text>
+  <text x="80" y="570" class="small">- API handles auth (Supabase JWT), payment orchestration, and exposes admin endpoints.</text>
+  <text x="80" y="590" class="small">- Workers process async tasks; use Redis/Bull or a job table.</text>
+  <text x="80" y="610" class="small">- Store this SVG at `docs/figures/system-architecture.svg` and reference it in LaTeX.</text>
+</svg>

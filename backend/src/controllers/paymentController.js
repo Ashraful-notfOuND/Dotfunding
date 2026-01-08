@@ -306,7 +306,7 @@ const logTransactionAndGenerateReceipt = async (transactionData) => {
     if (reward_id) {
       try {
         const { data: reward } = await supabase
-          .from("reward_table")
+          .from("rewards")
           .select("title")
           .eq("id", reward_id)
           .single();
@@ -655,7 +655,7 @@ export const validatePayment = async (req, res) => {
       // If project_id is still missing, but we have a reward_id, try to resolve the project
       if (!project_id && reward_id) {
         try {
-          const { data: rewardRow, error: rewardErr } = await supabase.from("reward_table").select("project_id").eq("id", reward_id).single();
+          const { data: rewardRow, error: rewardErr } = await supabase.from("rewards").select("project_id").eq("id", reward_id).single();
           if (!rewardErr && rewardRow && rewardRow.project_id) {
             project_id = rewardRow.project_id;
           }
@@ -719,11 +719,11 @@ export const validatePayment = async (req, res) => {
       // If reward_id provided, increment backers and decrement available safely
       if (reward_id) {
         try {
-          const { data: reward } = await supabase.from("reward_table").select("backers, available").eq("id", reward_id).single();
+          const { data: reward } = await supabase.from("rewards").select("backers, available").eq("id", reward_id).single();
           if (reward) {
             const newBackers = (Number(reward.backers) || 0) + 1;
             const newAvailable = Number(reward.available) > 0 ? Number(reward.available) - 1 : 0;
-            await supabase.from("reward_table").update({ backers: newBackers, available: newAvailable }).eq("id", reward_id);
+            await supabase.from("rewards").update({ backers: newBackers, available: newAvailable }).eq("id", reward_id);
           }
         } catch (e) {
           console.error("failed updating reward counts", e);
@@ -928,10 +928,10 @@ export const successHandler = async (req, res) => {
         }
       }
 
-      // If project still missing but we have a reward id, try to resolve project via reward_table
+      // If project still missing but we have a reward id, try to resolve project via rewards
       if (!project_id_res && reward_id_res) {
         try {
-          const { data: rewardRow, error: rewardErr } = await supabase.from("reward_table").select("project_id").eq("id", reward_id_res).single();
+          const { data: rewardRow, error: rewardErr } = await supabase.from("rewards").select("project_id").eq("id", reward_id_res).single();
           if (!rewardErr && rewardRow && rewardRow.project_id) {
             project_id_res = rewardRow.project_id;
           }
@@ -1036,11 +1036,11 @@ export const successHandler = async (req, res) => {
 
       if (reward_id_res) {
         try {
-          const { data: reward } = await supabase.from("reward_table").select("backers, available").eq("id", reward_id_res).single();
+          const { data: reward } = await supabase.from("rewards").select("backers, available").eq("id", reward_id_res).single();
           if (reward) {
             const newBackers = (Number(reward.backers) || 0) + 1;
             const newAvailable = Number(reward.available) > 0 ? Number(reward.available) - 1 : 0;
-            await supabase.from("reward_table").update({ backers: newBackers, available: newAvailable }).eq("id", reward_id_res);
+            await supabase.from("rewards").update({ backers: newBackers, available: newAvailable }).eq("id", reward_id_res);
           }
         } catch (e) {
           console.error("failed updating reward counts", e);
@@ -1413,7 +1413,7 @@ export const ipnHandler = async (req, res) => {
           if (reward_id) {
             try {
               const { data: reward } = await supabase
-                .from("reward_table")
+                .from("rewards")
                 .select("backers, available")
                 .eq("id", reward_id)
                 .single();
@@ -1422,7 +1422,7 @@ export const ipnHandler = async (req, res) => {
                 const newBackers = (Number(reward.backers) || 0) + 1;
                 const newAvailable = Number(reward.available) > 0 ? Number(reward.available) - 1 : 0;
                 await supabase
-                  .from("reward_table")
+                  .from("rewards")
                   .update({ backers: newBackers, available: newAvailable })
                   .eq("id", reward_id);
               }

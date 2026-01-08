@@ -82,9 +82,6 @@ const ProjectDetail = () => {
   const [showOnboarding, setShowOnboarding] = useState(false);
   const [activeTab, setActiveTab] = useState('campaign');
   const [showCreatorDashboard, setShowCreatorDashboard] = useState(false);
-  
-  // Track selected reward IDs from database (if exists = payment successful)
-  const [selectedRewardIds, setSelectedRewardIds] = useState<string[]>([]);
 
   // Role-based access control
   const projectRole = useProjectRole(ownerId, false);
@@ -160,28 +157,6 @@ const ProjectDetail = () => {
     fetchRewards();
   }, [project]);
 
-  // Fetch user's selected rewards - if exists in table, payment was successful
-  useEffect(() => {
-    if (!user?.id || !id) return;
-
-    const fetchSelectedRewards = async () => {
-      try {
-        const res = await fetch(
-          `http://localhost:5000/api/projects/${id}/rewards/selected?userId=${user.id}`
-        );
-        
-        if (res.ok) {
-          const data = await res.json();
-          setSelectedRewardIds(data.selected || []);
-        }
-      } catch (err) {
-        console.error("Failed to fetch selected rewards:", err);
-      }
-    };
-
-    fetchSelectedRewards();
-  }, [user?.id, id]);
-
   // React to payment redirect params
   useEffect(() => {
     const params = new URLSearchParams(location.search);
@@ -192,32 +167,6 @@ const ProjectDetail = () => {
       const handlePaymentSuccess = async () => {
         if (status === "success") {
           toast({ title: "Payment successful", description: `Transaction ${tran} completed.` });
-
-          // Retrieve from localStorage
-          const savedRewardId = localStorage.getItem("pendingRewardId");
-          const savedProjectId = localStorage.getItem("pendingProjectId");
-
-          if (savedRewardId && user?.id && savedProjectId) {
-            try {
-              const response = await fetch(
-                `http://localhost:5000/api/projects/${savedProjectId}/rewards/${savedRewardId}/save`,
-                {
-                  method: "POST",
-                  headers: { "Content-Type": "application/json" },
-                  body: JSON.stringify({ userId: user.id }),
-                }
-              );
-              
-              if (response.ok) {
-                setSelectedRewardIds(prev => [...prev, savedRewardId]);
-                // Clean up
-                localStorage.removeItem("pendingRewardId");
-                localStorage.removeItem("pendingProjectId");
-              }
-            } catch (err) {
-              console.error("Failed to save reward:", err);
-            }
-          }
 
           fetchProject();
           setTimeout(() => setShowOnboarding(true), 1000);
@@ -235,70 +184,31 @@ const ProjectDetail = () => {
     }
   }, [location.search, navigate, toast, fetchProject, user?.id]);
 
-  // Handle reward selection/deselection
-  const handleRewardToggle = async (reward: Reward) => {
+  // Handle reward purchase - users can buy the same reward multiple times
+  const handleRewardToggle = (reward: Reward) => {
     if (!user?.id) {
       toast({ 
         title: "Please log in", 
-        description: "You must be logged in to manage rewards",
+        description: "You must be logged in to pledge to this project",
         variant: "destructive"
       });
       return;
     }
 
-    // Check if this reward is already selected
-    const isAlreadySelected = selectedRewardIds.includes(reward.id);
-
-    if (isAlreadySelected) {
-      // User wants to deselect this paid reward
-      try {
-        const res = await fetch(
-          `http://localhost:5000/api/projects/${id}/rewards/${reward.id}/deselect`,
-          {
-            method: "DELETE",
-            headers: { "Content-Type": "application/json" },
-            body: JSON.stringify({ 
-              userId: user.id,
-              rewardId: reward.id
-            }),
-          }
-        );
-
-        if (!res.ok) {
-          const errorData = await res.json();
-          throw new Error(errorData.error || "Failed to deselect reward");
-        }
-
-        // Remove from array
-        setSelectedRewardIds(prev => prev.filter(id => id !== reward.id));
-        
-        toast({ 
-          title: "Reward deselected", 
-          description: "Your reward selection has been removed successfully."
-        });
-
-        // Refresh project stats (to update backer counts)
-        fetchProject();
-        
-      } catch (err) {
-        console.error("Error deselecting reward:", err);
-        toast({ 
-          title: "Error", 
-          description: err instanceof Error ? err.message : "Failed to deselect reward",
-          variant: "destructive" 
-        });
-      }
-    } else {
-      // User wants to select a new reward - proceed to payment
-      setSelectedReward(reward);
-      setPledgeAmount(String(reward.amount));
-      
-      // Persist to localStorage so it survives the redirect
-      localStorage.setItem("pendingRewardId", reward.id);
-      localStorage.setItem("pendingProjectId", id || "");
-      
-      setIsPledgeModalOpen(true);
+    // Check if reward is available
+    if (reward.available !== null && reward.available === 0) {
+      toast({ 
+        title: "Reward unavailable", 
+        description: "This reward tier is sold out",
+        variant: "destructive"
+      });
+      return;
     }
+
+    // Open pledge modal with the selected reward
+    setSelectedReward(reward);
+    setPledgeAmount(String(reward.amount));
+    setIsPledgeModalOpen(true);
   };
 
   if (loading) {
@@ -607,7 +517,7 @@ const ProjectDetail = () => {
                     delivery={reward.delivery}
                     backers={reward.backers ?? 0}
                     available={reward.available ?? 999}
-                    isSelected={selectedRewardIds.includes(reward.id)}
+                    isSelected={false}
                     onSelect={() => handleRewardToggle(reward)}
                   />
                 )) : (
